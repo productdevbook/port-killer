@@ -19,6 +19,10 @@ struct PortKillerApp: App {
         .defaultSize(width: 1000, height: 600)
         .commands {
             CommandGroup(replacing: .newItem) {} // Disable Cmd+N
+            
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updateManager: state.updateManager)
+            }
         }
 
         // Menu Bar (quick access)
