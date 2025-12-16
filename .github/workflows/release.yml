@@ -226,9 +226,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload DMG to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ env.DMG_NAME }}
+        run: |
+          gh release upload ${{ github.ref_name }} "$DMG_NAME" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
