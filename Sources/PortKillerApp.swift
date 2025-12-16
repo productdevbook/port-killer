@@ -43,6 +43,7 @@ struct PortKillerApp: App {
                FileManager.default.fileExists(atPath: url.path),
                let img = NSImage(contentsOf: url) {
                 img.size = NSSize(width: 18, height: 18)
+                img.isTemplate = true  // Enable template mode for monochrome menu bar icon
                 return img
             }
         }
