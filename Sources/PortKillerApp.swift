@@ -13,7 +13,7 @@ struct PortKillerApp: App {
         MenuBarExtra {
             MenuBarView(manager: manager)
         } label: {
-            Text("⚡")
+          Image("ToolbarIcon", bundle: .module)
         }
         .menuBarExtraStyle(.window)
     }
