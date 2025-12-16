@@ -138,7 +138,7 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .frame(width: 300)
+        .frame(width: 450) // Increased width for better spacing
     }
 }
 
@@ -178,80 +178,110 @@ struct PortRow: View {
                     .controlSize(.small)
                 }
             } else {
-                HStack(spacing: 3) {
-                    if state.isFavorite(port.port) {
-                        Image(systemName: "star.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.yellow)
-                    }
-                    Text(port.displayPort)
-                        .font(.system(.body, design: .monospaced))
-                        .fontWeight(.medium)
-                    if state.isWatching(port.port) {
-                        Image(systemName: "eye.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                    }
-                }
-                .frame(width: 80, alignment: .leading)
-                .opacity(isKilling ? 0.5 : 1)
-
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
-                        Text(port.processName)
-                            .font(.callout)
-                            .lineLimit(1)
-                            .opacity(isKilling ? 0.5 : 1)
-                        
-                        if let description = port.description, !description.text.isEmpty {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    isExpanded.toggle()
-                                }
-                            } label: {
-                                Image(systemName: isExpanded ? "chevron.up" : "info.circle")
-                                    .font(.caption2)
-                                    .foregroundStyle(.blue)
-                            }
-                            .buttonStyle(.plain)
-                            .help(isExpanded ? "Collapse description" : "Show full description")
+                        if state.isFavorite(port.port) {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.yellow)
+                        }
+                        Text(port.displayPort)
+                            .font(.system(.callout, design: .monospaced))
+                            .fontWeight(.semibold)
+                        if state.isWatching(port.port) {
+                            Image(systemName: "eye.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
                         }
                     }
                     
+                    Text("PID \(port.pid)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(width: 90, alignment: .leading)
+                .opacity(isKilling ? 0.5 : 1)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    // Process name and expand button
+                    HStack(spacing: 8) {
+                        Text(port.processName)
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                            .opacity(isKilling ? 0.5 : 1)
+                        
+                        Spacer()
+                        
+                        if let description = port.description, !description.text.isEmpty {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    isExpanded.toggle()
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: categoryIcon(for: description.category))
+                                        .font(.caption)
+                                        .foregroundStyle(categoryColor(for: description.category))
+                                    
+                                    Image(systemName: isExpanded ? "chevron.up.circle.fill" : "info.circle.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help(isExpanded ? "Collapse description" : "Show description")
+                        }
+                    }
+                    
+                    // Description area
                     if let description = port.description {
-                        HStack(spacing: 4) {
-                            // Category icon for visual context
-                            Image(systemName: categoryIcon(for: description.category))
-                                .font(.caption2)
-                                .foregroundStyle(categoryColor(for: description.category))
-                            
-                            if isExpanded {
+                        if isExpanded {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: categoryIcon(for: description.category))
+                                        .font(.caption)
+                                        .foregroundStyle(categoryColor(for: description.category))
+                                    
+                                    Text(description.category.rawValue.capitalized)
+                                        .font(.caption2)
+                                        .fontWeight(.medium)
+                                        .foregroundStyle(.secondary)
+                                        .textCase(.uppercase)
+                                }
+                                
                                 Text(description.text)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 6)
+                                    .background(.quaternary.opacity(0.5))
+                                    .cornerRadius(6)
                                     .opacity(isKilling ? 0.5 : 1)
-                                    .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .topLeading)))
-                            } else {
-                                let truncatedDescription = truncateDescription(description.text, maxWidth: 40) // Slightly less to account for icon
-                                Text(truncatedDescription)
+                            }
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.95)),
+                                removal: .opacity.combined(with: .scale(scale: 0.95))
+                            ))
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: categoryIcon(for: description.category))
+                                    .font(.caption2)
+                                    .foregroundStyle(categoryColor(for: description.category))
+                                
+                                Text(truncateDescription(description.text, maxWidth: 55))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                                     .opacity(isKilling ? 0.5 : 1)
-                                    .help(description.text) // Tooltip with full description
+                                    .help(description.text)
                             }
                         }
-                        .padding(.top, isExpanded ? 2 : 0)
                     }
                 }
 
                 Spacer()
-
-                Text("PID \(port.pid)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .opacity(isKilling ? 0.5 : 1)
 
                 if isKilling {
                     Image(systemName: "hourglass")
@@ -266,8 +296,8 @@ struct PortRow: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background((isHovered || isConfirming) ? Color.primary.opacity(0.05) : Color.clear)
         .contentShape(Rectangle())
         .contextMenu {
