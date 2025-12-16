@@ -29,18 +29,66 @@ struct PortTableView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(sortedPorts) { port in
-                            PortListRow(port: port)
-                                .background(appState.selectedPortID == port.id ? Color.accentColor.opacity(0.2) : Color.clear)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    appState.selectedPortID = port.id
+                        if useTreeView {
+                            ForEach(groupedPorts) { group in
+                                ProcessGroupListRow(
+                                    group: group,
+                                    isExpanded: expandedProcesses.contains(group.id),
+                                    onToggleExpand: {
+                                        if expandedProcesses.contains(group.id) {
+                                            expandedProcesses.remove(group.id)
+                                        } else {
+                                            expandedProcesses.insert(group.id)
+                                        }
+                                    }
+                                )
+                                
+                                if expandedProcesses.contains(group.id) {
+                                    ForEach(group.ports) { port in
+                                        NestedPortListRow(port: port)
+                                            .background(appState.selectedPortID == port.id ? Color.accentColor.opacity(0.2) : Color.clear)
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                appState.selectedPortID = port.id
+                                            }
+                                    }
                                 }
+                            }
+                        } else {
+                            ForEach(sortedPorts) { port in
+                                PortListRow(port: port)
+                                    .background(appState.selectedPortID == port.id ? Color.accentColor.opacity(0.2) : Color.clear)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        appState.selectedPortID = port.id
+                                    }
+                            }
                         }
                     }
                 }
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    useTreeView.toggle()
+                } label: {
+                    Label(useTreeView ? "List View" : "Tree View", systemImage: useTreeView ? "list.bullet" : "list.bullet.indent")
+                }
+                .help(useTreeView ? "Switch to List View" : "Switch to Tree View")
+            }
+        }
+    }
+
+    private var groupedPorts: [ProcessGroup] {
+        let grouped = Dictionary(grouping: appState.filteredPorts) { $0.pid }
+        return grouped.map { pid, ports in
+            ProcessGroup(
+                id: pid,
+                processName: ports.first?.processName ?? "Unknown",
+                ports: ports.sorted { $0.port < $1.port }
+            )
+        }.sorted { $0.processName.localizedCaseInsensitiveCompare($1.processName) == .orderedAscending }
     }
 
     private var headerRow: some View {
