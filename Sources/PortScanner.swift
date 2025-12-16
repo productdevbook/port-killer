@@ -6,7 +6,7 @@ actor PortScanner {
     func scanPorts() async -> [PortInfo] {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        process.arguments = ["-iTCP", "-sTCP:LISTEN", "-P", "-n"]
+        process.arguments = ["-iTCP", "-sTCP:LISTEN", "-P", "-n", "+c", "0"]
 
         let pipe = Pipe()
         process.standardOutput = pipe
