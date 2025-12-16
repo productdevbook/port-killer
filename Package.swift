@@ -20,6 +20,10 @@ let package = Package(
             resources: [
                 .process("Resources")
             ]
+        ),
+        .testTarget(
+            name: "PortKillerTests",
+            dependencies: ["PortKiller"]
         )
     ]
 )

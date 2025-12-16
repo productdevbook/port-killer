@@ -16,6 +16,9 @@ A native macOS menu bar application for finding and killing processes running on
 - **Menu Bar Integration** - Lives in your menu bar, no Dock icon clutter
 - **Port Discovery** - Automatically finds all listening TCP ports
 - **Process Info** - Shows process name and PID for each port
+- **📋 Process Descriptions** - Intelligent descriptions for any process (Node.js, nginx, MySQL, etc.)
+- **🔍 Expandable Details** - Click info icons to see full process descriptions
+- **🎨 Visual Categories** - Color-coded icons for different process types (dev tools, databases, web servers, system services)
 - **Quick Kill** - One-click process termination
 - **Kill All** - Terminate all listed processes at once
 - **Auto-Refresh** - Updates port list every 5 seconds
@@ -81,10 +84,17 @@ open /Applications/PortKiller.app
 ## Usage
 
 1. Click the network icon in the menu bar
-2. See all open ports with their process names
-3. Click the ✕ button to kill a specific process
-4. Use "Kill All" to terminate all listed processes
-5. Search by port number or process name
+2. See all open ports with their process names and descriptions
+3. Click the blue ℹ️ icon next to processes to expand full descriptions
+4. Use color-coded category icons to quickly identify process types:
+   - 🔨 **Blue** = Development tools (webpack, nodemon, rails)
+   - 🗄️ **Green** = Database services (MySQL, PostgreSQL, Redis)
+   - 🌐 **Orange** = Web servers (nginx, Apache, Node.js servers)
+   - ⚙️ **Purple** = System services (Docker, launchd, system daemons)
+   - 📱 **Gray** = Other applications
+5. Click the ✕ button to kill a specific process
+6. Use "Kill All" to terminate all listed processes
+7. Search by port number or process name
 
 ## How It Works
 
@@ -116,14 +126,20 @@ open Package.swift
 
 ```
 Sources/
-├── PortKillerApp.swift       # App entry point
-├── Managers/
-│   ├── PortManager.swift     # State management
-│   └── PortScanner.swift     # Port scanning (lsof)
+├── PortKillerApp.swift              # App entry point
+├── AppState.swift                   # State management
+├── PortScanner.swift                # Port scanning (lsof)
+├── ProcessDescriptionService.swift  # Process description intelligence
 ├── Models/
-│   └── PortInfo.swift        # Data model
+│   └── Models.swift                 # Data models (PortInfo, ProcessDescription)
 └── Views/
-    └── MenuBarView.swift     # Main UI
+    ├── MenuBarView.swift            # Main UI with expandable descriptions
+    └── SettingsView.swift           # Settings interface
+Resources/
+└── descriptions.json                # Process description database
+Tests/
+├── ProcessDescriptionServiceTests.swift  # Comprehensive test suite
+└── IntegrationTests.swift               # End-to-end tests
 ```
 
 ## Contributing

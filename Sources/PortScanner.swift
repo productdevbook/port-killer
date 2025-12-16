@@ -1,6 +1,7 @@
 import Foundation
 
 actor PortScanner {
+    private let descriptionService = ProcessDescriptionService()
 
     /// Scan all listening TCP ports using lsof
     func scanPorts() async -> [PortInfo] {
@@ -21,14 +22,14 @@ actor PortScanner {
                 return []
             }
 
-            return parseLsofOutput(output)
+            return await parseLsofOutput(output)
         } catch {
             return []
         }
     }
 
     /// Parse lsof output into PortInfo array
-    private func parseLsofOutput(_ output: String) -> [PortInfo] {
+    private func parseLsofOutput(_ output: String) async -> [PortInfo] {
         var ports: [PortInfo] = []
         let lines = output.components(separatedBy: .newlines)
 
@@ -63,7 +64,7 @@ actor PortScanner {
 
             guard !addressPart.isEmpty else { continue }
 
-            guard let portInfo = parseAddress(addressPart, processName: processName, pid: pid) else {
+            guard let portInfo = await parseAddress(addressPart, processName: processName, pid: pid) else {
                 continue
             }
 
@@ -77,7 +78,7 @@ actor PortScanner {
     }
 
     /// Parse address string like "127.0.0.1:3000" or "*:8080"
-    private func parseAddress(_ address: String, processName: String, pid: Int) -> PortInfo? {
+    private func parseAddress(_ address: String, processName: String, pid: Int) async -> PortInfo? {
         // Handle formats: "127.0.0.1:3000", "*:8080", "[::1]:3000"
         let parts: [String]
 
@@ -100,12 +101,16 @@ actor PortScanner {
         }
 
         let addr = parts.dropLast().joined(separator: ":")
+        
+        // Get process description
+        let description = await descriptionService.getDescription(for: processName)
 
         return PortInfo(
             port: port,
             pid: pid,
             processName: processName,
-            address: addr.isEmpty ? "*" : addr
+            address: addr.isEmpty ? "*" : addr,
+            description: description
         )
     }
 

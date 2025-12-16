@@ -149,6 +149,7 @@ struct PortRow: View {
     let isHovered: Bool
     @Binding var confirmingKill: UUID?
     @State private var isKilling = false
+    @State private var isExpanded = false
 
     private var isConfirming: Bool { confirmingKill == port.id }
 
@@ -195,10 +196,55 @@ struct PortRow: View {
                 .frame(width: 80, alignment: .leading)
                 .opacity(isKilling ? 0.5 : 1)
 
-                Text(port.processName)
-                    .font(.callout)
-                    .lineLimit(1)
-                    .opacity(isKilling ? 0.5 : 1)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(port.processName)
+                            .font(.callout)
+                            .lineLimit(1)
+                            .opacity(isKilling ? 0.5 : 1)
+                        
+                        if let description = port.description, !description.text.isEmpty {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isExpanded.toggle()
+                                }
+                            } label: {
+                                Image(systemName: isExpanded ? "chevron.up" : "info.circle")
+                                    .font(.caption2)
+                                    .foregroundStyle(.blue)
+                            }
+                            .buttonStyle(.plain)
+                            .help(isExpanded ? "Collapse description" : "Show full description")
+                        }
+                    }
+                    
+                    if let description = port.description {
+                        HStack(spacing: 4) {
+                            // Category icon for visual context
+                            Image(systemName: categoryIcon(for: description.category))
+                                .font(.caption2)
+                                .foregroundStyle(categoryColor(for: description.category))
+                            
+                            if isExpanded {
+                                Text(description.text)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .opacity(isKilling ? 0.5 : 1)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .topLeading)))
+                            } else {
+                                let truncatedDescription = truncateDescription(description.text, maxWidth: 40) // Slightly less to account for icon
+                                Text(truncatedDescription)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .opacity(isKilling ? 0.5 : 1)
+                                    .help(description.text) // Tooltip with full description
+                            }
+                        }
+                        .padding(.top, isExpanded ? 2 : 0)
+                    }
+                }
 
                 Spacer()
 
@@ -234,6 +280,37 @@ struct PortRow: View {
                 Label(state.isWatching(port.port) ? "Stop Watching" : "Watch Port",
                       systemImage: state.isWatching(port.port) ? "eye.slash" : "eye")
             }
+        }
+    }
+    
+    // Helper functions for category visualization
+    private func categoryIcon(for category: ProcessCategory) -> String {
+        switch category {
+        case .development:
+            return "hammer.fill"
+        case .database:
+            return "cylinder.fill"
+        case .webServer:
+            return "globe"
+        case .system:
+            return "gearshape.fill"
+        case .other:
+            return "app.fill"
+        }
+    }
+    
+    private func categoryColor(for category: ProcessCategory) -> Color {
+        switch category {
+        case .development:
+            return .blue
+        case .database:
+            return .green
+        case .webServer:
+            return .orange
+        case .system:
+            return .purple
+        case .other:
+            return .gray
         }
     }
 }

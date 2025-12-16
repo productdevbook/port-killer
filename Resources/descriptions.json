@@ -1,0 +1,3019 @@
+{
+  "exact_matches": {
+    "node": "Node.js JavaScript runtime",
+    "webpack-dev-server": "Webpack development server with hot reloading",
+    "nodemon": "Node.js development tool with automatic restart",
+    "rails": "Ruby on Rails web application framework",
+    "vite": "Vite build tool and development server",
+    "parcel": "Parcel web application bundler",
+    "rollup": "Rollup JavaScript module bundler",
+    "gulp": "Gulp task runner",
+    "grunt": "Grunt task runner",
+    "yarn": "Yarn package manager",
+    "npm": "Node Package Manager",
+    "pnpm": "PNPM package manager",
+    "bun": "Bun JavaScript runtime and package manager",
+    "deno": "Deno JavaScript/TypeScript runtime",
+    "tsx": "TypeScript execution environment",
+    "ts-node": "TypeScript execution environment for Node.js",
+    "next": "Next.js React framework development server",
+    "nuxt": "Nuxt.js Vue framework development server",
+    "gatsby": "Gatsby static site generator development server",
+    "create-react-app": "Create React App development server",
+    "vue-cli-service": "Vue CLI development server",
+    "ng": "Angular CLI development server",
+    "ember": "Ember.js development server",
+    "svelte-kit": "SvelteKit development server",
+    "astro": "Astro static site generator development server",
+    "remix": "Remix full-stack web framework development server",
+    "storybook": "Storybook component development environment",
+    "jest": "Jest JavaScript testing framework",
+    "mocha": "Mocha JavaScript test framework",
+    "cypress": "Cypress end-to-end testing framework",
+    "playwright": "Playwright browser automation testing",
+    "puppeteer": "Puppeteer headless Chrome automation",
+    "selenium": "Selenium web browser automation",
+    "karma": "Karma test runner",
+    "vitest": "Vitest unit testing framework",
+    "ava": "AVA JavaScript test runner",
+    "tap": "TAP test framework for Node.js",
+    "python": "Python interpreter",
+    "python3": "Python 3 interpreter",
+    "python2": "Python 2 interpreter",
+    "pip": "Python package installer",
+    "pipenv": "Python dependency management tool",
+    "poetry": "Python dependency management and packaging tool",
+    "conda": "Conda package and environment manager",
+    "jupyter": "Jupyter notebook server",
+    "ipython": "IPython interactive Python shell",
+    "flask": "Flask Python web framework",
+    "django": "Django Python web framework",
+    "fastapi": "FastAPI Python web framework",
+    "gunicorn": "Gunicorn Python WSGI HTTP server",
+    "uwsgi": "uWSGI application server",
+    "celery": "Celery distributed task queue",
+    "streamlit": "Streamlit data app framework",
+    "gradio": "Gradio machine learning interface",
+    "java": "Java Virtual Machine",
+    "javac": "Java compiler",
+    "maven": "Apache Maven build automation tool",
+    "gradle": "Gradle build automation tool",
+    "ant": "Apache Ant build tool",
+    "spring-boot": "Spring Boot Java framework",
+    "ruby": "Ruby interpreter",
+    "gem": "RubyGems package manager",
+    "bundle": "Bundler Ruby dependency manager",
+    "rake": "Rake Ruby build tool",
+    "sidekiq": "Sidekiq background job processor for Ruby",
+    "puma": "Puma Ruby web server",
+    "unicorn": "Unicorn Ruby web server",
+    "passenger": "Passenger Ruby/Python web server",
+    "php": "PHP interpreter",
+    "php-fpm": "PHP FastCGI Process Manager",
+    "composer": "Composer PHP dependency manager",
+    "laravel": "Laravel PHP web framework",
+    "symfony": "Symfony PHP web framework",
+    "go": "Go programming language runtime",
+    "gofmt": "Go code formatter",
+    "godoc": "Go documentation server",
+    "delve": "Delve Go debugger",
+    "rust": "Rust programming language runtime",
+    "cargo": "Cargo Rust package manager",
+    "rustc": "Rust compiler",
+    "rustfmt": "Rust code formatter",
+    "clippy": "Rust linter",
+    "dotnet": ".NET runtime",
+    "msbuild": "Microsoft Build Engine",
+    "nuget": "NuGet .NET package manager",
+    "iisexpress": "IIS Express development web server",
+    "kestrel": "Kestrel .NET web server",
+    "nginx": "High-performance web server and reverse proxy",
+    "apache2": "Apache HTTP Server",
+    "httpd": "Apache HTTP Server daemon",
+    "lighttpd": "Lightweight HTTP server",
+    "caddy": "Caddy web server with automatic HTTPS",
+    "traefik": "Traefik reverse proxy and load balancer",
+    "haproxy": "HAProxy load balancer",
+    "envoy": "Envoy proxy",
+    "istio-proxy": "Istio service mesh proxy",
+    "linkerd": "Linkerd service mesh proxy",
+    "consul": "Consul service discovery and configuration",
+    "vault": "HashiCorp Vault secrets management",
+    "nomad": "HashiCorp Nomad workload orchestrator",
+    "mysql": "MySQL database server",
+    "mysqld": "MySQL database daemon",
+    "mariadb": "MariaDB database server",
+    "postgres": "PostgreSQL database server",
+    "postgresql": "PostgreSQL database server",
+    "pg_ctl": "PostgreSQL server control utility",
+    "psql": "PostgreSQL interactive terminal",
+    "mongod": "MongoDB database daemon",
+    "mongodb": "MongoDB database server",
+    "mongo": "MongoDB shell",
+    "mongos": "MongoDB sharded cluster query router",
+    "redis-server": "Redis in-memory data structure store",
+    "redis": "Redis in-memory data structure store",
+    "redis-cli": "Redis command line interface",
+    "redis-sentinel": "Redis Sentinel high availability service",
+    "memcached": "Memcached distributed memory caching system",
+    "elasticsearch": "Elasticsearch search and analytics engine",
+    "kibana": "Kibana data visualization dashboard",
+    "logstash": "Logstash data processing pipeline",
+    "beats": "Elastic Beats data shippers",
+    "filebeat": "Filebeat log data shipper",
+    "metricbeat": "Metricbeat metrics data shipper",
+    "packetbeat": "Packetbeat network data shipper",
+    "heartbeat": "Heartbeat uptime monitoring",
+    "cassandra": "Apache Cassandra distributed database",
+    "couchdb": "Apache CouchDB document database",
+    "neo4j": "Neo4j graph database",
+    "influxdb": "InfluxDB time series database",
+    "prometheus": "Prometheus monitoring system",
+    "grafana": "Grafana analytics and monitoring platform",
+    "jaeger": "Jaeger distributed tracing system",
+    "zipkin": "Zipkin distributed tracing system",
+    "etcd": "etcd distributed key-value store",
+    "zookeeper": "Apache ZooKeeper coordination service",
+    "kafka": "Apache Kafka streaming platform",
+    "rabbitmq": "RabbitMQ message broker",
+    "activemq": "Apache ActiveMQ message broker",
+    "nats": "NATS messaging system",
+    "nsq": "NSQ realtime distributed messaging platform",
+    "pulsar": "Apache Pulsar messaging system",
+    "launchd": "macOS system and service manager",
+    "kernel_task": "macOS kernel task",
+    "WindowServer": "macOS window management system",
+    "windowserver": "macOS window management system",
+    "Finder": "macOS file manager",
+    "finder": "macOS file manager",
+    "Dock": "macOS application dock",
+    "dock": "macOS application dock",
+    "SystemUIServer": "macOS system UI server",
+    "systemuiserver": "macOS system UI server",
+    "loginwindow": "macOS login window process",
+    "cfprefsd": "macOS Core Foundation preferences daemon",
+    "mds": "macOS metadata server (Spotlight)",
+    "mdworker": "macOS metadata worker process",
+    "mds_stores": "macOS metadata store process",
+    "mdwrite": "macOS metadata write process",
+    "coreaudiod": "macOS Core Audio daemon",
+    "bluetoothd": "macOS Bluetooth daemon",
+    "wifid": "macOS Wi-Fi daemon",
+    "networkd": "macOS network daemon",
+    "syslogd": "macOS system logging daemon",
+    "notifyd": "macOS notification daemon",
+    "distnoted": "macOS distributed notification daemon",
+    "configd": "macOS system configuration daemon",
+    "powerd": "macOS power management daemon",
+    "thermald": "macOS thermal management daemon",
+    "locationd": "macOS location services daemon",
+    "cloudd": "macOS iCloud daemon",
+    "bird": "macOS CloudKit daemon",
+    "sharingd": "macOS sharing services daemon",
+    "airportd": "macOS AirPort wireless daemon",
+    "captiveagent": "macOS captive network assistant",
+    "nsurlsessiond": "macOS URL session daemon",
+    "trustd": "macOS trust evaluation daemon",
+    "securityd": "macOS security framework daemon",
+    "keychain-circle-notification": "macOS keychain synchronization",
+    "secd": "macOS security daemon",
+    "sandboxd": "macOS sandbox daemon",
+    "spindump": "macOS system diagnostic tool",
+    "ReportCrash": "macOS crash reporter",
+    "crashreporter": "macOS crash reporter",
+    "UserEventAgent": "macOS user event agent",
+    "usereventagent": "macOS user event agent",
+    "coreservicesd": "macOS core services daemon",
+    "lsd": "macOS launch services daemon",
+    "iconservicesagent": "macOS icon services agent",
+    "quicklookd": "macOS Quick Look daemon",
+    "qlmanage": "macOS Quick Look manager",
+    "filecoordinationd": "macOS file coordination daemon",
+    "fseventsd": "macOS file system events daemon",
+    "fsck": "macOS file system check utility",
+    "diskutil": "macOS disk utility",
+    "hdiutil": "macOS disk image utility",
+    "installer": "macOS installer process",
+    "softwareupdate": "macOS software update utility",
+    "pkgutil": "macOS package utility",
+    "xpcproxy": "macOS XPC service proxy",
+    "launchctl": "macOS launchd control utility",
+    "dscl": "macOS directory service command line utility",
+    "opendirectoryd": "macOS Open Directory daemon",
+    "DirectoryService": "macOS directory service",
+    "kextd": "macOS kernel extension daemon",
+    "kextload": "macOS kernel extension loader",
+    "kextunload": "macOS kernel extension unloader",
+    "kextstat": "macOS kernel extension status utility",
+    "iokit": "macOS I/O Kit framework",
+    "iokitd": "macOS I/O Kit daemon",
+    "code": "Visual Studio Code",
+    "code-insiders": "Visual Studio Code Insiders",
+    "cursor": "Cursor AI code editor",
+    "xcode": "Xcode IDE",
+    "webstorm": "WebStorm IDE",
+    "intellij": "IntelliJ IDEA",
+    "pycharm": "PyCharm Python IDE",
+    "phpstorm": "PhpStorm PHP IDE",
+    "rubymine": "RubyMine Ruby IDE",
+    "goland": "GoLand Go IDE",
+    "clion": "CLion C/C++ IDE",
+    "rider": "JetBrains Rider .NET IDE",
+    "datagrip": "DataGrip database IDE",
+    "eclipse": "Eclipse IDE",
+    "netbeans": "NetBeans IDE",
+    "atom": "Atom text editor",
+    "sublime_text": "Sublime Text editor",
+    "vim": "Vim text editor",
+    "nvim": "Neovim text editor",
+    "emacs": "Emacs text editor",
+    "nano": "Nano text editor",
+    "micro": "Micro text editor",
+    "helix": "Helix text editor",
+    "zed": "Zed code editor",
+    "chrome": "Google Chrome web browser",
+    "chromium": "Chromium web browser",
+    "firefox": "Mozilla Firefox web browser",
+    "safari": "Safari web browser",
+    "edge": "Microsoft Edge web browser",
+    "opera": "Opera web browser",
+    "brave": "Brave web browser",
+    "arc": "Arc web browser",
+    "docker": "Docker container runtime",
+    "dockerd": "Docker daemon",
+    "docker-compose": "Docker Compose multi-container tool",
+    "docker-proxy": "Docker container network proxy",
+    "containerd": "Container runtime",
+    "containerd-shim": "Containerd container shim",
+    "runc": "OCI container runtime",
+    "cri-o": "CRI-O container runtime",
+    "podman": "Podman container engine",
+    "buildah": "Buildah container image builder",
+    "skopeo": "Skopeo container image utility",
+    "kubernetes": "Kubernetes container orchestration",
+    "kubectl": "Kubernetes command-line tool",
+    "kubelet": "Kubernetes node agent",
+    "kube-proxy": "Kubernetes network proxy",
+    "kube-apiserver": "Kubernetes API server",
+    "kube-controller-manager": "Kubernetes controller manager",
+    "kube-scheduler": "Kubernetes scheduler",
+    "etcd": "Kubernetes etcd key-value store",
+    "coredns": "Kubernetes CoreDNS service discovery",
+    "flannel": "Flannel Kubernetes networking",
+    "calico": "Calico Kubernetes networking",
+    "weave": "Weave Net Kubernetes networking",
+    "cilium": "Cilium Kubernetes networking",
+    "helm": "Helm Kubernetes package manager",
+    "tiller": "Helm Tiller server component",
+    "minikube": "Minikube local Kubernetes cluster",
+    "kind": "Kind Kubernetes in Docker",
+    "k3s": "K3s lightweight Kubernetes",
+    "k3d": "K3d K3s in Docker",
+    "microk8s": "MicroK8s lightweight Kubernetes",
+    "git": "Git version control system",
+    "git-daemon": "Git daemon for serving repositories",
+    "gitk": "Git repository browser",
+    "git-gui": "Git graphical user interface",
+    "svn": "Subversion version control",
+    "svnserve": "Subversion server daemon",
+    "hg": "Mercurial version control",
+    "bzr": "Bazaar version control",
+    "fossil": "Fossil version control system",
+    "perforce": "Perforce version control",
+    "p4d": "Perforce server daemon",
+    "tomcat": "Apache Tomcat server",
+    "catalina": "Apache Tomcat Catalina servlet container",
+    "jetty": "Jetty web server",
+    "undertow": "Undertow web server",
+    "wildfly": "WildFly application server",
+    "jboss": "JBoss application server",
+    "glassfish": "GlassFish application server",
+    "weblogic": "Oracle WebLogic server",
+    "websphere": "IBM WebSphere application server",
+    "systemd": "System and service manager",
+    "systemctl": "Systemd control utility",
+    "journalctl": "Systemd journal utility",
+    "init": "System initialization process",
+    "upstart": "Upstart init daemon",
+    "runit": "Runit init system",
+    "openrc": "OpenRC init system",
+    "supervisor": "Supervisor process control system",
+    "pm2": "PM2 Node.js process manager",
+    "forever": "Forever Node.js process manager",
+    "nodemon": "Nodemon Node.js development monitor",
+    "concurrently": "Concurrently command runner",
+    "tmux": "Terminal multiplexer",
+    "screen": "GNU Screen terminal multiplexer",
+    "zellij": "Zellij terminal workspace",
+    "byobu": "Byobu terminal multiplexer",
+    "ssh": "Secure Shell client",
+    "sshd": "Secure Shell daemon",
+    "sftp": "Secure File Transfer Protocol",
+    "scp": "Secure Copy Protocol",
+    "rsync": "Remote synchronization utility",
+    "ftp": "File Transfer Protocol client",
+    "ftpd": "File Transfer Protocol daemon",
+    "vsftpd": "Very Secure FTP daemon",
+    "proftpd": "ProFTPD server",
+    "pure-ftpd": "Pure-FTPd server",
+    "telnet": "Telnet client",
+    "telnetd": "Telnet daemon",
+    "nc": "Netcat network utility",
+    "ncat": "Ncat network utility",
+    "socat": "SOcket CAT network utility",
+    "curl": "Command line HTTP client",
+    "wget": "Web content retriever",
+    "httpie": "HTTPie command line HTTP client",
+    "postman": "Postman API development platform",
+    "insomnia": "Insomnia REST client",
+    "wireshark": "Wireshark network protocol analyzer",
+    "tcpdump": "Network packet analyzer",
+    "nmap": "Network mapper and security scanner",
+    "masscan": "Mass IP port scanner",
+    "zmap": "Internet-wide network scanner",
+    "nessus": "Nessus vulnerability scanner",
+    "openvas": "OpenVAS vulnerability scanner",
+    "metasploit": "Metasploit penetration testing framework",
+    "burpsuite": "Burp Suite web security testing",
+    "owasp-zap": "OWASP ZAP web security scanner",
+    "sqlmap": "SQLMap SQL injection testing tool",
+    "john": "John the Ripper password cracker",
+    "hashcat": "Hashcat password recovery tool",
+    "aircrack-ng": "Aircrack-ng wireless security auditing",
+    "kismet": "Kismet wireless network detector",
+    "ettercap": "Ettercap network security tool",
+    "dsniff": "Dsniff network auditing toolkit",
+    "tcpflow": "TCP flow recorder",
+    "netstat": "Network statistics utility",
+    "ss": "Socket statistics utility",
+    "lsof": "List open files utility",
+    "iftop": "Interface top network monitor",
+    "nethogs": "Network traffic monitor per process",
+    "bandwhich": "Network utilization monitor by process",
+    "vnstat": "Network traffic monitor",
+    "iperf": "Network performance measurement tool",
+    "iperf3": "Network performance measurement tool",
+    "speedtest": "Internet speed test utility",
+    "ping": "Network connectivity test utility",
+    "traceroute": "Network route tracing utility",
+    "mtr": "Network diagnostic tool",
+    "dig": "DNS lookup utility",
+    "nslookup": "DNS lookup utility",
+    "host": "DNS lookup utility",
+    "whois": "Domain registration lookup utility",
+    "bind": "BIND DNS server",
+    "named": "BIND DNS daemon",
+    "dnsmasq": "Lightweight DNS forwarder",
+    "unbound": "Unbound DNS resolver",
+    "pihole": "Pi-hole network-wide ad blocker",
+    "adguard": "AdGuard DNS filtering",
+    "cloudflared": "Cloudflare Tunnel daemon",
+    "ngrok": "Ngrok secure tunneling service",
+    "localtunnel": "LocalTunnel reverse proxy",
+    "serveo": "Serveo SSH tunneling service",
+    "pagekite": "PageKite tunneling service",
+    "frp": "Fast Reverse Proxy",
+    "chisel": "Chisel TCP/UDP tunnel",
+    "wireguard": "WireGuard VPN",
+    "openvpn": "OpenVPN",
+    "strongswan": "StrongSwan IPsec VPN",
+    "pptpd": "PPTP VPN daemon",
+    "xl2tpd": "L2TP VPN daemon",
+    "softether": "SoftEther VPN",
+    "pritunl": "Pritunl VPN server",
+    "tailscale": "Tailscale mesh VPN",
+    "zerotier": "ZeroTier network virtualization",
+    "hamachi": "LogMeIn Hamachi VPN",
+    "teamviewer": "TeamViewer remote access",
+    "anydesk": "AnyDesk remote desktop",
+    "vnc": "VNC remote desktop",
+    "vncserver": "VNC server",
+    "x11vnc": "X11 VNC server",
+    "tightvnc": "TightVNC remote desktop",
+    "realvnc": "RealVNC remote desktop",
+    "nomachine": "NoMachine remote desktop",
+    "xrdp": "XRDP remote desktop protocol",
+    "rdesktop": "RDP client for Windows Terminal Services",
+    "freerdp": "FreeRDP remote desktop client",
+    "remmina": "Remmina remote desktop client",
+    "barrier": "Barrier software KVM switch",
+    "synergy": "Synergy keyboard and mouse sharing",
+    "x11": "X11 display server",
+    "xorg": "X.Org display server",
+    "wayland": "Wayland display server",
+    "weston": "Weston Wayland compositor",
+    "sway": "Sway Wayland compositor",
+    "gnome": "GNOME desktop environment",
+    "kde": "KDE desktop environment",
+    "xfce": "Xfce desktop environment",
+    "lxde": "LXDE desktop environment",
+    "mate": "MATE desktop environment",
+    "cinnamon": "Cinnamon desktop environment",
+    "unity": "Unity desktop environment",
+    "i3": "i3 tiling window manager",
+    "awesome": "Awesome window manager",
+    "dwm": "Dynamic window manager",
+    "bspwm": "Binary space partitioning window manager",
+    "openbox": "Openbox window manager",
+    "fluxbox": "Fluxbox window manager",
+    "blackbox": "Blackbox window manager",
+    "fvwm": "FVWM window manager",
+    "jwm": "JWM window manager",
+    "herbstluftwm": "Herbstluftwm manual tiling window manager",
+    "qtile": "Qtile tiling window manager",
+    "xmonad": "XMonad tiling window manager",
+    "stumpwm": "StumpWM tiling window manager"
+  },
+  "pattern_matches": [
+    {
+      "pattern": ".*-dev-server$",
+      "description": "Development server with hot reloading",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.dev$",
+      "description": "Development environment service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-dev$",
+      "description": "Development environment service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-development$",
+      "description": "Development environment service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-test$",
+      "description": "Testing environment service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-testing$",
+      "description": "Testing environment service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-staging$",
+      "description": "Staging environment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-prod$",
+      "description": "Production environment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-production$",
+      "description": "Production environment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-server$",
+      "description": "Server application",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-daemon$",
+      "description": "Background daemon service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-worker$",
+      "description": "Background worker process",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-monitor$",
+      "description": "System monitoring service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-proxy$",
+      "description": "Proxy or gateway service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-api$",
+      "description": "API service or endpoint",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-web$",
+      "description": "Web application or service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-http$",
+      "description": "HTTP service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-https$",
+      "description": "HTTPS service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-rest$",
+      "description": "REST API service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-graphql$",
+      "description": "GraphQL API service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-websocket$",
+      "description": "WebSocket service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-ws$",
+      "description": "WebSocket service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*sql.*",
+      "description": "Database service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*db.*",
+      "description": "Database-related service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-database$",
+      "description": "Database service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-cache$",
+      "description": "Caching service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-redis$",
+      "description": "Redis caching service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-memcache$",
+      "description": "Memcache caching service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-queue$",
+      "description": "Message queue service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-mq$",
+      "description": "Message queue service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-broker$",
+      "description": "Message broker service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-scheduler$",
+      "description": "Task scheduler service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-cron$",
+      "description": "Scheduled task service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-job$",
+      "description": "Job processing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-jobs$",
+      "description": "Job processing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-task$",
+      "description": "Task processing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-tasks$",
+      "description": "Task processing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-logger$",
+      "description": "Logging service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-log$",
+      "description": "Logging service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-logs$",
+      "description": "Logging service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-auth$",
+      "description": "Authentication service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-oauth$",
+      "description": "OAuth authentication service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-sso$",
+      "description": "Single Sign-On service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ldap$",
+      "description": "LDAP directory service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-sync$",
+      "description": "Synchronization service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-backup$",
+      "description": "Backup service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-deploy$",
+      "description": "Deployment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-deployment$",
+      "description": "Deployment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-build$",
+      "description": "Build service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-builder$",
+      "description": "Build service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-ci$",
+      "description": "Continuous Integration service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-cd$",
+      "description": "Continuous Deployment service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-pipeline$",
+      "description": "CI/CD pipeline service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-runner$",
+      "description": "Task runner or CI runner service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-agent$",
+      "description": "Agent or monitoring service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-collector$",
+      "description": "Data collection service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-exporter$",
+      "description": "Metrics exporter service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-metrics$",
+      "description": "Metrics collection service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-prometheus$",
+      "description": "Prometheus monitoring service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-grafana$",
+      "description": "Grafana dashboard service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-jaeger$",
+      "description": "Jaeger tracing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-zipkin$",
+      "description": "Zipkin tracing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-elastic$",
+      "description": "Elasticsearch service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-kibana$",
+      "description": "Kibana analytics service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-logstash$",
+      "description": "Logstash data processing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-beats$",
+      "description": "Elastic Beats data shipper",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-filebeat$",
+      "description": "Filebeat log shipper",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-metricbeat$",
+      "description": "Metricbeat metrics shipper",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-docker$",
+      "description": "Docker container service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-k8s$",
+      "description": "Kubernetes service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-kube$",
+      "description": "Kubernetes service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-kubernetes$",
+      "description": "Kubernetes service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-helm$",
+      "description": "Helm package manager service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-istio$",
+      "description": "Istio service mesh service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-consul$",
+      "description": "Consul service discovery",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-vault$",
+      "description": "HashiCorp Vault secrets service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-nomad$",
+      "description": "HashiCorp Nomad orchestration service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-terraform$",
+      "description": "Terraform infrastructure service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ansible$",
+      "description": "Ansible automation service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-puppet$",
+      "description": "Puppet configuration management service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-chef$",
+      "description": "Chef configuration management service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-salt$",
+      "description": "SaltStack configuration management service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-nginx$",
+      "description": "Nginx web server service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-apache$",
+      "description": "Apache web server service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-httpd$",
+      "description": "HTTP daemon service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-caddy$",
+      "description": "Caddy web server service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-traefik$",
+      "description": "Traefik reverse proxy service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-haproxy$",
+      "description": "HAProxy load balancer service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-envoy$",
+      "description": "Envoy proxy service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-lb$",
+      "description": "Load balancer service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-loadbalancer$",
+      "description": "Load balancer service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-gateway$",
+      "description": "Gateway or proxy service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-ingress$",
+      "description": "Ingress controller service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-egress$",
+      "description": "Egress controller service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-mesh$",
+      "description": "Service mesh component",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-sidecar$",
+      "description": "Sidecar proxy service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-tunnel$",
+      "description": "Tunneling service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-vpn$",
+      "description": "VPN service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ssh$",
+      "description": "SSH service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ftp$",
+      "description": "FTP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-sftp$",
+      "description": "SFTP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-rsync$",
+      "description": "Rsync synchronization service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-nfs$",
+      "description": "NFS file sharing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-smb$",
+      "description": "SMB file sharing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-cifs$",
+      "description": "CIFS file sharing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-dns$",
+      "description": "DNS service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-dhcp$",
+      "description": "DHCP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ntp$",
+      "description": "NTP time synchronization service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-snmp$",
+      "description": "SNMP monitoring service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-mail$",
+      "description": "Mail service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-smtp$",
+      "description": "SMTP mail service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-imap$",
+      "description": "IMAP mail service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-pop3$",
+      "description": "POP3 mail service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-postfix$",
+      "description": "Postfix mail server service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-sendmail$",
+      "description": "Sendmail mail server service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-dovecot$",
+      "description": "Dovecot mail server service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-exim$",
+      "description": "Exim mail server service",
+      "category": "system"
+    }
+  ],
+  "technology_keywords": {
+    "python": "Python application or script",
+    "python2": "Python 2 application or script",
+    "python3": "Python 3 application or script",
+    "py": "Python application or script",
+    "pip": "Python package installer",
+    "pipenv": "Python dependency management",
+    "poetry": "Python dependency management",
+    "conda": "Conda package manager",
+    "jupyter": "Jupyter notebook server",
+    "ipython": "IPython interactive shell",
+    "django": "Django Python web framework",
+    "flask": "Flask Python web framework",
+    "fastapi": "FastAPI Python web framework",
+    "tornado": "Tornado Python web framework",
+    "celery": "Celery distributed task queue",
+    "gunicorn": "Gunicorn Python WSGI server",
+    "uwsgi": "uWSGI application server",
+    "streamlit": "Streamlit data app framework",
+    "gradio": "Gradio ML interface framework",
+    "java": "Java application or service",
+    "jvm": "Java Virtual Machine application",
+    "javac": "Java compiler",
+    "maven": "Apache Maven build tool",
+    "gradle": "Gradle build automation tool",
+    "ant": "Apache Ant build tool",
+    "spring": "Spring Framework application",
+    "springboot": "Spring Boot application",
+    "hibernate": "Hibernate ORM application",
+    "struts": "Apache Struts web framework",
+    "jsf": "JavaServer Faces application",
+    "jsp": "JavaServer Pages application",
+    "servlet": "Java Servlet application",
+    "tomcat": "Apache Tomcat server",
+    "jetty": "Jetty web server",
+    "wildfly": "WildFly application server",
+    "jboss": "JBoss application server",
+    "glassfish": "GlassFish application server",
+    "weblogic": "Oracle WebLogic server",
+    "websphere": "IBM WebSphere server",
+    "node": "Node.js JavaScript application",
+    "nodejs": "Node.js JavaScript application",
+    "npm": "NPM package manager",
+    "yarn": "Yarn package manager",
+    "pnpm": "PNPM package manager",
+    "bun": "Bun JavaScript runtime",
+    "deno": "Deno JavaScript/TypeScript runtime",
+    "tsx": "TypeScript execution environment",
+    "ts-node": "TypeScript execution for Node.js",
+    "javascript": "JavaScript application",
+    "js": "JavaScript application",
+    "typescript": "TypeScript application",
+    "ts": "TypeScript application",
+    "express": "Express.js web framework",
+    "koa": "Koa.js web framework",
+    "hapi": "Hapi.js web framework",
+    "fastify": "Fastify web framework",
+    "nest": "NestJS web framework",
+    "next": "Next.js React framework",
+    "nuxt": "Nuxt.js Vue framework",
+    "gatsby": "Gatsby static site generator",
+    "react": "React development server",
+    "vue": "Vue.js development server",
+    "angular": "Angular development server",
+    "svelte": "Svelte development server",
+    "ember": "Ember.js development server",
+    "backbone": "Backbone.js application",
+    "jquery": "jQuery application",
+    "lodash": "Lodash utility library",
+    "underscore": "Underscore.js utility library",
+    "webpack": "Webpack build tool",
+    "vite": "Vite build tool",
+    "parcel": "Parcel bundler",
+    "rollup": "Rollup bundler",
+    "esbuild": "ESBuild bundler",
+    "swc": "SWC JavaScript compiler",
+    "babel": "Babel JavaScript compiler",
+    "gulp": "Gulp task runner",
+    "grunt": "Grunt task runner",
+    "brunch": "Brunch build tool",
+    "browserify": "Browserify module bundler",
+    "requirejs": "RequireJS module loader",
+    "systemjs": "SystemJS module loader",
+    "jest": "Jest testing framework",
+    "mocha": "Mocha testing framework",
+    "jasmine": "Jasmine testing framework",
+    "karma": "Karma test runner",
+    "cypress": "Cypress testing framework",
+    "playwright": "Playwright testing framework",
+    "puppeteer": "Puppeteer browser automation",
+    "selenium": "Selenium browser automation",
+    "webdriver": "WebDriver browser automation",
+    "ruby": "Ruby application",
+    "rb": "Ruby application",
+    "gem": "RubyGems package manager",
+    "bundle": "Bundler dependency manager",
+    "rake": "Rake build tool",
+    "rails": "Ruby on Rails web application",
+    "sinatra": "Sinatra Ruby web framework",
+    "padrino": "Padrino Ruby web framework",
+    "hanami": "Hanami Ruby web framework",
+    "roda": "Roda Ruby web framework",
+    "grape": "Grape Ruby API framework",
+    "sidekiq": "Sidekiq background job processor",
+    "resque": "Resque background job processor",
+    "delayed_job": "Delayed Job background processor",
+    "puma": "Puma Ruby web server",
+    "unicorn": "Unicorn Ruby web server",
+    "passenger": "Passenger web server",
+    "thin": "Thin Ruby web server",
+    "webrick": "WEBrick Ruby web server",
+    "php": "PHP web application",
+    "composer": "Composer PHP dependency manager",
+    "laravel": "Laravel PHP web framework",
+    "symfony": "Symfony PHP web framework",
+    "codeigniter": "CodeIgniter PHP framework",
+    "cakephp": "CakePHP framework",
+    "zend": "Zend PHP framework",
+    "yii": "Yii PHP framework",
+    "drupal": "Drupal CMS",
+    "wordpress": "WordPress CMS",
+    "joomla": "Joomla CMS",
+    "magento": "Magento e-commerce platform",
+    "prestashop": "PrestaShop e-commerce platform",
+    "opencart": "OpenCart e-commerce platform",
+    "go": "Go application",
+    "golang": "Go application",
+    "gin": "Gin Go web framework",
+    "echo": "Echo Go web framework",
+    "fiber": "Fiber Go web framework",
+    "beego": "Beego Go web framework",
+    "revel": "Revel Go web framework",
+    "iris": "Iris Go web framework",
+    "buffalo": "Buffalo Go web framework",
+    "rust": "Rust application",
+    "cargo": "Cargo Rust package manager",
+    "actix": "Actix Rust web framework",
+    "rocket": "Rocket Rust web framework",
+    "warp": "Warp Rust web framework",
+    "axum": "Axum Rust web framework",
+    "tide": "Tide Rust web framework",
+    "hyper": "Hyper Rust HTTP library",
+    "tokio": "Tokio Rust async runtime",
+    "dotnet": ".NET application",
+    "csharp": "C# application",
+    "fsharp": "F# application",
+    "vb": "Visual Basic application",
+    "aspnet": "ASP.NET web application",
+    "mvc": "ASP.NET MVC application",
+    "webapi": "ASP.NET Web API",
+    "blazor": "Blazor web application",
+    "xamarin": "Xamarin mobile application",
+    "unity": "Unity game engine",
+    "msbuild": "MSBuild build system",
+    "nuget": "NuGet package manager",
+    "iis": "IIS web server",
+    "kestrel": "Kestrel web server",
+    "signalr": "SignalR real-time communication",
+    "entityframework": "Entity Framework ORM",
+    "dapper": "Dapper micro ORM",
+    "nhibernate": "NHibernate ORM",
+    "c": "C application",
+    "cpp": "C++ application",
+    "gcc": "GCC compiler",
+    "clang": "Clang compiler",
+    "make": "Make build system",
+    "cmake": "CMake build system",
+    "autotools": "GNU Autotools build system",
+    "ninja": "Ninja build system",
+    "bazel": "Bazel build system",
+    "buck": "Buck build system",
+    "swift": "Swift application",
+    "xcode": "Xcode development environment",
+    "cocoapods": "CocoaPods dependency manager",
+    "carthage": "Carthage dependency manager",
+    "spm": "Swift Package Manager",
+    "vapor": "Vapor Swift web framework",
+    "perfect": "Perfect Swift web framework",
+    "kitura": "Kitura Swift web framework",
+    "kotlin": "Kotlin application",
+    "scala": "Scala application",
+    "sbt": "SBT Scala build tool",
+    "akka": "Akka actor framework",
+    "play": "Play Framework",
+    "spark": "Apache Spark",
+    "kafka": "Apache Kafka",
+    "zookeeper": "Apache ZooKeeper",
+    "cassandra": "Apache Cassandra",
+    "hbase": "Apache HBase",
+    "hadoop": "Apache Hadoop",
+    "hive": "Apache Hive",
+    "pig": "Apache Pig",
+    "storm": "Apache Storm",
+    "flink": "Apache Flink",
+    "beam": "Apache Beam",
+    "airflow": "Apache Airflow",
+    "nifi": "Apache NiFi",
+    "superset": "Apache Superset",
+    "drill": "Apache Drill",
+    "impala": "Apache Impala",
+    "presto": "Presto SQL engine",
+    "trino": "Trino SQL engine",
+    "clickhouse": "ClickHouse database",
+    "snowflake": "Snowflake data warehouse",
+    "bigquery": "Google BigQuery",
+    "redshift": "Amazon Redshift",
+    "databricks": "Databricks platform",
+    "docker": "Docker container or service",
+    "podman": "Podman container engine",
+    "containerd": "Container runtime",
+    "runc": "OCI container runtime",
+    "buildah": "Buildah container builder",
+    "skopeo": "Skopeo container utility",
+    "kubernetes": "Kubernetes service",
+    "k8s": "Kubernetes service",
+    "kubectl": "Kubernetes CLI tool",
+    "helm": "Helm package manager",
+    "kustomize": "Kustomize configuration management",
+    "istio": "Istio service mesh",
+    "linkerd": "Linkerd service mesh",
+    "consul": "Consul service discovery",
+    "vault": "HashiCorp Vault secrets",
+    "nomad": "HashiCorp Nomad orchestrator",
+    "terraform": "Terraform infrastructure",
+    "packer": "HashiCorp Packer image builder",
+    "vagrant": "Vagrant development environment",
+    "ansible": "Ansible automation",
+    "puppet": "Puppet configuration management",
+    "chef": "Chef configuration management",
+    "saltstack": "SaltStack configuration management",
+    "jenkins": "Jenkins CI/CD",
+    "gitlab": "GitLab CI/CD",
+    "github": "GitHub Actions",
+    "circleci": "CircleCI",
+    "travis": "Travis CI",
+    "appveyor": "AppVeyor CI",
+    "teamcity": "TeamCity CI",
+    "bamboo": "Bamboo CI",
+    "octopus": "Octopus Deploy",
+    "spinnaker": "Spinnaker deployment",
+    "argo": "Argo CD/Workflows",
+    "flux": "Flux GitOps",
+    "tekton": "Tekton CI/CD",
+    "nginx": "Nginx web server",
+    "apache": "Apache web server",
+    "httpd": "Apache HTTP daemon",
+    "lighttpd": "Lighttpd web server",
+    "caddy": "Caddy web server",
+    "traefik": "Traefik reverse proxy",
+    "haproxy": "HAProxy load balancer",
+    "envoy": "Envoy proxy",
+    "linkerd-proxy": "Linkerd proxy",
+    "istio-proxy": "Istio proxy",
+    "cloudflare": "Cloudflare service",
+    "fastly": "Fastly CDN service",
+    "akamai": "Akamai CDN service",
+    "cloudfront": "CloudFront CDN service",
+    "mysql": "MySQL database service",
+    "mariadb": "MariaDB database service",
+    "postgres": "PostgreSQL database service",
+    "postgresql": "PostgreSQL database service",
+    "sqlite": "SQLite database",
+    "oracle": "Oracle database",
+    "sqlserver": "SQL Server database",
+    "db2": "IBM DB2 database",
+    "sybase": "Sybase database",
+    "firebird": "Firebird database",
+    "h2": "H2 database",
+    "hsqldb": "HSQLDB database",
+    "derby": "Apache Derby database",
+    "mongo": "MongoDB database service",
+    "mongodb": "MongoDB database service",
+    "couchdb": "CouchDB document database",
+    "couchbase": "Couchbase database",
+    "rethinkdb": "RethinkDB database",
+    "orientdb": "OrientDB database",
+    "arangodb": "ArangoDB database",
+    "neo4j": "Neo4j graph database",
+    "dgraph": "Dgraph graph database",
+    "janusgraph": "JanusGraph graph database",
+    "tigergraph": "TigerGraph database",
+    "redis": "Redis in-memory data store",
+    "memcached": "Memcached caching system",
+    "hazelcast": "Hazelcast in-memory grid",
+    "ignite": "Apache Ignite platform",
+    "coherence": "Oracle Coherence cache",
+    "ehcache": "Ehcache caching library",
+    "caffeine": "Caffeine caching library",
+    "elasticsearch": "Elasticsearch search engine",
+    "solr": "Apache Solr search platform",
+    "lucene": "Apache Lucene search library",
+    "sphinx": "Sphinx search engine",
+    "whoosh": "Whoosh search library",
+    "algolia": "Algolia search service",
+    "swiftype": "Swiftype search service",
+    "kibana": "Kibana analytics dashboard",
+    "grafana": "Grafana monitoring dashboard",
+    "prometheus": "Prometheus monitoring system",
+    "influxdb": "InfluxDB time series database",
+    "telegraf": "Telegraf metrics collector",
+    "chronograf": "Chronograf dashboard",
+    "kapacitor": "Kapacitor data processing",
+    "jaeger": "Jaeger distributed tracing",
+    "zipkin": "Zipkin distributed tracing",
+    "opentracing": "OpenTracing instrumentation",
+    "opentelemetry": "OpenTelemetry observability",
+    "datadog": "Datadog monitoring service",
+    "newrelic": "New Relic monitoring service",
+    "splunk": "Splunk data platform",
+    "logstash": "Logstash data processing",
+    "fluentd": "Fluentd log collector",
+    "fluent-bit": "Fluent Bit log processor",
+    "filebeat": "Filebeat log shipper",
+    "metricbeat": "Metricbeat metrics shipper",
+    "packetbeat": "Packetbeat network shipper",
+    "heartbeat": "Heartbeat uptime monitor",
+    "winlogbeat": "Winlogbeat Windows log shipper",
+    "auditbeat": "Auditbeat audit data shipper",
+    "functionbeat": "Functionbeat serverless shipper",
+    "rabbitmq": "RabbitMQ message broker",
+    "activemq": "ActiveMQ message broker",
+    "artemis": "Apache Artemis message broker",
+    "qpid": "Apache Qpid message broker",
+    "nats": "NATS messaging system",
+    "nsq": "NSQ messaging platform",
+    "zeromq": "ZeroMQ messaging library",
+    "nanomsg": "Nanomsg messaging library",
+    "pulsar": "Apache Pulsar messaging",
+    "rocketmq": "Apache RocketMQ",
+    "aws": "Amazon Web Services",
+    "azure": "Microsoft Azure",
+    "gcp": "Google Cloud Platform",
+    "digitalocean": "DigitalOcean cloud",
+    "linode": "Linode cloud",
+    "vultr": "Vultr cloud",
+    "heroku": "Heroku platform",
+    "vercel": "Vercel platform",
+    "netlify": "Netlify platform",
+    "cloudflare": "Cloudflare platform",
+    "firebase": "Firebase platform",
+    "supabase": "Supabase platform",
+    "planetscale": "PlanetScale database",
+    "railway": "Railway platform",
+    "render": "Render platform",
+    "fly": "Fly.io platform",
+    "deno-deploy": "Deno Deploy platform",
+    "cloudrun": "Google Cloud Run",
+    "lambda": "AWS Lambda",
+    "fargate": "AWS Fargate",
+    "ecs": "Amazon ECS",
+    "eks": "Amazon EKS",
+    "aks": "Azure Kubernetes Service",
+    "gke": "Google Kubernetes Engine",
+    "openshift": "Red Hat OpenShift",
+    "rancher": "Rancher platform",
+    "portainer": "Portainer container management",
+    "lens": "Lens Kubernetes IDE",
+    "k9s": "K9s Kubernetes CLI",
+    "stern": "Stern Kubernetes log viewer",
+    "kubectx": "Kubectx context switcher",
+    "kubens": "Kubens namespace switcher",
+    "kustomize": "Kustomize configuration",
+    "skaffold": "Skaffold development workflow",
+    "tilt": "Tilt development environment",
+    "devspace": "DevSpace development tool",
+    "garden": "Garden development platform",
+    "telepresence": "Telepresence development tool",
+    "draft": "Draft development tool",
+    "brigade": "Brigade event-driven scripting",
+    "tekton": "Tekton CI/CD pipelines",
+    "knative": "Knative serverless platform",
+    "openfaas": "OpenFaaS serverless platform",
+    "fission": "Fission serverless platform",
+    "kubeless": "Kubeless serverless platform",
+    "nuclio": "Nuclio serverless platform",
+    "fn": "Fn Project serverless platform"
+  },
+  "action_keywords": {
+    "server": "Server application or service",
+    "daemon": "Background system service",
+    "service": "System service",
+    "agent": "Agent or monitoring service",
+    "worker": "Background worker process",
+    "processor": "Data processing service",
+    "handler": "Event or request handler",
+    "manager": "Management service",
+    "controller": "Control service",
+    "coordinator": "Coordination service",
+    "orchestrator": "Orchestration service",
+    "scheduler": "Task scheduling service",
+    "dispatcher": "Task dispatching service",
+    "executor": "Task execution service",
+    "runner": "Task runner service",
+    "launcher": "Application launcher service",
+    "starter": "Service starter",
+    "monitor": "System monitoring service",
+    "watcher": "File or system watcher",
+    "observer": "System observer service",
+    "tracker": "Tracking service",
+    "scanner": "Scanning or monitoring service",
+    "detector": "Detection service",
+    "analyzer": "Analysis service",
+    "inspector": "Inspection service",
+    "validator": "Validation service",
+    "checker": "Checking service",
+    "tester": "Testing service",
+    "probe": "Probing or health check service",
+    "ping": "Network connectivity service",
+    "health": "Health check service",
+    "status": "Status monitoring service",
+    "metrics": "Metrics collection service",
+    "stats": "Statistics collection service",
+    "telemetry": "Telemetry collection service",
+    "trace": "Tracing service",
+    "profile": "Profiling service",
+    "debug": "Debugging service",
+    "log": "Logging service",
+    "logger": "Logging service",
+    "audit": "Audit logging service",
+    "event": "Event processing service",
+    "notification": "Notification service",
+    "alert": "Alerting service",
+    "alarm": "Alarm service",
+    "signal": "Signal processing service",
+    "message": "Message processing service",
+    "mail": "Mail service",
+    "email": "Email service",
+    "smtp": "SMTP mail service",
+    "imap": "IMAP mail service",
+    "pop": "POP mail service",
+    "chat": "Chat service",
+    "im": "Instant messaging service",
+    "sms": "SMS service",
+    "push": "Push notification service",
+    "webhook": "Webhook service",
+    "callback": "Callback service",
+    "trigger": "Trigger service",
+    "cron": "Scheduled task service",
+    "timer": "Timer service",
+    "clock": "Clock service",
+    "time": "Time service",
+    "ntp": "Time synchronization service",
+    "sync": "Synchronization service",
+    "replica": "Replication service",
+    "mirror": "Mirroring service",
+    "backup": "Backup service",
+    "restore": "Restore service",
+    "archive": "Archive service",
+    "compress": "Compression service",
+    "decompress": "Decompression service",
+    "encrypt": "Encryption service",
+    "decrypt": "Decryption service",
+    "hash": "Hashing service",
+    "sign": "Digital signing service",
+    "verify": "Verification service",
+    "auth": "Authentication service",
+    "oauth": "OAuth authentication service",
+    "sso": "Single Sign-On service",
+    "ldap": "LDAP directory service",
+    "kerberos": "Kerberos authentication service",
+    "saml": "SAML authentication service",
+    "jwt": "JWT token service",
+    "session": "Session management service",
+    "cookie": "Cookie management service",
+    "token": "Token service",
+    "key": "Key management service",
+    "cert": "Certificate service",
+    "ca": "Certificate Authority service",
+    "tls": "TLS/SSL service",
+    "ssl": "SSL service",
+    "https": "HTTPS service",
+    "http": "HTTP service",
+    "tcp": "TCP service",
+    "udp": "UDP service",
+    "socket": "Socket service",
+    "port": "Port service",
+    "network": "Network service",
+    "net": "Network service",
+    "ip": "IP service",
+    "dns": "DNS service",
+    "dhcp": "DHCP service",
+    "nat": "NAT service",
+    "firewall": "Firewall service",
+    "iptables": "Iptables firewall service",
+    "vpn": "VPN service",
+    "tunnel": "Tunneling service",
+    "bridge": "Bridge service",
+    "router": "Routing service",
+    "switch": "Switching service",
+    "gateway": "Gateway service",
+    "proxy": "Proxy service",
+    "reverse": "Reverse proxy service",
+    "forward": "Forward proxy service",
+    "load": "Load balancing service",
+    "balance": "Load balancing service",
+    "lb": "Load balancer service",
+    "cluster": "Clustering service",
+    "shard": "Sharding service",
+    "partition": "Partitioning service",
+    "distribute": "Distribution service",
+    "replicate": "Replication service",
+    "failover": "Failover service",
+    "ha": "High availability service",
+    "redundant": "Redundancy service",
+    "scale": "Scaling service",
+    "auto": "Automation service",
+    "elastic": "Elastic scaling service",
+    "api": "API service or endpoint",
+    "rest": "REST API service",
+    "graphql": "GraphQL API service",
+    "grpc": "gRPC API service",
+    "soap": "SOAP API service",
+    "rpc": "RPC service",
+    "websocket": "WebSocket service",
+    "ws": "WebSocket service",
+    "sse": "Server-Sent Events service",
+    "streaming": "Streaming service",
+    "stream": "Stream processing service",
+    "realtime": "Real-time service",
+    "live": "Live service",
+    "broadcast": "Broadcasting service",
+    "multicast": "Multicast service",
+    "unicast": "Unicast service",
+    "pub": "Publishing service",
+    "sub": "Subscription service",
+    "pubsub": "Pub/Sub messaging service",
+    "queue": "Message queue service",
+    "mq": "Message queue service",
+    "broker": "Message broker service",
+    "exchange": "Message exchange service",
+    "topic": "Topic-based messaging service",
+    "channel": "Channel service",
+    "pipeline": "Pipeline service",
+    "workflow": "Workflow service",
+    "orchestration": "Orchestration service",
+    "choreography": "Choreography service",
+    "saga": "Saga pattern service",
+    "state": "State management service",
+    "machine": "State machine service",
+    "fsm": "Finite State Machine service",
+    "rule": "Rule engine service",
+    "decision": "Decision service",
+    "policy": "Policy service",
+    "governance": "Governance service",
+    "compliance": "Compliance service",
+    "security": "Security service",
+    "access": "Access control service",
+    "permission": "Permission service",
+    "role": "Role-based service",
+    "rbac": "Role-Based Access Control service",
+    "abac": "Attribute-Based Access Control service",
+    "acl": "Access Control List service",
+    "web": "Web-related service",
+    "www": "World Wide Web service",
+    "html": "HTML service",
+    "css": "CSS service",
+    "js": "JavaScript service",
+    "static": "Static file service",
+    "asset": "Asset service",
+    "cdn": "Content Delivery Network service",
+    "cache": "Caching service",
+    "redis": "Redis caching service",
+    "memcache": "Memcache caching service",
+    "varnish": "Varnish caching service",
+    "squid": "Squid caching proxy",
+    "db": "Database-related service",
+    "database": "Database service",
+    "sql": "SQL database service",
+    "nosql": "NoSQL database service",
+    "rdbms": "Relational database service",
+    "oltp": "OLTP database service",
+    "olap": "OLAP database service",
+    "dw": "Data warehouse service",
+    "etl": "ETL data processing service",
+    "elt": "ELT data processing service",
+    "data": "Data processing service",
+    "analytics": "Analytics service",
+    "bi": "Business Intelligence service",
+    "ml": "Machine Learning service",
+    "ai": "Artificial Intelligence service",
+    "model": "Model service",
+    "inference": "Inference service",
+    "training": "Training service",
+    "prediction": "Prediction service",
+    "recommendation": "Recommendation service",
+    "search": "Search service",
+    "index": "Indexing service",
+    "crawler": "Web crawler service",
+    "scraper": "Web scraper service",
+    "parser": "Parsing service",
+    "transform": "Data transformation service",
+    "convert": "Conversion service",
+    "format": "Formatting service",
+    "serialize": "Serialization service",
+    "deserialize": "Deserialization service",
+    "encode": "Encoding service",
+    "decode": "Decoding service",
+    "compress": "Compression service",
+    "zip": "ZIP compression service",
+    "gzip": "GZIP compression service",
+    "tar": "TAR archive service",
+    "upload": "Upload service",
+    "download": "Download service",
+    "transfer": "Transfer service",
+    "ftp": "FTP service",
+    "sftp": "SFTP service",
+    "scp": "SCP service",
+    "rsync": "Rsync service",
+    "file": "File service",
+    "fs": "File system service",
+    "storage": "Storage service",
+    "disk": "Disk service",
+    "volume": "Volume service",
+    "mount": "Mount service",
+    "nfs": "NFS service",
+    "smb": "SMB service",
+    "cifs": "CIFS service",
+    "s3": "S3 storage service",
+    "blob": "Blob storage service",
+    "object": "Object storage service",
+    "block": "Block storage service",
+    "distributed": "Distributed service",
+    "cloud": "Cloud service",
+    "edge": "Edge service",
+    "fog": "Fog computing service",
+    "iot": "IoT service",
+    "sensor": "Sensor service",
+    "device": "Device service",
+    "mobile": "Mobile service",
+    "desktop": "Desktop service",
+    "cli": "Command Line Interface service",
+    "gui": "Graphical User Interface service",
+    "ui": "User Interface service",
+    "ux": "User Experience service",
+    "frontend": "Frontend service",
+    "backend": "Backend service",
+    "middleware": "Middleware service",
+    "microservice": "Microservice",
+    "monolith": "Monolithic service",
+    "serverless": "Serverless service",
+    "lambda": "Lambda function service",
+    "function": "Function service",
+    "faas": "Function as a Service",
+    "paas": "Platform as a Service",
+    "saas": "Software as a Service",
+    "iaas": "Infrastructure as a Service",
+    "container": "Container service",
+    "vm": "Virtual Machine service",
+    "hypervisor": "Hypervisor service",
+    "emulator": "Emulator service",
+    "simulator": "Simulator service",
+    "sandbox": "Sandbox service",
+    "isolation": "Isolation service",
+    "namespace": "Namespace service",
+    "cgroup": "Control Group service",
+    "chroot": "Chroot service",
+    "jail": "Jail service",
+    "zone": "Zone service",
+    "build": "Build service",
+    "compile": "Compilation service",
+    "link": "Linking service",
+    "package": "Packaging service",
+    "bundle": "Bundling service",
+    "deploy": "Deployment service",
+    "release": "Release service",
+    "publish": "Publishing service",
+    "install": "Installation service",
+    "update": "Update service",
+    "upgrade": "Upgrade service",
+    "patch": "Patching service",
+    "rollback": "Rollback service",
+    "migrate": "Migration service",
+    "version": "Version control service",
+    "git": "Git service",
+    "svn": "Subversion service",
+    "ci": "Continuous Integration service",
+    "cd": "Continuous Deployment service",
+    "pipeline": "CI/CD pipeline service",
+    "test": "Testing service",
+    "unit": "Unit testing service",
+    "integration": "Integration testing service",
+    "e2e": "End-to-end testing service",
+    "acceptance": "Acceptance testing service",
+    "performance": "Performance testing service",
+    "load": "Load testing service",
+    "stress": "Stress testing service",
+    "security": "Security testing service",
+    "penetration": "Penetration testing service",
+    "vulnerability": "Vulnerability scanning service",
+    "compliance": "Compliance testing service",
+    "quality": "Quality assurance service",
+    "qa": "Quality assurance service",
+    "lint": "Code linting service",
+    "format": "Code formatting service",
+    "style": "Code style service",
+    "coverage": "Code coverage service",
+    "report": "Reporting service",
+    "dashboard": "Dashboard service",
+    "visualization": "Visualization service",
+    "chart": "Charting service",
+    "graph": "Graph service",
+    "plot": "Plotting service",
+    "export": "Export service",
+    "import": "Import service",
+    "migration": "Migration service",
+    "seed": "Database seeding service",
+    "fixture": "Test fixture service",
+    "mock": "Mocking service",
+    "stub": "Stub service",
+    "fake": "Fake service",
+    "dummy": "Dummy service",
+    "dev": "Development service",
+    "development": "Development service",
+    "staging": "Staging environment service",
+    "prod": "Production service",
+    "production": "Production service",
+    "demo": "Demo service",
+    "sandbox": "Sandbox service",
+    "preview": "Preview service",
+    "beta": "Beta service",
+    "alpha": "Alpha service",
+    "canary": "Canary deployment service",
+    "blue": "Blue-green deployment service",
+    "green": "Blue-green deployment service",
+    "feature": "Feature flag service",
+    "toggle": "Feature toggle service",
+    "flag": "Flag service",
+    "config": "Configuration service",
+    "setting": "Settings service",
+    "preference": "Preference service",
+    "option": "Options service",
+    "parameter": "Parameter service",
+    "variable": "Variable service",
+    "env": "Environment service",
+    "secret": "Secret management service",
+    "credential": "Credential service",
+    "password": "Password service",
+    "pin": "PIN service",
+    "otp": "One-Time Password service",
+    "2fa": "Two-Factor Authentication service",
+    "mfa": "Multi-Factor Authentication service",
+    "biometric": "Biometric service",
+    "fingerprint": "Fingerprint service",
+    "face": "Face recognition service",
+    "voice": "Voice recognition service",
+    "speech": "Speech service",
+    "text": "Text processing service",
+    "nlp": "Natural Language Processing service",
+    "ocr": "Optical Character Recognition service",
+    "image": "Image processing service",
+    "video": "Video processing service",
+    "audio": "Audio processing service",
+    "media": "Media processing service",
+    "streaming": "Media streaming service",
+    "transcode": "Transcoding service",
+    "encode": "Media encoding service",
+    "decode": "Media decoding service",
+    "resize": "Image resizing service",
+    "crop": "Image cropping service",
+    "filter": "Filtering service",
+    "sort": "Sorting service",
+    "group": "Grouping service",
+    "aggregate": "Aggregation service",
+    "sum": "Summation service",
+    "count": "Counting service",
+    "average": "Averaging service",
+    "min": "Minimum service",
+    "max": "Maximum service",
+    "median": "Median service",
+    "percentile": "Percentile service",
+    "histogram": "Histogram service",
+    "bucket": "Bucketing service",
+    "window": "Windowing service",
+    "batch": "Batch processing service",
+    "bulk": "Bulk processing service",
+    "mass": "Mass processing service",
+    "parallel": "Parallel processing service",
+    "concurrent": "Concurrent processing service",
+    "async": "Asynchronous processing service",
+    "sync": "Synchronous processing service",
+    "blocking": "Blocking service",
+    "nonblocking": "Non-blocking service",
+    "reactive": "Reactive service",
+    "event": "Event-driven service",
+    "message": "Message-driven service",
+    "actor": "Actor model service",
+    "thread": "Threading service",
+    "process": "Process service",
+    "fork": "Fork service",
+    "spawn": "Spawn service",
+    "exec": "Execution service",
+    "run": "Runtime service",
+    "start": "Startup service",
+    "stop": "Shutdown service",
+    "restart": "Restart service",
+    "reload": "Reload service",
+    "refresh": "Refresh service",
+    "reset": "Reset service",
+    "clear": "Clear service",
+    "clean": "Cleanup service",
+    "purge": "Purge service",
+    "flush": "Flush service",
+    "drain": "Drain service",
+    "vacuum": "Vacuum service",
+    "optimize": "Optimization service",
+    "tune": "Tuning service",
+    "adjust": "Adjustment service",
+    "calibrate": "Calibration service",
+    "balance": "Balancing service",
+    "throttle": "Throttling service",
+    "limit": "Limiting service",
+    "quota": "Quota service",
+    "rate": "Rate limiting service",
+    "circuit": "Circuit breaker service",
+    "breaker": "Circuit breaker service",
+    "retry": "Retry service",
+    "timeout": "Timeout service",
+    "deadline": "Deadline service",
+    "cancel": "Cancellation service",
+    "abort": "Abort service",
+    "interrupt": "Interrupt service",
+    "signal": "Signal service",
+    "kill": "Kill service",
+    "terminate": "Termination service",
+    "exit": "Exit service",
+    "quit": "Quit service",
+    "shutdown": "Shutdown service",
+    "halt": "Halt service",
+    "suspend": "Suspend service",
+    "resume": "Resume service",
+    "pause": "Pause service",
+    "continue": "Continue service",
+    "wait": "Wait service",
+    "sleep": "Sleep service",
+    "idle": "Idle service",
+    "busy": "Busy service",
+    "active": "Active service",
+    "passive": "Passive service",
+    "standby": "Standby service",
+    "ready": "Ready service",
+    "pending": "Pending service",
+    "running": "Running service",
+    "stopped": "Stopped service",
+    "failed": "Failed service",
+    "error": "Error service",
+    "warning": "Warning service",
+    "info": "Information service",
+    "debug": "Debug service",
+    "trace": "Trace service",
+    "verbose": "Verbose service",
+    "quiet": "Quiet service",
+    "silent": "Silent service",
+    "mute": "Mute service",
+    "unmute": "Unmute service",
+    "enable": "Enable service",
+    "disable": "Disable service",
+    "activate": "Activation service",
+    "deactivate": "Deactivation service",
+    "register": "Registration service",
+    "unregister": "Unregistration service",
+    "subscribe": "Subscription service",
+    "unsubscribe": "Unsubscription service",
+    "follow": "Follow service",
+    "unfollow": "Unfollow service",
+    "watch": "Watch service",
+    "unwatch": "Unwatch service",
+    "listen": "Listen service",
+    "unlisten": "Unlisten service",
+    "bind": "Bind service",
+    "unbind": "Unbind service",
+    "connect": "Connection service",
+    "disconnect": "Disconnection service",
+    "join": "Join service",
+    "leave": "Leave service",
+    "enter": "Enter service",
+    "exit": "Exit service",
+    "login": "Login service",
+    "logout": "Logout service",
+    "signin": "Sign-in service",
+    "signout": "Sign-out service",
+    "signup": "Sign-up service",
+    "register": "Registration service",
+    "create": "Creation service",
+    "read": "Read service",
+    "update": "Update service",
+    "delete": "Delete service",
+    "crud": "CRUD service",
+    "insert": "Insert service",
+    "select": "Select service",
+    "modify": "Modification service",
+    "remove": "Removal service",
+    "add": "Addition service",
+    "append": "Append service",
+    "prepend": "Prepend service",
+    "push": "Push service",
+    "pop": "Pop service",
+    "shift": "Shift service",
+    "unshift": "Unshift service",
+    "slice": "Slice service",
+    "splice": "Splice service",
+    "split": "Split service",
+    "join": "Join service",
+    "merge": "Merge service",
+    "combine": "Combine service",
+    "concat": "Concatenation service",
+    "union": "Union service",
+    "intersect": "Intersection service",
+    "difference": "Difference service",
+    "exclude": "Exclusion service",
+    "include": "Inclusion service",
+    "contain": "Container service",
+    "wrap": "Wrapper service",
+    "unwrap": "Unwrapper service",
+    "pack": "Packing service",
+    "unpack": "Unpacking service",
+    "bundle": "Bundle service",
+    "unbundle": "Unbundle service",
+    "group": "Group service",
+    "ungroup": "Ungroup service",
+    "cluster": "Cluster service",
+    "decluster": "Decluster service",
+    "shard": "Shard service",
+    "unshard": "Unshard service",
+    "partition": "Partition service",
+    "unpartition": "Unpartition service",
+    "segment": "Segment service",
+    "unsegment": "Unsegment service",
+    "chunk": "Chunk service",
+    "unchunk": "Unchunk service",
+    "block": "Block service",
+    "unblock": "Unblock service",
+    "lock": "Lock service",
+    "unlock": "Unlock service",
+    "acquire": "Acquire service",
+    "release": "Release service",
+    "hold": "Hold service",
+    "free": "Free service",
+    "allocate": "Allocation service",
+    "deallocate": "Deallocation service",
+    "reserve": "Reservation service",
+    "unreserve": "Unreservation service",
+    "claim": "Claim service",
+    "unclaim": "Unclaim service",
+    "lease": "Lease service",
+    "unlease": "Unlease service",
+    "rent": "Rent service",
+    "unrent": "Unrent service",
+    "borrow": "Borrow service",
+    "return": "Return service",
+    "lend": "Lend service",
+    "give": "Give service",
+    "take": "Take service",
+    "get": "Get service",
+    "put": "Put service",
+    "post": "Post service",
+    "patch": "Patch service",
+    "head": "Head service",
+    "options": "Options service",
+    "trace": "Trace service",
+    "connect": "Connect service"
+  },
+  "naming_conventions": [
+    {
+      "pattern": ".*d$",
+      "description": "System daemon or background service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*ctl$",
+      "description": "Control or management utility",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ctl$",
+      "description": "Control or management utility",
+      "category": "system"
+    },
+    {
+      "pattern": ".*ctl$",
+      "description": "Control utility",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-server$",
+      "description": "Server application",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-client$",
+      "description": "Client application",
+      "category": "other"
+    },
+    {
+      "pattern": ".*-service$",
+      "description": "Service application",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-daemon$",
+      "description": "Daemon service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-agent$",
+      "description": "Agent or monitoring service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-helper$",
+      "description": "Helper or utility process",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-manager$",
+      "description": "Management service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-handler$",
+      "description": "Event or request handler",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-processor$",
+      "description": "Data processing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-worker$",
+      "description": "Background worker process",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-runner$",
+      "description": "Task runner service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-executor$",
+      "description": "Task executor service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-scheduler$",
+      "description": "Task scheduler service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-dispatcher$",
+      "description": "Task dispatcher service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-coordinator$",
+      "description": "Coordination service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-orchestrator$",
+      "description": "Orchestration service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-controller$",
+      "description": "Controller service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-monitor$",
+      "description": "Monitoring service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-watcher$",
+      "description": "File or system watcher",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-observer$",
+      "description": "Observer service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-tracker$",
+      "description": "Tracking service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-scanner$",
+      "description": "Scanning or monitoring service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-detector$",
+      "description": "Detection service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-analyzer$",
+      "description": "Analysis service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-inspector$",
+      "description": "Inspection service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-validator$",
+      "description": "Validation service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-checker$",
+      "description": "Checking service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-tester$",
+      "description": "Testing service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-probe$",
+      "description": "Probing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-health$",
+      "description": "Health check service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-status$",
+      "description": "Status service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-metrics$",
+      "description": "Metrics collection service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-stats$",
+      "description": "Statistics service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-telemetry$",
+      "description": "Telemetry service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-trace$",
+      "description": "Tracing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-tracer$",
+      "description": "Tracing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-profiler$",
+      "description": "Profiling service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-debugger$",
+      "description": "Debugging service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-logger$",
+      "description": "Logging service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-auditor$",
+      "description": "Audit service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-notifier$",
+      "description": "Notification service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-alerter$",
+      "description": "Alerting service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-mailer$",
+      "description": "Mail service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-messenger$",
+      "description": "Messaging service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-publisher$",
+      "description": "Publishing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-subscriber$",
+      "description": "Subscription service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-consumer$",
+      "description": "Message consumer service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-producer$",
+      "description": "Message producer service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-broker$",
+      "description": "Message broker service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-router$",
+      "description": "Routing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-switch$",
+      "description": "Switching service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-gateway$",
+      "description": "Gateway or proxy service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-proxy$",
+      "description": "Proxy service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-reverse$",
+      "description": "Reverse proxy service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-forward$",
+      "description": "Forward proxy service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-balancer$",
+      "description": "Load balancer service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-lb$",
+      "description": "Load balancer service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-ingress$",
+      "description": "Ingress controller service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-egress$",
+      "description": "Egress controller service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-bridge$",
+      "description": "Bridge or integration service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-tunnel$",
+      "description": "Tunneling service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-vpn$",
+      "description": "VPN service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-firewall$",
+      "description": "Firewall service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-filter$",
+      "description": "Filtering service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-transformer$",
+      "description": "Data transformation service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-converter$",
+      "description": "Conversion service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-formatter$",
+      "description": "Formatting service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-serializer$",
+      "description": "Serialization service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-deserializer$",
+      "description": "Deserialization service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-encoder$",
+      "description": "Encoding service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-decoder$",
+      "description": "Decoding service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-compressor$",
+      "description": "Compression service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-decompressor$",
+      "description": "Decompression service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-encryptor$",
+      "description": "Encryption service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-decryptor$",
+      "description": "Decryption service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-hasher$",
+      "description": "Hashing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-signer$",
+      "description": "Digital signing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-verifier$",
+      "description": "Verification service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-authenticator$",
+      "description": "Authentication service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-authorizer$",
+      "description": "Authorization service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-sync$",
+      "description": "Synchronization service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-syncer$",
+      "description": "Synchronization service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-replicator$",
+      "description": "Replication service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-mirror$",
+      "description": "Mirroring service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-backup$",
+      "description": "Backup service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-restore$",
+      "description": "Restore service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-archiver$",
+      "description": "Archive service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-uploader$",
+      "description": "Upload service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-downloader$",
+      "description": "Download service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-transferer$",
+      "description": "Transfer service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-importer$",
+      "description": "Import service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-exporter$",
+      "description": "Export service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-migrator$",
+      "description": "Migration service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-seeder$",
+      "description": "Database seeding service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-indexer$",
+      "description": "Indexing service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-searcher$",
+      "description": "Search service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-crawler$",
+      "description": "Web crawler service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-scraper$",
+      "description": "Web scraper service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-parser$",
+      "description": "Parsing service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-lexer$",
+      "description": "Lexical analysis service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-compiler$",
+      "description": "Compilation service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-interpreter$",
+      "description": "Interpretation service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-transpiler$",
+      "description": "Transpilation service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-bundler$",
+      "description": "Bundling service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-packager$",
+      "description": "Packaging service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-builder$",
+      "description": "Build service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-deployer$",
+      "description": "Deployment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-installer$",
+      "description": "Installation service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-updater$",
+      "description": "Update service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-upgrader$",
+      "description": "Upgrade service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-patcher$",
+      "description": "Patching service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-releaser$",
+      "description": "Release service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-publisher$",
+      "description": "Publishing service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-registry$",
+      "description": "Registry service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-repository$",
+      "description": "Repository service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-store$",
+      "description": "Storage service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-cache$",
+      "description": "Caching service",
+      "category": "database"
+    },
+    {
+      "pattern": ".*-queue$",
+      "description": "Queue service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-stack$",
+      "description": "Stack service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-heap$",
+      "description": "Heap service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-pool$",
+      "description": "Pool service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-buffer$",
+      "description": "Buffer service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-stream$",
+      "description": "Stream service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-pipe$",
+      "description": "Pipe service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-channel$",
+      "description": "Channel service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-socket$",
+      "description": "Socket service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-port$",
+      "description": "Port service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-endpoint$",
+      "description": "Endpoint service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-api$",
+      "description": "API service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-rest$",
+      "description": "REST API service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-graphql$",
+      "description": "GraphQL API service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-grpc$",
+      "description": "gRPC service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-rpc$",
+      "description": "RPC service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-soap$",
+      "description": "SOAP service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-websocket$",
+      "description": "WebSocket service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-ws$",
+      "description": "WebSocket service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-sse$",
+      "description": "Server-Sent Events service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-web$",
+      "description": "Web service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-http$",
+      "description": "HTTP service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-https$",
+      "description": "HTTPS service",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*-tcp$",
+      "description": "TCP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-udp$",
+      "description": "UDP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-tls$",
+      "description": "TLS service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ssl$",
+      "description": "SSL service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ssh$",
+      "description": "SSH service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ftp$",
+      "description": "FTP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-sftp$",
+      "description": "SFTP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-scp$",
+      "description": "SCP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-rsync$",
+      "description": "Rsync service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-nfs$",
+      "description": "NFS service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-smb$",
+      "description": "SMB service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-cifs$",
+      "description": "CIFS service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-dns$",
+      "description": "DNS service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-dhcp$",
+      "description": "DHCP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ntp$",
+      "description": "NTP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-snmp$",
+      "description": "SNMP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-ldap$",
+      "description": "LDAP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-kerberos$",
+      "description": "Kerberos service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-oauth$",
+      "description": "OAuth service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-saml$",
+      "description": "SAML service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-jwt$",
+      "description": "JWT service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-mail$",
+      "description": "Mail service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-smtp$",
+      "description": "SMTP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-imap$",
+      "description": "IMAP service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-pop3$",
+      "description": "POP3 service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-dev$",
+      "description": "Development service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-test$",
+      "description": "Testing service",
+      "category": "development"
+    },
+    {
+      "pattern": ".*-staging$",
+      "description": "Staging service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-prod$",
+      "description": "Production service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-demo$",
+      "description": "Demo service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-sandbox$",
+      "description": "Sandbox service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-preview$",
+      "description": "Preview service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-beta$",
+      "description": "Beta service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-alpha$",
+      "description": "Alpha service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-canary$",
+      "description": "Canary deployment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-blue$",
+      "description": "Blue deployment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-green$",
+      "description": "Green deployment service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-v[0-9]+$",
+      "description": "Versioned service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-[0-9]+\\.[0-9]+$",
+      "description": "Versioned service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Versioned service",
+      "category": "system"
+    },
+    {
+      "pattern": ".*\\.[0-9]+$",
+      "description": "Numbered instance",
+      "category": "system"
+    },
+    {
+      "pattern": ".*-[0-9]+$",
+      "description": "Numbered instance",
+      "category": "system"
+    },
+    {
+      "pattern": ".*_[0-9]+$",
+      "description": "Numbered instance",
+      "category": "system"
+    },
+    {
+      "pattern": ".*/.*",
+      "description": "Executable with path",
+      "category": "other"
+    },
+    {
+      "pattern": ".*\\.exe$",
+      "description": "Windows executable",
+      "category": "other"
+    },
+    {
+      "pattern": ".*\\.app$",
+      "description": "macOS application",
+      "category": "other"
+    },
+    {
+      "pattern": ".*\\.jar$",
+      "description": "Java application",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.war$",
+      "description": "Java web application",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*\\.py$",
+      "description": "Python script",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.rb$",
+      "description": "Ruby script",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.js$",
+      "description": "JavaScript application",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.ts$",
+      "description": "TypeScript application",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.go$",
+      "description": "Go application",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.rs$",
+      "description": "Rust application",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.php$",
+      "description": "PHP script",
+      "category": "webServer"
+    },
+    {
+      "pattern": ".*\\.pl$",
+      "description": "Perl script",
+      "category": "development"
+    },
+    {
+      "pattern": ".*\\.sh$",
+      "description": "Shell script",
+      "category": "system"
+    },
+    {
+      "pattern": ".*\\.bash$",
+      "description": "Bash script",
+      "category": "system"
+    },
+    {
+      "pattern": ".*\\.zsh$",
+      "description": "Zsh script",
+      "category": "system"
+    },
+    {
+      "pattern": ".*\\.fish$",
+      "description": "Fish script",
+      "category": "system"
+    },
+    {
+      "pattern": ".*\\.bat$",
+      "description": "Batch script",
+      "category": "system"
+    },
+    {
+      "pattern": ".*\\.cmd$",
+      "description": "Command script",
+      "category": "system"
+    },
+    {
+      "pattern": ".*\\.ps1$",
+      "description": "PowerShell script",
+      "category": "system"
+    }
+  ],
+  "fallback_descriptions": {
+    "development": "Development tool, build system, or testing framework (likely safe to terminate during development)",
+    "system": "System service, daemon, or background process (exercise caution - may be critical for system operation)",
+    "database": "Database server, caching system, or data storage service (terminating may cause data loss or service disruption)",
+    "webServer": "Web server, API service, or HTTP-related application (terminating will stop web service availability)",
+    "other": "Unknown application or service (exercise extreme caution - verify purpose before terminating)"
+  }
+}
