@@ -110,3 +110,9 @@ struct WatchedPort: Identifiable, Codable, Defaults.Serializable {
         self.notifyOnStop = notifyOnStop
     }
 }
+
+struct ProcessGroup: Identifiable {
+    let id: Int // Use PID as stable identifier
+    let processName: String
+    let ports: [PortInfo]
+}

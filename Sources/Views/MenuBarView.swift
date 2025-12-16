@@ -1,12 +1,7 @@
-import SwiftUI 
+import SwiftUI
+import Defaults
 
 // MARK: - Process Group
-
-struct ProcessGroup: Identifiable {
-	let id: Int // Use PID as stable identifier
-	let processName: String
-	let ports: [PortInfo]
-}
 
 struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
@@ -16,9 +11,10 @@ struct MenuBarView: View {
     @State private var confirmingKillPort: UUID?
     @State private var hoveredPort: UUID?
 	@State private var expandedProcesses: Set<Int> = []
-	@State private var useTreeView = UserDefaults.standard.bool(forKey: "useTreeView")
+	@Default(.useTreeView) private var useTreeView
 	
 	private var groupedByProcess: [ProcessGroup] {
+
 		let grouped = Dictionary(grouping: filteredPorts) { $0.pid }
 		return grouped.map { pid, ports in
 			ProcessGroup(
@@ -145,7 +141,6 @@ struct MenuBarView: View {
                     shortcut: "T"
                 ) {
                     useTreeView.toggle()
-                    UserDefaults.standard.set(useTreeView, forKey: "useTreeView")
                 }
 
                 Divider()

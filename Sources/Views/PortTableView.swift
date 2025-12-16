@@ -1,9 +1,13 @@
 import SwiftUI
+import Defaults
 
 struct PortTableView: View {
     @Environment(AppState.self) private var appState
     @State private var sortOrder: SortOrder = .port
     @State private var sortAscending = true
+    @Default(.useTreeView) private var useTreeView
+    @State private var expandedProcesses: Set<Int> = []
+
 
     enum SortOrder: String, CaseIterable {
         case port = "Port"
