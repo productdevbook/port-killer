@@ -109,7 +109,6 @@ struct SettingsView: View {
 
             Form {
                 KeyboardShortcuts.Recorder("Toggle Main Window:", name: .toggleMainWindow)
-                KeyboardShortcuts.Recorder("Refresh Ports:", name: .refresh)
             }
             .formStyle(.grouped)
 

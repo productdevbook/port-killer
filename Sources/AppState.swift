@@ -18,7 +18,6 @@ extension Defaults.Keys {
 
 extension KeyboardShortcuts.Name {
     static let toggleMainWindow = Self("toggleMainWindow", default: .init(.p, modifiers: [.command, .shift]))
-    static let refresh = Self("refresh", default: .init(.r, modifiers: [.command]))
 }
 
 // MARK: - App State
@@ -208,12 +207,6 @@ final class AppState: NSObject {
         KeyboardShortcuts.onKeyUp(for: .toggleMainWindow) { [weak self] in
             Task { @MainActor in
                 self?.toggleMainWindow()
-            }
-        }
-
-        KeyboardShortcuts.onKeyUp(for: .refresh) { [weak self] in
-            Task { @MainActor in
-                await self?.refresh()
             }
         }
     }
