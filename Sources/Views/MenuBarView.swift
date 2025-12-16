@@ -1,297 +1,239 @@
 import SwiftUI
 
 struct MenuBarView: View {
-    @Bindable var manager: PortManager
-    @State private var hoveredPort: UUID?
+    @Environment(\.openWindow) private var openWindow
+    @Bindable var state: AppState
     @State private var searchText = ""
-
-    private func appIcon() -> NSImage {
-        if let image = loadIcon(named: "ToolbarIcon@2x") {
-            return image
-        }
-        return NSImage(systemSymbolName: "network", accessibilityDescription: nil) ?? NSImage()
-    }
-
-    private func loadIcon(named name: String) -> NSImage? {
-        let bundlePaths = [
-            Bundle.main.resourceURL?.appendingPathComponent("PortKiller_PortKiller.bundle"),
-            Bundle.main.bundleURL.appendingPathComponent("PortKiller_PortKiller.bundle"),
-            Bundle.main.resourceURL,
-            Bundle.main.bundleURL
-        ]
-
-        for bundlePath in bundlePaths {
-            if let path = bundlePath?.appendingPathComponent("\(name).png"),
-               FileManager.default.fileExists(atPath: path.path),
-               let image = NSImage(contentsOf: path) {
-                return image
-            }
-        }
-
-        if let url = Bundle.module.url(forResource: name, withExtension: "png"),
-           let image = NSImage(contentsOf: url) {
-            return image
-        }
-
-        return nil
-    }
+    @State private var confirmingKillAll = false
+    @State private var confirmingKillPort: UUID?
+    @State private var hoveredPort: UUID?
 
     private var filteredPorts: [PortInfo] {
-        if searchText.isEmpty {
-            return manager.ports
+        let filtered = searchText.isEmpty ? state.ports : state.ports.filter {
+            String($0.port).contains(searchText) || $0.processName.localizedCaseInsensitiveContains(searchText)
         }
-        return manager.ports.filter {
-            String($0.port).contains(searchText) ||
-            $0.processName.localizedCaseInsensitiveContains(searchText)
+        return filtered.sorted { a, b in
+            let aFav = state.isFavorite(a.port)
+            let bFav = state.isFavorite(b.port)
+            if aFav != bFav { return aFav }
+            return a.port < b.port
         }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
-            searchBar
-            Divider()
-            portsList
-            Divider()
-            actionsBar
-            Divider()
-            footer
-        }
-        .frame(width: 320)
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack {
-            Image(nsImage: appIcon())
-                .resizable()
-                .frame(width: 18, height: 18)
-            Text("PortKiller")
-                .font(.headline)
-
-            Spacer()
-
-            Button {
-                Task { await manager.refresh() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .rotationEffect(.degrees(manager.isScanning ? 360 : 0))
-                    .animation(manager.isScanning ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: manager.isScanning)
-            }
-            .buttonStyle(.plain)
-            .disabled(manager.isScanning)
-            .help("Refresh")
-
-            Text("\(manager.ports.count)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(.tertiary.opacity(0.3))
-                .clipShape(Capsule())
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-    }
-
-    // MARK: - Search Bar
-
-    private var searchBar: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            TextField("Search port or process...", text: $searchText)
-                .textFieldStyle(.plain)
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+            // Header
+            HStack(spacing: 8) {
+                Image(systemName: "network")
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.tertiary)
+                        .font(.caption)
+                    TextField("Search...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(.callout)
+                    if !searchText.isEmpty {
+                        Button { searchText = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .background(.quaternary)
+                .cornerRadius(6)
+                Text("\(filteredPorts.count)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(.tertiary.opacity(0.3))
+                    .clipShape(Capsule())
             }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
 
-    // MARK: - Ports List
+            Divider()
 
-    private var portsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                if filteredPorts.isEmpty {
-                    emptyState
-                } else {
-                    ForEach(filteredPorts) { port in
-                        PortRow(
-                            port: port,
-                            isHovered: hoveredPort == port.id,
-                            onKill: {
-                                Task { await manager.killPort(port) }
-                            }
-                        )
-                        .onHover { hovering in
-                            hoveredPort = hovering ? port.id : nil
+            // Port List
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if filteredPorts.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle")
+                                .font(.largeTitle)
+                                .foregroundStyle(.green)
+                            Text("No open ports")
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else {
+                        ForEach(filteredPorts) { port in
+                            PortRow(port: port, state: state, isHovered: hoveredPort == port.id, confirmingKill: $confirmingKillPort)
+                                .onHover { hoveredPort = $0 ? port.id : nil }
                         }
                     }
                 }
             }
+            .frame(maxHeight: 400)
+
+            Divider()
+
+            // Toolbar
+            HStack(spacing: 16) {
+                Button { Task { await state.refresh() } } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.plain)
+                .help("Refresh")
+                .keyboardShortcut("r", modifiers: .command)
+
+                if confirmingKillAll {
+                    HStack(spacing: 4) {
+                        Button("Kill All") {
+                            Task { await state.killAll() }
+                            confirmingKillAll = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                        .controlSize(.small)
+                        Button("Cancel") { confirmingKillAll = false }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                } else {
+                    Button { confirmingKillAll = true } label: {
+                        Image(systemName: "xmark.circle")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(state.ports.isEmpty)
+                    .help("Kill All")
+                    .keyboardShortcut("k", modifiers: .command)
+                }
+
+                Spacer()
+
+                Button {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "settings")
+                } label: {
+                    Image(systemName: "gear")
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
+                .keyboardShortcut(",", modifiers: .command)
+
+                Button { NSApplication.shared.terminate(nil) } label: {
+                    Image(systemName: "power")
+                }
+                .buttonStyle(.plain)
+                .help("Quit")
+                .keyboardShortcut("q", modifiers: .command)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
-        .frame(maxHeight: 300)
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "checkmark.circle")
-                .font(.largeTitle)
-                .foregroundStyle(.green)
-            Text("No open ports")
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-    }
-
-    // MARK: - Actions Bar
-
-    private var actionsBar: some View {
-        HStack(spacing: 12) {
-            ActionButton(
-                title: "Refresh",
-                icon: "arrow.clockwise",
-                action: { Task { await manager.refresh() } }
-            )
-
-            ActionButton(
-                title: "Kill All",
-                icon: "xmark.circle",
-                isDestructive: true,
-                action: { Task { await manager.killAll() } }
-            )
-            .disabled(manager.ports.isEmpty)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-    }
-
-    // MARK: - Footer
-
-    private var footer: some View {
-        Button("Quit") {
-            NSApplication.shared.terminate(nil)
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .frame(width: 300)
     }
 }
 
 // MARK: - Port Row
-
 struct PortRow: View {
     let port: PortInfo
+    @Bindable var state: AppState
     let isHovered: Bool
-    let onKill: () -> Void
-
+    @Binding var confirmingKill: UUID?
     @State private var isKilling = false
-    @State private var showConfirm = false
+
+    private var isConfirming: Bool { confirmingKill == port.id }
 
     var body: some View {
         HStack(spacing: 10) {
-            // Status indicator
             Circle()
                 .fill(isKilling ? .orange : .green)
                 .frame(width: 8, height: 8)
-                .shadow(color: (isKilling ? Color.orange : Color.green).opacity(0.5), radius: 3)
-                .opacity(isKilling ? 0.3 : 1)
-                .animation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true), value: isKilling)
 
-            // Port number
-            Text(port.displayPort)
-                .font(.system(.body, design: .monospaced))
-                .fontWeight(.medium)
-                .frame(width: 60, alignment: .leading)
-                .opacity(isKilling ? 0.5 : 1)
-
-            // Process name
-            Text(port.processName)
-                .font(.callout)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .opacity(isKilling ? 0.5 : 1)
-
-            Spacer()
-
-            // PID
-            Text("PID \(port.pid)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .opacity(isKilling ? 0.5 : 1)
-
-            // Kill button (visible on hover)
-            if showConfirm {
+            if isConfirming {
+                Text("Kill \(port.processName)?")
+                    .font(.callout)
+                    .lineLimit(1)
+                Spacer()
                 HStack(spacing: 4) {
-                    Button {
-                        showConfirm = false
+                    Button("Kill") {
                         isKilling = true
-                        onKill()
-                    } label: {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                        confirmingKill = nil
+                        Task { await state.killPort(port) }
                     }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        showConfirm = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .controlSize(.small)
+                    Button("Cancel") { confirmingKill = nil }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
-            } else if isKilling {
-                Image(systemName: "hourglass")
-                    .foregroundStyle(.orange)
             } else {
-                Button {
-                    showConfirm = true
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.red)
+                HStack(spacing: 3) {
+                    if state.isFavorite(port.port) {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
+                    }
+                    Text(port.displayPort)
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.medium)
+                    if state.isWatching(port.port) {
+                        Image(systemName: "eye.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                    }
                 }
-                .buttonStyle(.plain)
-                .opacity(isHovered ? 1 : 0)
+                .frame(width: 80, alignment: .leading)
+                .opacity(isKilling ? 0.5 : 1)
+
+                Text(port.processName)
+                    .font(.callout)
+                    .lineLimit(1)
+                    .opacity(isKilling ? 0.5 : 1)
+
+                Spacer()
+
+                Text("PID \(port.pid)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .opacity(isKilling ? 0.5 : 1)
+
+                if isKilling {
+                    Image(systemName: "hourglass")
+                        .foregroundStyle(.orange)
+                } else {
+                    Button { confirmingKill = port.id } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(isHovered ? 1 : 0)
+                }
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
+        .background((isHovered || isConfirming) ? Color.primary.opacity(0.05) : Color.clear)
         .contentShape(Rectangle())
-    }
-}
-
-// MARK: - Action Button
-
-struct ActionButton: View {
-    let title: String
-    let icon: String
-    var isDestructive: Bool = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: icon)
-                Text(title)
+        .contextMenu {
+            Button { state.toggleFavorite(port.port) } label: {
+                Label(state.isFavorite(port.port) ? "Remove from Favorites" : "Add to Favorites",
+                      systemImage: state.isFavorite(port.port) ? "star.slash" : "star")
             }
-            .font(.callout)
-            .foregroundStyle(isDestructive ? .red : .primary)
+            Divider()
+            Button { state.toggleWatch(port.port) } label: {
+                Label(state.isWatching(port.port) ? "Stop Watching" : "Watch Port",
+                      systemImage: state.isWatching(port.port) ? "eye.slash" : "eye")
+            }
         }
-        .buttonStyle(.plain)
     }
 }

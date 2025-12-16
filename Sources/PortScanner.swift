@@ -105,7 +105,6 @@ actor PortScanner {
             port: port,
             pid: pid,
             processName: processName,
-            protocolType: "TCP",
             address: addr.isEmpty ? "*" : addr
         )
     }

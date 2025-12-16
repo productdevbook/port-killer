@@ -2,54 +2,43 @@ import SwiftUI
 
 @main
 struct PortKillerApp: App {
-    @State private var manager = PortManager()
+    @State private var state = AppState()
 
     init() {
-        // Hide from Dock
         NSApplication.shared.setActivationPolicy(.accessory)
     }
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(manager: manager)
+            MenuBarView(state: state)
         } label: {
             Image(nsImage: menuBarIcon())
         }
         .menuBarExtraStyle(.window)
+
+        Window("Settings", id: "settings") {
+            SettingsView(state: state)
+        }
+        .windowResizability(.contentSize)
     }
 
     private func menuBarIcon() -> NSImage {
-        // Load @2x version for crisp Retina display
-        if let image = loadIcon(named: "ToolbarIcon@2x") {
-            image.size = NSSize(width: 18, height: 18)  // Logical size, not pixel size
-            return image
-        }
-        return NSImage(systemSymbolName: "network.slash", accessibilityDescription: nil) ?? NSImage()
-    }
-
-    private func loadIcon(named name: String) -> NSImage? {
-        // Search in multiple locations for compatibility with dev and release builds
-        let bundlePaths = [
+        // Try various bundle paths for icon
+        let paths = [
             Bundle.main.resourceURL?.appendingPathComponent("PortKiller_PortKiller.bundle"),
             Bundle.main.bundleURL.appendingPathComponent("PortKiller_PortKiller.bundle"),
             Bundle.main.resourceURL,
             Bundle.main.bundleURL
         ]
-
-        for bundlePath in bundlePaths {
-            if let path = bundlePath?.appendingPathComponent("\(name).png"),
-               FileManager.default.fileExists(atPath: path.path),
-               let image = NSImage(contentsOf: path) {
-                return image
+        for p in paths {
+            if let url = p?.appendingPathComponent("ToolbarIcon@2x.png"),
+               FileManager.default.fileExists(atPath: url.path),
+               let img = NSImage(contentsOf: url) {
+                img.size = NSSize(width: 18, height: 18)
+                return img
             }
         }
-
-        // Fallback: try Bundle.module for development
-        if let url = Bundle.module.url(forResource: name, withExtension: "png"),
-           let image = NSImage(contentsOf: url) {
-            return image
-        }
-
-        return nil
+        // Fallback to system icon
+        return NSImage(systemSymbolName: "network", accessibilityDescription: "PortKiller") ?? NSImage()
     }
 }

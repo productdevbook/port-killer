@@ -22,6 +22,10 @@
     <string>15.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSUserNotificationAlertStyle</key>
+    <string>alert</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2025 PortKiller Contributors</string>
 </dict>

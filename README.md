@@ -25,7 +25,6 @@ A native macOS menu bar application for finding and killing processes running on
 ## Requirements
 
 - macOS 15.0+ (Sequoia)
-- Apple Silicon Mac (M1/M2/M3/M4)
 
 ## Installation
 
@@ -33,7 +32,7 @@ A native macOS menu bar application for finding and killing processes running on
 
 Download the latest DMG from [GitHub Releases](https://github.com/productdevbook/port-killer/releases):
 
-1. Download `PortKiller-vX.X.X-arm64.dmg`
+1. Download `PortKiller-vX.X.X.dmg`
 2. Open the DMG file
 3. Drag PortKiller to your Applications folder
 4. Launch from Applications or Spotlight
