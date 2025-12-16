@@ -281,3 +281,47 @@ jobs:
           git add appcast.xml
           git commit -m "chore: update appcast.xml for ${GITHUB_REF_NAME}" || echo "No changes to commit"
           git push origin main
+
+      - name: Update Homebrew Tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          DMG_URL="https://github.com/productdevbook/port-killer/releases/download/${GITHUB_REF_NAME}/${DMG_NAME}"
+
+          # Get SHA256 of the DMG
+          SHA256=$(shasum -a 256 "$DMG_NAME" | cut -d' ' -f1)
+
+          # Clone homebrew-tap repo
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/productdevbook/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+
+          # Update cask formula
+          cat > Casks/portkiller.rb << EOF
+          cask "portkiller" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
+
+            url "https://github.com/productdevbook/port-killer/releases/download/v#{version}/PortKiller-v#{version}-arm64.dmg"
+            name "PortKiller"
+            desc "Menu bar app to find and kill processes running on open ports"
+            homepage "https://github.com/productdevbook/port-killer"
+
+            depends_on macos: ">= :sequoia"
+            depends_on arch: :arm64
+
+            app "PortKiller.app"
+
+            zap trash: [
+              "~/Library/Preferences/com.productdevbook.PortKiller.plist",
+              "~/Library/Caches/com.productdevbook.PortKiller",
+            ]
+          end
+          EOF
+
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/portkiller.rb
+          git commit -m "Update portkiller to ${VERSION}"
+          git push

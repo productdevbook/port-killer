@@ -245,7 +245,7 @@ final class AppState: NSObject {
     private func setupNotifications() {
         guard let center = notificationCenter else { return }
         center.delegate = self
-        Task.detached {
+        Task {
             let settings = await center.notificationSettings()
             if settings.authorizationStatus == .notDetermined {
                 _ = try? await center.requestAuthorization(options: [.alert, .sound])

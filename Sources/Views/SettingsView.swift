@@ -3,7 +3,6 @@ import ApplicationServices
 @preconcurrency import UserNotifications
 import Sparkle
 import LaunchAtLogin
-import KeyboardShortcuts
 
 struct SettingsView: View {
     @Bindable var state: AppState
@@ -114,6 +113,11 @@ struct SettingsView: View {
                 }
 
                 // MARK: - Keyboard Shortcuts
+                // FIXME: KeyboardShortcuts.Recorder crashes on macOS 26 (Tahoe) due to Bundle.module issue
+                // See: https://github.com/sindresorhus/KeyboardShortcuts/issues/231
+                // See: https://github.com/sindresorhus/KeyboardShortcuts/issues/229
+                // Temporarily disabled until library is fixed
+                /*
                 SettingsGroup("Keyboard Shortcuts", icon: "keyboard.fill") {
                     SettingsRowContainer {
                         HStack {
@@ -132,6 +136,7 @@ struct SettingsView: View {
                         }
                     }
                 }
+                */
 
                 // MARK: - Updates
                 SettingsGroup("Software Update", icon: "arrow.triangle.2.circlepath") {
