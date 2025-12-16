@@ -242,8 +242,8 @@ struct ProcessGroupRow: View {
 						.font(.caption2)
 						.foregroundStyle(.secondary)
 						.padding(.horizontal, 5)
-						.padding(.vertical, 2)
-						.background(.tertiary.opacity(0.3))
+						//.padding(.vertical, 5)
+						.background(.tertiary.opacity(0.5))
 						.clipShape(Capsule())
 				} else if !(showConfirm) {
 					Button {
