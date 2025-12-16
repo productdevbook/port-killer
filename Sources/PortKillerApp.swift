@@ -21,7 +21,10 @@ struct PortKillerApp: App {
             CommandGroup(replacing: .newItem) {} // Disable Cmd+N
             
             CommandGroup(after: .appInfo) {
-                CheckForUpdatesView(updateManager: state.updateManager)
+				Button("Check for Updates...", systemImage: "arrow.triangle.2.circlepath") {
+					state.updateManager.checkForUpdates()
+				}
+				.disabled(!state.updateManager.canCheckForUpdates)
             }
         }
 
