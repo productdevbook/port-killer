@@ -59,7 +59,8 @@ struct PortTableView: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 80)
         }
-        .padding(.horizontal, 16)
+        .padding(.leading, 24)
+        .padding(.trailing, 16)
         .padding(.vertical, 8)
         .background(Color(nsColor: .controlBackgroundColor))
     }
@@ -251,7 +252,8 @@ struct PortListRow: View {
             }
             .frame(width: 100)
         }
-        .padding(.horizontal, 16)
+        .padding(.leading, 24)
+        .padding(.trailing, 16)
         .padding(.vertical, 8)
         .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
         .onHover { hovering in
