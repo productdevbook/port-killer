@@ -13,8 +13,17 @@ struct PortKillerApp: App {
         MenuBarExtra {
             MenuBarView(manager: manager)
         } label: {
-          Image("ToolbarIcon", bundle: .module)
+            Image(nsImage: menuBarIcon())
         }
         .menuBarExtraStyle(.window)
+    }
+
+    private func menuBarIcon() -> NSImage {
+        if let url = Bundle.module.url(forResource: "ToolbarIcon", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            image.size = NSSize(width: 18, height: 18)
+            return image
+        }
+        return NSImage(systemSymbolName: "network.slash", accessibilityDescription: nil) ?? NSImage()
     }
 }

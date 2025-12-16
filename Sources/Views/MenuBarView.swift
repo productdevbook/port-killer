@@ -5,6 +5,14 @@ struct MenuBarView: View {
     @State private var hoveredPort: UUID?
     @State private var searchText = ""
 
+    private func appIcon() -> NSImage {
+        if let url = Bundle.module.url(forResource: "ToolbarIcon@2x", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            return image
+        }
+        return NSImage(systemSymbolName: "network", accessibilityDescription: nil) ?? NSImage()
+    }
+
     private var filteredPorts: [PortInfo] {
         if searchText.isEmpty {
             return manager.ports
@@ -34,8 +42,9 @@ struct MenuBarView: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "network")
-                .foregroundStyle(.blue)
+            Image(nsImage: appIcon())
+                .resizable()
+                .frame(width: 18, height: 18)
             Text("PortKiller")
                 .font(.headline)
 
