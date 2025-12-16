@@ -138,7 +138,7 @@ struct MenuBarView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .frame(width: 450) // Increased width for better spacing
+        .frame(width: 300)
     }
 }
 
@@ -149,7 +149,7 @@ struct PortRow: View {
     let isHovered: Bool
     @Binding var confirmingKill: UUID?
     @State private var isKilling = false
-    @State private var isExpanded = false
+    @State private var showInfoPopover = false
 
     private var isConfirming: Bool { confirmingKill == port.id }
 
@@ -178,110 +178,53 @@ struct PortRow: View {
                     .controlSize(.small)
                 }
             } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        if state.isFavorite(port.port) {
-                            Image(systemName: "star.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.yellow)
-                        }
-                        Text(port.displayPort)
-                            .font(.system(.callout, design: .monospaced))
-                            .fontWeight(.semibold)
-                        if state.isWatching(port.port) {
-                            Image(systemName: "eye.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.blue)
-                        }
+                HStack(spacing: 3) {
+                    if state.isFavorite(port.port) {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
                     }
-                    
-                    Text("PID \(port.pid)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    Text(port.displayPort)
+                        .font(.system(.body, design: .monospaced))
+                        .fontWeight(.medium)
+                    if state.isWatching(port.port) {
+                        Image(systemName: "eye.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                    }
                 }
-                .frame(width: 90, alignment: .leading)
+                .frame(width: 80, alignment: .leading)
                 .opacity(isKilling ? 0.5 : 1)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    // Process name and expand button
-                    HStack(spacing: 8) {
-                        Text(port.processName)
-                            .font(.callout)
-                            .fontWeight(.medium)
-                            .lineLimit(1)
-                            .opacity(isKilling ? 0.5 : 1)
-                        
-                        Spacer()
-                        
-                        if let description = port.description, !description.text.isEmpty {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.25)) {
-                                    isExpanded.toggle()
-                                }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: categoryIcon(for: description.category))
-                                        .font(.caption)
-                                        .foregroundStyle(categoryColor(for: description.category))
-                                    
-                                    Image(systemName: isExpanded ? "chevron.up.circle.fill" : "info.circle.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(.blue)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .help(isExpanded ? "Collapse description" : "Show description")
-                        }
-                    }
+                HStack(spacing: 4) {
+                    Text(port.processName)
+                        .font(.callout)
+                        .lineLimit(1)
+                        .opacity(isKilling ? 0.5 : 1)
                     
-                    // Description area
-                    if let description = port.description {
-                        if isExpanded {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: categoryIcon(for: description.category))
-                                        .font(.caption)
-                                        .foregroundStyle(categoryColor(for: description.category))
-                                    
-                                    Text(description.category.rawValue.capitalized)
-                                        .font(.caption2)
-                                        .fontWeight(.medium)
-                                        .foregroundStyle(.secondary)
-                                        .textCase(.uppercase)
-                                }
-                                
-                                Text(description.text)
-                                    .font(.caption)
-                                    .foregroundStyle(.primary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 6)
-                                    .background(.quaternary.opacity(0.5))
-                                    .cornerRadius(6)
-                                    .opacity(isKilling ? 0.5 : 1)
-                            }
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.95)),
-                                removal: .opacity.combined(with: .scale(scale: 0.95))
-                            ))
-                        } else {
-                            HStack(spacing: 6) {
-                                Image(systemName: categoryIcon(for: description.category))
-                                    .font(.caption2)
-                                    .foregroundStyle(categoryColor(for: description.category))
-                                
-                                Text(truncateDescription(description.text, maxWidth: 55))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .opacity(isKilling ? 0.5 : 1)
-                                    .help(description.text)
-                            }
+                    // Info icon button - only show if there's description info
+                    if let description = port.description, !description.text.isEmpty {
+                        Button {
+                            showInfoPopover.toggle()
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.caption)
+                                .foregroundStyle(.blue)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Show port information")
+                        .popover(isPresented: $showInfoPopover, arrowEdge: .trailing) {
+                            PortInfoPopover(port: port, isPresented: $showInfoPopover)
                         }
                     }
                 }
 
                 Spacer()
+
+                Text("PID \(port.pid)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .opacity(isKilling ? 0.5 : 1)
 
                 if isKilling {
                     Image(systemName: "hourglass")
@@ -296,8 +239,8 @@ struct PortRow: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background((isHovered || isConfirming) ? Color.primary.opacity(0.05) : Color.clear)
         .contentShape(Rectangle())
         .contextMenu {
@@ -312,8 +255,112 @@ struct PortRow: View {
             }
         }
     }
+}
+
+// MARK: - Port Info Popover
+struct PortInfoPopover: View {
+    let port: PortInfo
+    @Binding var isPresented: Bool
     
-    // Helper functions for category visualization
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header with close button
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(port.processName)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    HStack(spacing: 6) {
+                        Text("Port \(port.displayPort)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        Text("•")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        
+                        Text("PID \(port.pid)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                Button {
+                    isPresented = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Close")
+            }
+            .padding(12)
+            .background(.ultraThinMaterial)
+            
+            Divider()
+            
+            // Content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let description = port.description {
+                        // Category badge
+                        HStack(spacing: 8) {
+                            Image(systemName: categoryIcon(for: description.category))
+                                .font(.title3)
+                                .foregroundStyle(categoryColor(for: description.category))
+                            
+                            Text(description.category.rawValue.capitalized)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(categoryColor(for: description.category))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(categoryColor(for: description.category).opacity(0.1))
+                        .cornerRadius(8)
+                        
+                        // Description
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Description")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.secondary)
+                            
+                            Text(description.text)
+                                .font(.callout)
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.quaternary.opacity(0.3))
+                        .cornerRadius(8)
+                    } else {
+                        VStack(spacing: 8) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 32))
+                                .foregroundStyle(.secondary)
+                            
+                            Text("No information available")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                    }
+                }
+                .padding(16)
+            }
+            .frame(maxHeight: 300)
+        }
+        .frame(width: 350)
+    }
+    
     private func categoryIcon(for category: ProcessCategory) -> String {
         switch category {
         case .development:
