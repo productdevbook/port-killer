@@ -127,6 +127,24 @@ final class PortForwardManager {
                     state?.appendLog(message, type: type, isError: isError)
                 }
             }
+
+            // Set up port conflict handler for auto-recovery
+            await processManager.setPortConflictHandler(for: id) { [weak self, weak state] port in
+                Task { @MainActor in
+                    guard let self = self, let state = state else { return }
+                    state.appendLog("Port \(port) in use, auto-recovering...", type: .portForward, isError: false)
+
+                    // Kill the conflicting process
+                    await self.processManager.killProcessOnPort(port)
+
+                    // Wait for port to be freed
+                    try? await Task.sleep(for: .milliseconds(500))
+
+                    // Restart the connection
+                    state.appendLog("Retrying connection...", type: .portForward, isError: false)
+                    self.restartConnection(id)
+                }
+            }
         }
 
         state.portForwardStatus = .connecting
@@ -149,6 +167,7 @@ final class PortForwardManager {
         Task {
             await processManager.killProcesses(for: id)
             await processManager.removeLogHandler(for: id)
+            await processManager.removePortConflictHandler(for: id)
         }
     }
 

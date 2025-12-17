@@ -35,11 +35,15 @@ enum KubectlError: Error, LocalizedError, Sendable {
 /// Callback for log output from port-forward processes
 typealias LogHandler = @Sendable (String, PortForwardProcessType, Bool) -> Void
 
+/// Callback for port conflict errors (address already in use)
+typealias PortConflictHandler = @Sendable (Int) -> Void
+
 actor PortForwardProcessManager {
     private var processes: [UUID: [PortForwardProcessType: Process]] = [:]
     private var outputTasks: [UUID: [PortForwardProcessType: Task<Void, Never>]] = [:]
     private var connectionErrors: [UUID: Date] = [:]
     private var logHandlers: [UUID: LogHandler] = [:]
+    private var portConflictHandlers: [UUID: PortConflictHandler] = [:]
 
     func setLogHandler(for id: UUID, handler: @escaping LogHandler) {
         logHandlers[id] = handler
@@ -47,6 +51,14 @@ actor PortForwardProcessManager {
 
     func removeLogHandler(for id: UUID) {
         logHandlers.removeValue(forKey: id)
+    }
+
+    func setPortConflictHandler(for id: UUID, handler: @escaping PortConflictHandler) {
+        portConflictHandlers[id] = handler
+    }
+
+    func removePortConflictHandler(for id: UUID) {
+        portConflictHandlers.removeValue(forKey: id)
     }
 
     // MARK: - Port Forward
@@ -242,6 +254,28 @@ actor PortForwardProcessManager {
                             await self?.markConnectionError(id: id)
                         }
 
+                        // Detect port conflict: "address already in use"
+                        if lowercased.contains("address already in use") {
+                            var detectedPort: Int?
+
+                            // kubectl format: "listen tcp4 127.0.0.1:7700: bind: address already in use"
+                            if let portMatch = line.range(of: #"127\.0\.0\.1:(\d+)"#, options: .regularExpression) {
+                                let portStr = line[portMatch].split(separator: ":").last ?? ""
+                                detectedPort = Int(portStr)
+                            }
+                            // socat format: "bind(5, {LEN=16 AF=2 0.0.0.0:7699}, 16): Address already in use"
+                            else if let portMatch = line.range(of: #"0\.0\.0\.0:(\d+)"#, options: .regularExpression) {
+                                let portStr = line[portMatch].split(separator: ":").last ?? ""
+                                detectedPort = Int(portStr)
+                            }
+
+                            if let port = detectedPort {
+                                if let handler = await self?.portConflictHandlers[id] {
+                                    handler(port)
+                                }
+                            }
+                        }
+
                         // Send log to handler
                         if let handler = await self?.logHandlers[id] {
                             handler(line, type, isError)
@@ -255,6 +289,52 @@ actor PortForwardProcessManager {
             outputTasks[id] = [:]
         }
         outputTasks[id]?[type] = task
+    }
+
+    // MARK: - Port Conflict Resolution
+
+    /// Kill any process listening on the specified port
+    func killProcessOnPort(_ port: Int) async {
+        // Use lsof to find PID listening on the port
+        let lsof = Process()
+        lsof.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        lsof.arguments = ["-ti", "tcp:\(port)"]
+
+        let pipe = Pipe()
+        lsof.standardOutput = pipe
+        lsof.standardError = FileHandle.nullDevice
+
+        do {
+            try lsof.run()
+            lsof.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !output.isEmpty {
+                // Kill each PID found
+                let pids = output.components(separatedBy: .newlines)
+                for pidStr in pids {
+                    if let pid = Int32(pidStr.trimmingCharacters(in: .whitespaces)) {
+                        // SIGTERM first
+                        kill(pid, SIGTERM)
+                    }
+                }
+
+                // Wait a bit then force kill if needed
+                try? await Task.sleep(for: .milliseconds(300))
+
+                for pidStr in pids {
+                    if let pid = Int32(pidStr.trimmingCharacters(in: .whitespaces)) {
+                        // Check if still running, then SIGKILL
+                        if kill(pid, 0) == 0 {
+                            kill(pid, SIGKILL)
+                        }
+                    }
+                }
+            }
+        } catch {
+            // Ignore errors
+        }
     }
 
     // MARK: - Error Tracking
