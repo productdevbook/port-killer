@@ -2,6 +2,7 @@
 ///
 /// Displays app settings organized into sections:
 /// - General preferences (launch at login)
+/// - Keyboard shortcuts (global hotkeys)
 /// - Permissions (accessibility, notifications)
 /// - Software updates (Sparkle integration)
 /// - Sponsors configuration
@@ -32,6 +33,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 28) {
                 // MARK: - General
                 GeneralSettingsSection()
+
+                // MARK: - Keyboard Shortcuts
+                ShortcutsSection()
 
                 // MARK: - Permissions
                 PermissionsSection(
