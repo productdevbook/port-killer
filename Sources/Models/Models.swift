@@ -11,6 +11,7 @@ struct PortInfo: Identifiable, Hashable, Sendable {
     let command: String
     let fd: String
     let isActive: Bool
+    let description: ProcessDescription?
 
     var displayPort: String { ":\(port)" }
 
@@ -28,12 +29,13 @@ struct PortInfo: Identifiable, Hashable, Sendable {
             user: "-",
             command: "",
             fd: "",
-            isActive: false
+            isActive: false,
+            description: nil
         )
     }
 
     /// Create an active port from scan results
-    static func active(port: Int, pid: Int, processName: String, address: String, user: String, command: String, fd: String) -> PortInfo {
+    static func active(port: Int, pid: Int, processName: String, address: String, user: String, command: String, fd: String, description: ProcessDescription? = nil) -> PortInfo {
         PortInfo(
             port: port,
             pid: pid,
@@ -42,7 +44,8 @@ struct PortInfo: Identifiable, Hashable, Sendable {
             user: user,
             command: command,
             fd: fd,
-            isActive: true
+            isActive: true,
+            description: description
         )
     }
 }
@@ -115,4 +118,28 @@ struct ProcessGroup: Identifiable {
     let id: Int // Use PID as stable identifier
     let processName: String
     let ports: [PortInfo]
+}
+
+// MARK: - Process Description Models
+
+enum ProcessCategory: String, CaseIterable, Identifiable, Sendable {
+    case development = "development"
+    case webServer = "webServer"
+    case database = "database"
+    case system = "system"
+    case other = "other"
+    
+    var id: String { rawValue }
+}
+
+enum DescriptionConfidence: String, CaseIterable, Sendable {
+    case exact = "exact"
+    case pattern = "pattern"
+    case fallback = "fallback"
+}
+
+struct ProcessDescription: Hashable, Sendable {
+    let text: String
+    let category: ProcessCategory
+    let confidence: DescriptionConfidence
 }

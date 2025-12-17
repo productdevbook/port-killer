@@ -23,7 +23,7 @@ actor PortScanner {
             }
 
             let commands = await getProcessCommands()
-            return parseLsofOutput(output, commands: commands)
+            return await parseLsofOutput(output, commands: commands)
         } catch {
             return []
         }
@@ -73,7 +73,7 @@ actor PortScanner {
     }
 
     /// Parse lsof output into PortInfo array
-    private func parseLsofOutput(_ output: String, commands: [Int: String]) -> [PortInfo] {
+    private func parseLsofOutput(_ output: String, commands: [Int: String]) async -> [PortInfo] {
         var ports: [PortInfo] = []
         var seen: Set<String> = []
         let lines = output.components(separatedBy: .newlines)
@@ -118,7 +118,7 @@ actor PortScanner {
             // Get full command from ps output
             let command = commands[pid] ?? processName
 
-            guard let portInfo = parseAddress(addressPart, processName: processName, pid: pid, user: user, command: command, fd: fd) else {
+            guard let portInfo = await parseAddress(addressPart, processName: processName, pid: pid, user: user, command: command, fd: fd) else {
                 continue
             }
 
@@ -133,7 +133,7 @@ actor PortScanner {
     }
 
     /// Parse address string like "127.0.0.1:3000" or "*:8080"
-    private func parseAddress(_ address: String, processName: String, pid: Int, user: String, command: String, fd: String) -> PortInfo? {
+    private func parseAddress(_ address: String, processName: String, pid: Int, user: String, command: String, fd: String) async -> PortInfo? {
         // Handle formats: "127.0.0.1:3000", "*:8080", "[::1]:3000"
         let parts: [String]
 
@@ -167,7 +167,8 @@ actor PortScanner {
             address: addr.isEmpty ? "*" : addr,
             user: user,
             command: command,
-            fd: fd
+            fd: fd,
+            description: description
         )
     }
 
