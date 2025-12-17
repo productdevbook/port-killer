@@ -13,13 +13,10 @@ struct ProcessGroupListRow: View {
         HStack(spacing: 0) {
             // Indent/Expand toggle (aligned with Port column of header)
             HStack(spacing: 0) {
-                Button(action: onToggleExpand) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20, height: 20)
-                }
-                .buttonStyle(.plain)
+				Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+					.frame(width: 20, height: 20)
             }
             .frame(width: 70, alignment: .leading)
             .padding(.leading, 24) // Match header padding
@@ -107,7 +104,9 @@ struct ProcessGroupListRow: View {
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovered = hovering
-        }
+		}.onTapGesture {
+			onToggleExpand()
+		}
     }
 }
 

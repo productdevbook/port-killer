@@ -237,12 +237,9 @@ struct ProcessGroupRow: View {
 			// Process header
 			HStack(spacing: 10) {
 				// Expand/collapse indicator
-				Button(action: onToggleExpand) {
-					Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-						.font(.caption)
-						.foregroundStyle(.secondary)
-				}
-				.buttonStyle(.plain)
+				Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+					.font(.caption)
+					.foregroundStyle(.secondary)
 				
 				// Status indicator
 				Circle()
@@ -324,6 +321,8 @@ struct ProcessGroupRow: View {
 			.contentShape(Rectangle())
 			.onHover { hovering in
 				isHovered = hovering
+			}.onTapGesture {
+				onToggleExpand()
 			}
 			
 			// Expanded ports
