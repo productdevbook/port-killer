@@ -1,79 +1,86 @@
 import SwiftUI
 
-struct SponsorsWindowView: View {
+// MARK: - Sponsors Page View (Full Page in Main Window)
+
+struct SponsorsPageView: View {
     @Bindable var sponsorManager: SponsorManager
-    @Environment(\.dismiss) private var dismiss
 
     private let columns = [
         GridItem(.adaptive(minimum: 80, maximum: 100), spacing: 16)
     ]
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        ScrollView {
+            VStack(spacing: 20) {
+                // Header
+                HStack(spacing: 16) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.pink)
 
-            Divider()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sponsors")
+                            .font(.title2)
+                            .fontWeight(.bold)
 
-            ScrollView {
+                        Text("Thank you for supporting PortKiller!")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    if let url = URL(string: AppInfo.githubSponsors) {
+                        Link(destination: url) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "heart.fill")
+                                Text("Become a Sponsor")
+                            }
+                            .font(.callout)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.pink)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+
+                // Sponsors Grid
                 if sponsorManager.sponsors.isEmpty && !sponsorManager.isLoading {
                     emptyState
                 } else {
-                    sponsorsGrid
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(sponsorManager.sponsors) { sponsor in
+                            SponsorCard(sponsor: sponsor)
+                        }
+                    }
+                    .padding(.horizontal, 24)
                 }
+
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Divider()
-
-            footer
+            .padding(.bottom, 24)
         }
-        .frame(width: 500, height: 450)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(.pink)
-
-            Text("Thank You, Sponsors!")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("PortKiller is made possible by these amazing supporters")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.vertical, 24)
-        .padding(.horizontal, 32)
-    }
-
-    // MARK: - Sponsors Grid
-
-    private var sponsorsGrid: some View {
-        LazyVGrid(columns: columns, spacing: 20) {
-            ForEach(sponsorManager.sponsors) { sponsor in
-                SponsorCard(sponsor: sponsor)
+        .task {
+            if sponsorManager.sponsors.isEmpty {
+                await sponsorManager.refreshSponsors()
             }
         }
-        .padding(24)
     }
-
-    // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             if sponsorManager.error != nil {
                 Image(systemName: "wifi.exclamationmark")
-                    .font(.system(size: 40))
+                    .font(.system(size: 50))
                     .foregroundStyle(.secondary)
 
                 Text("Couldn't load sponsors")
-                    .font(.headline)
+                    .font(.title2)
+                    .fontWeight(.medium)
 
                 Button("Try Again") {
                     Task {
@@ -83,47 +90,22 @@ struct SponsorsWindowView: View {
                 .buttonStyle(.borderedProminent)
             } else {
                 Image(systemName: "person.3.fill")
-                    .font(.system(size: 40))
+                    .font(.system(size: 50))
                     .foregroundStyle(.secondary)
 
                 Text("Be the first sponsor!")
-                    .font(.headline)
+                    .font(.title2)
+                    .fontWeight(.medium)
 
                 if let url = URL(string: AppInfo.githubSponsors) {
                     Link("Become a Sponsor", destination: url)
                         .buttonStyle(.borderedProminent)
+                        .tint(.pink)
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(32)
-    }
-
-    // MARK: - Footer
-
-    private var footer: some View {
-        HStack {
-            if let url = URL(string: AppInfo.githubSponsors) {
-                Link(destination: url) {
-                    Label("Become a Sponsor", systemImage: "heart")
-                }
-                .buttonStyle(.bordered)
-            }
-
-            Spacer()
-
-            if sponsorManager.isLoading {
-                ProgressView()
-                    .controlSize(.small)
-            }
-
-            Button("Close") {
-                sponsorManager.markWindowShown()
-                dismiss()
-            }
-            .keyboardShortcut(.defaultAction)
-        }
-        .padding(16)
+        .frame(maxWidth: .infinity)
+        .padding(60)
     }
 }
 
@@ -151,27 +133,30 @@ struct SponsorCard: View {
                     EmptyView()
                 }
             }
-            .frame(width: 56, height: 56)
+            .frame(width: 48, height: 48)
             .clipShape(Circle())
             .overlay(
                 Circle()
                     .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
             )
+            .scaleEffect(isHovered ? 1.08 : 1.0)
 
             Text(sponsor.displayName)
                 .font(.caption)
+                .fontWeight(.medium)
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
         .frame(width: 80)
-        .padding(8)
+        .padding(10)
         .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
         .cornerRadius(8)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }
         .onTapGesture {
-            if let url = URL(string: "https://github.com/\(sponsor.login)") {
+            if let url = sponsor.profileUrl {
                 NSWorkspace.shared.open(url)
             }
         }

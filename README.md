@@ -121,6 +121,15 @@ Sources/
 
 Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a Pull Request.
 
+## Sponsors
+
+<p align="center">
+  <a href="https://cdn.jsdelivr.net/gh/productdevbook/static/sponsors.svg">
+    <img src='https://cdn.jsdelivr.net/gh/productdevbook/static/sponsors.svg'/>
+  </a>
+</p>
+
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

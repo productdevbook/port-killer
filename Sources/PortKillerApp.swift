@@ -23,8 +23,10 @@ struct PortKillerApp: App {
                 }
                 .onChange(of: sponsorManager.shouldShowWindow) { _, shouldShow in
                     if shouldShow {
+                        state.selectedSidebarItem = .sponsors
                         NSApp.activate(ignoringOtherApps: true)
-                        openWindow(id: "sponsors")
+                        openWindow(id: "main")
+                        sponsorManager.markWindowShown()
                     }
                 }
         }
@@ -32,7 +34,7 @@ struct PortKillerApp: App {
         .defaultSize(width: 1000, height: 600)
         .commands {
             CommandGroup(replacing: .newItem) {} // Disable Cmd+N
-            
+
             CommandGroup(after: .appInfo) {
 				Button("Check for Updates...", systemImage: "arrow.triangle.2.circlepath") {
 					state.updateManager.checkForUpdates()
@@ -41,18 +43,9 @@ struct PortKillerApp: App {
             }
         }
 
-        // Sponsors Window
-        Window("Sponsors", id: "sponsors") {
-            SponsorsWindowView(sponsorManager: sponsorManager)
-        }
-        .windowStyle(.automatic)
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
-
         // Menu Bar (quick access)
         MenuBarExtra {
             MenuBarView(state: state)
-                .environment(sponsorManager)
         } label: {
             Image(nsImage: menuBarIcon())
         }

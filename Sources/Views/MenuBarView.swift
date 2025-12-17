@@ -196,6 +196,14 @@ struct MenuBarView: View {
                     }
                 }
 
+                MenuItemButton(title: "Sponsors", icon: "heart.fill") {
+                    state.selectedSidebarItem = .sponsors
+                    openWindow(id: "main")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        bringMainWindowToFront()
+                    }
+                }
+
                 MenuItemButton(title: "Settings...", icon: "gear", shortcut: ",") {
                     state.selectedSidebarItem = .settings
                     openWindow(id: "main")

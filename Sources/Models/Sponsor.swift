@@ -33,28 +33,25 @@ struct SponsorCache: Codable, Defaults.Serializable {
 
 /// Sponsor display interval options
 enum SponsorDisplayInterval: String, CaseIterable, Codable, Defaults.Serializable {
-    case daily = "Daily"
-    case weekly = "Weekly"
-    case biweekly = "Every 2 Weeks"
     case monthly = "Monthly"
+    case bimonthly = "Every 2 Months"
+    case quarterly = "Every 3 Months"
     case never = "Never"
 
     var days: Int? {
         switch self {
-        case .daily: return 1
-        case .weekly: return 7
-        case .biweekly: return 14
         case .monthly: return 30
+        case .bimonthly: return 60
+        case .quarterly: return 90
         case .never: return nil
         }
     }
 
     var localizedName: String {
         switch self {
-        case .daily: return "Daily"
-        case .weekly: return "Weekly"
-        case .biweekly: return "Every 2 Weeks"
         case .monthly: return "Monthly"
+        case .bimonthly: return "Every 2 Months"
+        case .quarterly: return "Every 3 Months"
         case .never: return "Never"
         }
     }
