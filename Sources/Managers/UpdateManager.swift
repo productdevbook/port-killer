@@ -5,6 +5,7 @@ import AppKit
 @MainActor
 final class UpdateManager: NSObject, ObservableObject {
     private var updaterController: SPUStandardUpdaterController?
+    private var isInitialized = false
 
     @Published var canCheckForUpdates = false
     @Published var lastUpdateCheckDate: Date?
@@ -16,18 +17,32 @@ final class UpdateManager: NSObject, ObservableObject {
 
     var automaticallyChecksForUpdates: Bool {
         get { updaterController?.updater.automaticallyChecksForUpdates ?? false }
-        set { updaterController?.updater.automaticallyChecksForUpdates = newValue }
+        set {
+            ensureInitialized()
+            updaterController?.updater.automaticallyChecksForUpdates = newValue
+        }
     }
 
     var automaticallyDownloadsUpdates: Bool {
         get { updaterController?.updater.automaticallyDownloadsUpdates ?? false }
-        set { updaterController?.updater.automaticallyDownloadsUpdates = newValue }
+        set {
+            ensureInitialized()
+            updaterController?.updater.automaticallyDownloadsUpdates = newValue
+        }
     }
 
     override init() {
         super.init()
+        // Delay Sparkle initialization to reduce launch memory
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.ensureInitialized()
+        }
+    }
 
-        // Only initialize Sparkle when running from a proper app bundle
+    private func ensureInitialized() {
+        guard !isInitialized else { return }
+        isInitialized = true
+
         guard Self.isRunningFromBundle else {
             #if DEBUG
             print("[UpdateManager] Skipping Sparkle initialization (not running from .app bundle)")
@@ -50,6 +65,7 @@ final class UpdateManager: NSObject, ObservableObject {
     }
 
     func checkForUpdates() {
+        ensureInitialized()
         guard let controller = updaterController else { return }
         // Activate app to ensure Sparkle window appears in front
         NSApp.activate(ignoringOtherApps: true)

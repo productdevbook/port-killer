@@ -62,7 +62,7 @@ enum ProcessType: String, CaseIterable, Identifiable, Sendable {
         case .database: return "cylinder"
         case .development: return "hammer"
         case .system: return "gearshape"
-        case .other: return "questionmark.circle"
+        case .other: return "powerplug"
         }
     }
 

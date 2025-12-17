@@ -14,6 +14,9 @@ struct PortTableView: View {
         case process = "Process"
         case pid = "PID"
         case type = "Type"
+        case address = "Address"
+        case user = "User"
+        case actions = "Actions"
     }
 
     var body: some View {
@@ -93,25 +96,65 @@ struct PortTableView: View {
 
     private var headerRow: some View {
         HStack(spacing: 0) {
+            // Favorite header (centered)
+            Button {
+                if sortOrder == .actions {
+                    sortAscending.toggle()
+                } else {
+                    sortOrder = .actions
+                    sortAscending = true
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("★")
+                        .font(.caption.weight(.medium))
+                    if sortOrder == .actions {
+                        Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
+                            .font(.caption2)
+                    }
+                }
+                .foregroundStyle(sortOrder == .actions ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .frame(width: 40, alignment: .center)
+            
+            // Account for status indicator circle space
+            Spacer()
+                .frame(width: 16)
             headerButton("Port", .port, width: 70)
-            headerButton("Process", .process, width: 150)
+            // Process column (flexible)
+            Button {
+                if sortOrder == .process {
+                    sortAscending.toggle()
+                } else {
+                    sortOrder = .process
+                    sortAscending = true
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("Process")
+                        .font(.caption.weight(.medium))
+                    if sortOrder == .process {
+                        Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
+                            .font(.caption2)
+                    }
+                }
+                .foregroundStyle(sortOrder == .process ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .frame(minWidth: 150, maxWidth: .infinity, alignment: .leading)
+            
             headerButton("PID", .pid, width: 70)
             headerButton("Type", .type, width: 100)
-            Text("Address")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 80, alignment: .leading)
-            Text("User")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 70, alignment: .leading)
+            headerButton("Address", .address, width: 80)
+            headerButton("User", .user, width: 70)
             Spacer()
             Text("Actions")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
                 .frame(width: 80)
         }
-        .padding(.leading, 24)
+        .padding(.leading, 16)
         .padding(.trailing, 16)
         .padding(.vertical, 8)
         .background(Color(nsColor: .controlBackgroundColor))
@@ -162,6 +205,27 @@ struct PortTableView: View {
                 result = a.pid < b.pid
             case .type:
                 result = a.processType.rawValue < b.processType.rawValue
+            case .address:
+                result = a.address.localizedCaseInsensitiveCompare(b.address) == .orderedAscending
+            case .user:
+                result = a.user.localizedCaseInsensitiveCompare(b.user) == .orderedAscending
+            case .actions:
+                // Sort by favorite/watched status
+                let aIsFavorite = appState.isFavorite(a.port)
+                let aIsWatching = appState.isWatching(a.port)
+                let bIsFavorite = appState.isFavorite(b.port)
+                let bIsWatching = appState.isWatching(b.port)
+                
+                // Priority: Favorite > Watching > Neither
+                let aPriority = aIsFavorite ? 2 : (aIsWatching ? 1 : 0)
+                let bPriority = bIsFavorite ? 2 : (bIsWatching ? 1 : 0)
+                
+                if aPriority != bPriority {
+                    result = aPriority > bPriority
+                } else {
+                    // Same priority, sort by port number
+                    result = a.port < b.port
+                }
             }
             return sortAscending ? result : !result
         }
@@ -177,6 +241,17 @@ struct PortListRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            // Favorite
+            Button {
+                appState.toggleFavorite(port.port)
+            } label: {
+                Image(systemName: appState.isFavorite(port.port) ? "star.fill" : "star")
+                    .foregroundStyle(appState.isFavorite(port.port) ? .yellow : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Toggle favorite")
+            .frame(width: 40, alignment: .center)
+
             // Status indicator
             Circle()
                 .fill(port.isActive ? Color.green : Color.gray)
@@ -184,23 +259,11 @@ struct PortListRow: View {
                 .padding(.trailing, 8)
 
             // Port
-            HStack(spacing: 4) {
-                if appState.isFavorite(port.port) {
-                    Image(systemName: "star.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.yellow)
-                }
-                Text(String(port.port))
-                    .font(.system(.body, design: .monospaced))
-                    .fontWeight(.medium)
-                if appState.isWatching(port.port) {
-                    Image(systemName: "eye.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.blue)
-                }
-            }
-            .frame(width: 70, alignment: .leading)
-            .opacity(port.isActive ? 1 : 0.6)
+            Text(String(port.port))
+                .font(.system(.body, design: .monospaced))
+                .fontWeight(.medium)
+                .frame(width: 70, alignment: .leading)
+                .opacity(port.isActive ? 1 : 0.6)
 
             // Process
             HStack(spacing: 6) {
@@ -211,10 +274,10 @@ struct PortListRow: View {
                     .lineLimit(1)
                     .foregroundStyle(port.isActive ? .primary : .secondary)
             }
-            .frame(width: 150, alignment: .leading)
+            .frame(minWidth: 150, maxWidth: .infinity, alignment: .leading)
 
             // PID
-            Text(port.isActive ? "\(port.pid)" : "-")
+            Text(port.isActive ? String(port.pid) : "-")
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 70, alignment: .leading)
@@ -257,15 +320,6 @@ struct PortListRow: View {
             // Actions
             HStack(spacing: 8) {
                 Button {
-                    appState.toggleFavorite(port.port)
-                } label: {
-                    Image(systemName: appState.isFavorite(port.port) ? "star.fill" : "star")
-                        .foregroundStyle(appState.isFavorite(port.port) ? .yellow : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Toggle favorite")
-
-                Button {
                     appState.toggleWatch(port.port)
                 } label: {
                     Image(systemName: appState.isWatching(port.port) ? "eye.fill" : "eye")
@@ -302,9 +356,9 @@ struct PortListRow: View {
                     .help("Remove from list")
                 }
             }
-            .frame(width: 100)
+            .frame(width: 80)
         }
-        .padding(.leading, 24)
+        .padding(.leading, 16)
         .padding(.trailing, 16)
         .padding(.vertical, 8)
         .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)

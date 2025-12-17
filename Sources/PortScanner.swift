@@ -61,7 +61,8 @@ actor PortScanner {
                 guard parts.count >= 2,
                       let pid = Int(parts[0]) else { continue }
 
-                commands[pid] = String(parts[1])
+                let fullCommand = String(parts[1])
+                commands[pid] = fullCommand.count > 200 ? String(fullCommand.prefix(200)) + "..." : fullCommand
             }
 
             return commands
@@ -73,6 +74,7 @@ actor PortScanner {
     /// Parse lsof output into PortInfo array
     private func parseLsofOutput(_ output: String, commands: [Int: String]) -> [PortInfo] {
         var ports: [PortInfo] = []
+        var seen: Set<String> = []
         let lines = output.components(separatedBy: .newlines)
 
         // Skip header line
@@ -119,8 +121,9 @@ actor PortScanner {
                 continue
             }
 
-            // Avoid duplicates (same port + pid)
-            if !ports.contains(where: { $0.port == portInfo.port && $0.pid == portInfo.pid }) {
+            // Avoid duplicates (same port + pid) using O(1) Set lookup
+            let key = "\(portInfo.port)-\(portInfo.pid)"
+            if seen.insert(key).inserted {
                 ports.append(portInfo)
             }
         }

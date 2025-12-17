@@ -12,6 +12,11 @@ extension Defaults.Keys {
     static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
     static let useTreeView = Key<Bool>("useTreeView", default: false)
     static let refreshInterval = Key<Int>("refreshInterval", default: 5)
+
+    // Sponsor-related keys
+    static let sponsorCache = Key<SponsorCache?>("sponsorCache", default: nil)
+    static let lastSponsorWindowShown = Key<Date?>("lastSponsorWindowShown", default: nil)
+    static let sponsorDisplayInterval = Key<SponsorDisplayInterval>("sponsorDisplayInterval", default: .bimonthly)
 }
 
 // MARK: - Keyboard Shortcuts
@@ -40,37 +45,48 @@ final class AppState: NSObject {
     }
 
     var filteredPorts: [PortInfo] {
-        var result = ports
+        // Early return for settings (no ports shown)
+        if case .settings = selectedSidebarItem { return [] }
+
+        var result: [PortInfo]
 
         // Apply sidebar selection
         switch selectedSidebarItem {
-        case .allPorts:
-            break
+        case .allPorts, .settings, .sponsors:
+            result = ports
         case .favorites:
-            // Show active favorites + inactive favorites
-            let activeFavoritePorts = Set(result.filter { favorites.contains($0.port) }.map { $0.port })
-            result = result.filter { favorites.contains($0.port) }
-            // Add inactive favorites (not currently running)
-            for favPort in favorites where !activeFavoritePorts.contains(favPort) {
+            // Single pass: collect active favorites and track which ports are active
+            var activePorts = Set<Int>()
+            result = ports.compactMap { port -> PortInfo? in
+                guard favorites.contains(port.port) else { return nil }
+                activePorts.insert(port.port)
+                return port
+            }
+            // Add inactive favorites
+            for favPort in favorites where !activePorts.contains(favPort) {
                 result.append(PortInfo.inactive(port: favPort))
             }
         case .watched:
             let watchedPortNumbers = Set(watchedPorts.map { $0.port })
-            // Show active watched + inactive watched
-            let activeWatchedPorts = Set(result.filter { watchedPortNumbers.contains($0.port) }.map { $0.port })
-            result = result.filter { watchedPortNumbers.contains($0.port) }
-            // Add inactive watched (not currently running)
-            for watchedPort in watchedPortNumbers where !activeWatchedPorts.contains(watchedPort) {
+            // Single pass: collect active watched and track which ports are active
+            var activePorts = Set<Int>()
+            result = ports.compactMap { port -> PortInfo? in
+                guard watchedPortNumbers.contains(port.port) else { return nil }
+                activePorts.insert(port.port)
+                return port
+            }
+            // Add inactive watched
+            for watchedPort in watchedPortNumbers where !activePorts.contains(watchedPort) {
                 result.append(PortInfo.inactive(port: watchedPort))
             }
         case .processType(let type):
-            result = result.filter { $0.processType == type }
-        case .settings:
-            break
+            result = ports.filter { $0.processType == type }
         }
 
-        // Apply additional filters
-        result = result.filter { filter.matches($0, favorites: favorites, watched: watchedPorts) }
+        // Apply additional filters only if needed
+        if filter.isActive {
+            result = result.filter { filter.matches($0, favorites: favorites, watched: watchedPorts) }
+        }
 
         return result
     }
@@ -98,7 +114,7 @@ final class AppState: NSObject {
 
     // MARK: - Private
     private let scanner = PortScanner()
-    private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private nonisolated(unsafe) var refreshTask: Task<Void, Never>?
     private var previousPortStates: [Int: Bool] = [:]
     @ObservationIgnored
     private lazy var notificationCenter: UNUserNotificationCenter? = {
@@ -114,6 +130,10 @@ final class AppState: NSObject {
         setupKeyboardShortcuts()
         setupNotifications()
         startAutoRefresh()
+    }
+
+    deinit {
+        refreshTask?.cancel()
     }
 
     // MARK: - Port Operations

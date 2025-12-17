@@ -50,47 +50,68 @@ struct PortDetailView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(typeColor.opacity(0.2))
-                    .frame(width: 48, height: 48)
-                Image(systemName: port.processType.icon)
-                    .font(.title2)
-                    .foregroundStyle(typeColor)
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(typeColor.opacity(0.2))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: port.processType.icon)
+                        .font(.title2)
+                        .foregroundStyle(typeColor)
+                }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(port.processName)
                         .font(.title2)
                         .fontWeight(.semibold)
+                        .lineLimit(1)
 
-                    if appState.isFavorite(port.port) {
-                        Image(systemName: "star.fill")
-                            .foregroundStyle(.yellow)
-                    }
-
-                    if appState.isWatching(port.port) {
-                        Image(systemName: "eye.fill")
-                            .foregroundStyle(.blue)
-                    }
+                    Text("Port \(String(port.port))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
 
-                Text("Port \(String(port.port))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Spacer()
             }
 
-            Spacer()
+            HStack(spacing: 8) {
+                Text(port.processType.rawValue)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(typeColor.opacity(0.2))
+                    .foregroundStyle(typeColor)
+                    .clipShape(Capsule())
 
-            Text(port.processType.rawValue)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(typeColor.opacity(0.2))
-                .foregroundStyle(typeColor)
-                .clipShape(Capsule())
+                if appState.isFavorite(port.port) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                        Text("Favorite")
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.yellow.opacity(0.2))
+                    .foregroundStyle(.yellow)
+                    .clipShape(Capsule())
+                }
+
+                if appState.isWatching(port.port) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "eye.fill")
+                        Text("Watching")
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.blue.opacity(0.2))
+                    .foregroundStyle(.blue)
+                    .clipShape(Capsule())
+                }
+
+                Spacer()
+            }
         }
     }
 
@@ -141,33 +162,30 @@ struct PortDetailView: View {
             Text("Actions")
                 .font(.headline)
 
-            HStack(spacing: 12) {
-                Button {
-                    appState.toggleFavorite(port.port)
-                } label: {
-                    Label(
-                        appState.isFavorite(port.port) ? "Remove Favorite" : "Add Favorite",
-                        systemImage: appState.isFavorite(port.port) ? "star.slash" : "star"
-                    )
-                }
-                .buttonStyle(.bordered)
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        appState.toggleFavorite(port.port)
+                    } label: {
+                        Text(appState.isFavorite(port.port) ? "Remove Favorite" : "Add Favorite")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
 
-                Button {
-                    appState.toggleWatch(port.port)
-                } label: {
-                    Label(
-                        appState.isWatching(port.port) ? "Stop Watching" : "Watch",
-                        systemImage: appState.isWatching(port.port) ? "eye.slash" : "eye"
-                    )
+                    Button {
+                        appState.toggleWatch(port.port)
+                    } label: {
+                        Text(appState.isWatching(port.port) ? "Stop Watching" : "Watch")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
-
-                Spacer()
 
                 Button(role: .destructive) {
                     showKillConfirmation = true
                 } label: {
-                    Label("Kill Process", systemImage: "xmark.circle")
+                    Text("Kill Process")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)

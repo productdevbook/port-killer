@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     name: Build and Release
-    runs-on: macos-14  # Apple Silicon runner
+    runs-on: macos-latest  # Apple Silicon runner
 
     steps:
       - name: Checkout code

@@ -11,18 +11,37 @@ struct MenuBarView: View {
     @State private var confirmingKillPort: UUID?
     @State private var hoveredPort: UUID?
 	@State private var expandedProcesses: Set<Int> = []
-	@Default(.useTreeView) private var useTreeView
-	
-	private var groupedByProcess: [ProcessGroup] {
+	@State private var useTreeView = UserDefaults.standard.bool(forKey: "useTreeView")
+	@State private var cachedGroups: [ProcessGroup] = []
 
+	private var groupedByProcess: [ProcessGroup] { cachedGroups }
+
+	private func updateGroupedByProcess() {
 		let grouped = Dictionary(grouping: filteredPorts) { $0.pid }
-		return grouped.map { pid, ports in
+		cachedGroups = grouped.map { pid, ports in
 			ProcessGroup(
 				id: pid,
 				processName: ports.first?.processName ?? "Unknown",
 				ports: ports.sorted { $0.port < $1.port }
 			)
-		}.sorted { $0.processName.localizedCaseInsensitiveCompare($1.processName) == .orderedAscending }
+		}.sorted { a, b in
+			// Check if groups have favorite or watched ports
+			let aHasFavorite = a.ports.contains(where: { state.isFavorite($0.port) })
+			let aHasWatched = a.ports.contains(where: { state.isWatching($0.port) })
+			let bHasFavorite = b.ports.contains(where: { state.isFavorite($0.port) })
+			let bHasWatched = b.ports.contains(where: { state.isWatching($0.port) })
+			
+			// Priority: Favorite > Watched > Neither
+			let aPriority = aHasFavorite ? 2 : (aHasWatched ? 1 : 0)
+			let bPriority = bHasFavorite ? 2 : (bHasWatched ? 1 : 0)
+			
+			if aPriority != bPriority {
+				return aPriority > bPriority
+			} else {
+				// Same priority, sort alphabetically by process name
+				return a.processName.localizedCaseInsensitiveCompare(b.processName) == .orderedAscending
+			}
+		}
 	}
 	
     private var filteredPorts: [PortInfo] {
@@ -39,16 +58,6 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Open PortKiller
-            MenuItemButton(title: "Open PortKiller", icon: "macwindow", shortcut: "O") {
-                openWindow(id: "main")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    bringMainWindowToFront()
-                }
-            }
-
-            Divider()
-
             // Header
             HStack(spacing: 8) {
                 Image(systemName: "network")
@@ -88,37 +97,37 @@ struct MenuBarView: View {
             // Port List
             ScrollView {
                 LazyVStack(spacing: 0) {
-					if filteredPorts.isEmpty {
-						VStack(spacing: 8) {
-							Image(systemName: "checkmark.circle")
-								.font(.largeTitle)
-								.foregroundStyle(.green)
-							Text("No open ports")
-								.foregroundStyle(.secondary)
-						}
-						.frame(maxWidth: .infinity)
-						.padding(.vertical, 40)
-					} else if useTreeView {
-							ForEach(groupedByProcess) { group in
-								ProcessGroupRow(
-									group: group,
-									isExpanded: expandedProcesses.contains(group.id),
-									onToggleExpand: {
-										if expandedProcesses.contains(group.id) {
-											expandedProcesses.remove(group.id)
-										} else {
-											expandedProcesses.insert(group.id)
-										}
-									},
-									onKillProcess: {
-										for port in group.ports {
-											Task { await state.killPort(port) }
-										}
-									},
-									state: state
-								)
-							}
-					} else {
+                    if filteredPorts.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "network.slash")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                            Text("No open ports")
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else if useTreeView {
+                        ForEach(groupedByProcess) { group in
+                            ProcessGroupRow(
+                                group: group,
+                                isExpanded: expandedProcesses.contains(group.id),
+                                onToggleExpand: {
+                                    if expandedProcesses.contains(group.id) {
+                                        expandedProcesses.remove(group.id)
+                                    } else {
+                                        expandedProcesses.insert(group.id)
+                                    }
+                                },
+                                onKillProcess: {
+                                    for port in group.ports {
+                                        Task { await state.killPort(port) }
+                                    }
+                                },
+                                state: state
+                            )
+                        }
+                    } else {
                         ForEach(filteredPorts) { port in
                             PortRow(port: port, state: state, confirmingKill: $confirmingKillPort)
                         }
@@ -174,6 +183,21 @@ struct MenuBarView: View {
                 Divider()
                     .padding(.vertical, 4)
 
+                MenuItemButton(title: "Open PortKiller", icon: "macwindow", shortcut: "O") {
+                    openWindow(id: "main")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        bringMainWindowToFront()
+                    }
+                }
+
+                MenuItemButton(title: "Sponsors", icon: "heart.fill") {
+                    state.selectedSidebarItem = .sponsors
+                    openWindow(id: "main")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        bringMainWindowToFront()
+                    }
+                }
+
                 MenuItemButton(title: "Settings...", icon: "gear", shortcut: ",") {
                     state.selectedSidebarItem = .settings
                     openWindow(id: "main")
@@ -188,7 +212,10 @@ struct MenuBarView: View {
             }
             .padding(.vertical, 4)
         }
-        .frame(width: 300)
+        .frame(width: 340)
+        .onAppear { updateGroupedByProcess() }
+        .onChange(of: state.ports) { _, _ in updateGroupedByProcess() }
+        .onChange(of: searchText) { _, _ in updateGroupedByProcess() }
     }
 }
 
@@ -222,18 +249,31 @@ struct ProcessGroupRow: View {
 					.fill(isKilling ? .orange : .green)
 					.frame(width: 6, height: 6)
 					.shadow(color: (isKilling ? Color.orange : Color.green).opacity(0.5), radius: 3)
-					.opacity(isKilling ? 0.3 : 1)
-					.animation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true), value: isKilling)
+					.opacity(isKilling ? 0.5 : 1)
+					.animation(.easeInOut(duration: 0.3), value: isKilling)
 				
 				// Process name with port count
-				Text(group.processName)
-					.font(.callout)
-					.fontWeight(.medium)
+				HStack(spacing: 4) {
+					if group.ports.contains(where: { state.isFavorite($0.port) }) {
+						Image(systemName: "star.fill")
+							.font(.caption2)
+							.foregroundStyle(.yellow)
+					}
+					Text(group.processName)
+						.font(.callout)
+						.fontWeight(.medium)
+						.lineLimit(1)
+					if group.ports.contains(where: { state.isWatching($0.port) }) {
+						Image(systemName: "eye.fill")
+							.font(.caption2)
+							.foregroundStyle(.blue)
+					}
+				}
 				
 				Spacer()
 				
 				// PID
-				Text("PID \(group.id)")
+				Text("PID \(String(group.id))")
 					.font(.caption2)
 					.foregroundStyle(.secondary)
 				
@@ -318,6 +358,7 @@ struct NestedPortRow: View {
 			Text("\(port.address) • \(port.displayPort)")
 				.font(.caption)
 				.foregroundStyle(.secondary)
+				.lineLimit(1)
 			
 			Spacer()
 		}
@@ -350,42 +391,6 @@ struct NestedPortRow: View {
 				Label("Copy URL",systemImage: "document.on.clipboard")
 			}
 		}
-		.padding(.horizontal, 12)
-		.padding(.vertical, 6)
-		.contentShape(Rectangle())
-		.contextMenu {
-			Button { state.toggleFavorite(port.port) } label: {
-				Label(state.isFavorite(port.port) ? "Remove from Favorites" : "Add to Favorites",
-					  systemImage: state.isFavorite(port.port) ? "star.slash" : "star")
-			}
-			Divider()
-			Button { state.toggleWatch(port.port) } label: {
-				Label(state.isWatching(port.port) ? "Stop Watching" : "Watch Port",
-					  systemImage: state.isWatching(port.port) ? "eye.slash" : "eye")
-			}
-			Divider()
-			Button {
-				if let url = URL(string: "http://localhost:\(port.port)") {
-					NSWorkspace.shared.open(url)
-				}
-			} label: {
-				Label("Open in Browser",systemImage: "globe.fill")
-			}
-			
-			Button {
-				NSPasteboard.general.clearContents()
-				NSPasteboard.general.setString("http://localhost:\(port.port)", forType: .string)
-			} label: {
-				Label("Copy URL",systemImage: "document.on.clipboard")
-			}
-			
-			
-			Button {
-				NSPasteboard.general.setString("http://localhost:\(port.displayPort)", forType: .URL)
-			} label: {
-				Label("Copy URL",systemImage: "document.on.clipboard")
-			}
-		}
 	}
 }
 	
@@ -404,7 +409,10 @@ struct PortRow: View {
 		HStack(spacing: 10) {
 			Circle()
 				.fill(isKilling ? .orange : .green)
-				.frame(width: 8, height: 8)
+				.frame(width: 6, height: 6)
+				.shadow(color: (isKilling ? Color.orange : Color.green).opacity(0.5), radius: 3)
+				.opacity(isKilling ? 0.5 : 1)
+				.animation(.easeInOut(duration: 0.3), value: isKilling)
 			
 			if isConfirming {
 				Text("Kill \(port.processName)?")
@@ -434,13 +442,14 @@ struct PortRow: View {
 					Text(port.displayPort)
 						.font(.system(.body, design: .monospaced))
 						.fontWeight(.medium)
+						.lineLimit(1)
 					if state.isWatching(port.port) {
 						Image(systemName: "eye.fill")
 							.font(.caption2)
 							.foregroundStyle(.blue)
 					}
 				}
-				.frame(width: 80, alignment: .leading)
+				.frame(width: 100, alignment: .leading)
 				.opacity(isKilling ? 0.5 : 1)
 				
 				Text(port.processName)
@@ -450,7 +459,7 @@ struct PortRow: View {
 				
 				Spacer()
 				
-				Text("PID \(port.pid)")
+				Text("PID \(String(port.pid))")
 					.font(.caption)
 					.foregroundStyle(.secondary)
 					.opacity(isKilling ? 0.5 : 1)

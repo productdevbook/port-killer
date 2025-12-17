@@ -61,6 +61,7 @@ enum SidebarItem: Hashable, Identifiable {
     case favorites
     case watched
     case processType(ProcessType)
+    case sponsors
     case settings
 
     var id: String {
@@ -69,6 +70,7 @@ enum SidebarItem: Hashable, Identifiable {
         case .favorites: return "favorites"
         case .watched: return "watched"
         case .processType(let type): return "type-\(type.rawValue)"
+        case .sponsors: return "sponsors"
         case .settings: return "settings"
         }
     }
@@ -79,6 +81,7 @@ enum SidebarItem: Hashable, Identifiable {
         case .favorites: return "Favorites"
         case .watched: return "Watched"
         case .processType(let type): return type.rawValue
+        case .sponsors: return "Sponsors"
         case .settings: return "Settings"
         }
     }
@@ -89,6 +92,7 @@ enum SidebarItem: Hashable, Identifiable {
         case .favorites: return "star.fill"
         case .watched: return "eye.fill"
         case .processType(let type): return type.icon
+        case .sponsors: return "heart.fill"
         case .settings: return "gear"
         }
     }
