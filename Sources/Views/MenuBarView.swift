@@ -1,12 +1,7 @@
-import SwiftUI 
+import SwiftUI
+import Defaults
 
 // MARK: - Process Group
-
-struct ProcessGroup: Identifiable {
-	let id: Int // Use PID as stable identifier
-	let processName: String
-	let ports: [PortInfo]
-}
 
 struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
@@ -155,7 +150,6 @@ struct MenuBarView: View {
                     shortcut: "T"
                 ) {
                     useTreeView.toggle()
-                    UserDefaults.standard.set(useTreeView, forKey: "useTreeView")
                 }
 
                 Divider()
@@ -243,12 +237,9 @@ struct ProcessGroupRow: View {
 			// Process header
 			HStack(spacing: 10) {
 				// Expand/collapse indicator
-				Button(action: onToggleExpand) {
-					Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-						.font(.caption)
-						.foregroundStyle(.secondary)
-				}
-				.buttonStyle(.plain)
+				Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+					.font(.caption)
+					.foregroundStyle(.secondary)
 				
 				// Status indicator
 				Circle()
@@ -330,6 +321,8 @@ struct ProcessGroupRow: View {
 			.contentShape(Rectangle())
 			.onHover { hovering in
 				isHovered = hovering
+			}.onTapGesture {
+				onToggleExpand()
 			}
 			
 			// Expanded ports
