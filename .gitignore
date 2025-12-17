@@ -37,3 +37,17 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Sparkle tools (downloaded for signing)
+sparkle_tools/
+sparkle.tar.xz
+sparkle_private_key
+*.p12
+*.cer
+*.certSigningRequest
+
+docs
+
+# Node.js / Bun
+node_modules/
+bun.lockb

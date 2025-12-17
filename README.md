@@ -1,14 +1,23 @@
 # PortKiller
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![macOS](https://img.shields.io/badge/macOS-15.0%2B-brightgreen)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-6.0-orange)](https://swift.org)
-[![GitHub Release](https://img.shields.io/github/v/release/productdevbook/port-killer)](https://github.com/productdevbook/port-killer/releases)
-
-A native macOS menu bar application for finding and killing processes running on open ports. Perfect for developers who need to quickly free up ports like 3000, 8080, 5173, etc.
+<p align="center">
+  <img src="Resources/AppIcon.svg" alt="PortKiller Icon" width="128" height="128">
+</p>
 
 <p align="center">
-  <img src=".github/assets/port-kill.gif" alt="PortKiller Demo" width="400">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-15.0%2B-brightgreen" alt="macOS"></a>
+  <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-6.0-orange" alt="Swift"></a>
+  <a href="https://github.com/productdevbook/port-killer/releases"><img src="https://img.shields.io/github/v/release/productdevbook/port-killer" alt="GitHub Release"></a>
+</p>
+
+<p align="center">
+A native macOS menu bar application for finding and killing processes running on open ports.<br>
+Perfect for developers who need to quickly free up ports like 3000, 8080, 5173, etc.
+</p>
+
+<p align="center">
+  <img src=".github/assets/image.jpeg" alt="PortKiller Demo" width="400">
 </p>
 
 ## Features
@@ -31,38 +40,20 @@ A native macOS menu bar application for finding and killing processes running on
 
 ## Installation
 
-### Download (Recommended)
+### Homebrew (Recommended)
+
+```bash
+brew install --cask productdevbook/tap/portkiller
+```
+
+### Download
 
 Download the latest DMG from [GitHub Releases](https://github.com/productdevbook/port-killer/releases):
 
-1. Download `PortKiller-vX.X.X.dmg`
+1. Download `PortKiller-vX.X.X-arm64.dmg`
 2. Open the DMG file
 3. Drag PortKiller to your Applications folder
 4. Launch from Applications or Spotlight
-
-### macOS Security Notice
-
-Since PortKiller is not signed with an Apple Developer certificate, macOS will show a security warning on first launch. Here's how to open it:
-
-**Method 1: Right-Click (Easiest)**
-1. Right-click (or Control-click) on PortKiller in Applications
-2. Select "Open" from the context menu
-3. Click "Open" in the dialog that appears
-
-**Method 2: System Settings**
-1. Try to open PortKiller normally (it will be blocked)
-2. Open **System Settings** → **Privacy & Security**
-3. Scroll down to find the message about PortKiller being blocked
-4. Click **"Open Anyway"**
-5. Enter your password if prompted
-6. Launch PortKiller again
-
-**Method 3: Terminal**
-```bash
-xattr -d com.apple.quarantine /Applications/PortKiller.app
-```
-
-> ⚠️ **Note**: This is a one-time setup. After allowing it once, PortKiller will open normally.
 
 ### Build from Source
 
@@ -145,6 +136,15 @@ Tests/
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting a Pull Request.
+
+## Sponsors
+
+<p align="center">
+  <a href="https://cdn.jsdelivr.net/gh/productdevbook/static/sponsors.svg">
+    <img src='https://cdn.jsdelivr.net/gh/productdevbook/static/sponsors.svg'/>
+  </a>
+</p>
+
 
 ## License
 

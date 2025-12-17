@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>PortKiller Updates</title>
+    <link>https://github.com/productdevbook/port-killer</link>
+    <description>Most recent updates to PortKiller</description>
+    <language>en</language>
+    <item>
+      <title>Version 2.4.0</title>
+      <pubDate>Wed, 17 Dec 2025 06:45:15 +0000</pubDate>
+      <sparkle:version>102</sparkle:version>
+      <sparkle:shortVersionString>2.4.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/productdevbook/port-killer/releases/download/v2.4.0/PortKiller-v2.4.0-arm64.dmg"
+        length="2413040"
+        type="application/octet-stream"
+        sparkle:edSignature="j7AHM0OB0gP+WBv9FpV0gIH65IhmNchVgFFA/xS9UqGNCjGns8Yk3VtZdQe+gJm6gNWSRhtQQIbBCT1LRPDpAw==" />
+    </item>
+  </channel>
+</rss>

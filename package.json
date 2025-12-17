@@ -1,0 +1,17 @@
+{
+  "name": "portkiller",
+  "version": "2.4.0",
+  "private": true,
+  "scripts": {
+    "release": "bumpp"
+  },
+  "dependencies": {
+    "bumpp": "^10.3.2"
+  },
+  "changelogithub": {
+    "emoji": true,
+    "contributors": true,
+    "capitalize": true,
+    "group": true
+  }
+}

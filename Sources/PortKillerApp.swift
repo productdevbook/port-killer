@@ -3,23 +3,53 @@ import SwiftUI
 @main
 struct PortKillerApp: App {
     @State private var state = AppState()
+    @State private var sponsorManager = SponsorManager()
+    @Environment(\.openWindow) private var openWindow
 
     init() {
-        NSApplication.shared.setActivationPolicy(.accessory)
+        // Disable automatic window tabbing (prevents Chrome-like tabs)
+        NSWindow.allowsAutomaticWindowTabbing = false
     }
 
     var body: some Scene {
+        // Main Window - Single instance only
+        Window("PortKiller", id: "main") {
+            MainWindowView()
+                .environment(state)
+                .environment(sponsorManager)
+                .task {
+                    try? await Task.sleep(for: .seconds(3))
+                    sponsorManager.checkAndShowIfNeeded()
+                }
+                .onChange(of: sponsorManager.shouldShowWindow) { _, shouldShow in
+                    if shouldShow {
+                        state.selectedSidebarItem = .sponsors
+                        NSApp.activate(ignoringOtherApps: true)
+                        openWindow(id: "main")
+                        sponsorManager.markWindowShown()
+                    }
+                }
+        }
+        .windowStyle(.automatic)
+        .defaultSize(width: 1000, height: 600)
+        .commands {
+            CommandGroup(replacing: .newItem) {} // Disable Cmd+N
+
+            CommandGroup(after: .appInfo) {
+				Button("Check for Updates...", systemImage: "arrow.triangle.2.circlepath") {
+					state.updateManager.checkForUpdates()
+				}
+				.disabled(!state.updateManager.canCheckForUpdates)
+            }
+        }
+
+        // Menu Bar (quick access)
         MenuBarExtra {
             MenuBarView(state: state)
         } label: {
             Image(nsImage: menuBarIcon())
         }
         .menuBarExtraStyle(.window)
-
-        Window("Settings", id: "settings") {
-            SettingsView(state: state)
-        }
-        .windowResizability(.contentSize)
     }
 
     private func menuBarIcon() -> NSImage {
@@ -35,6 +65,7 @@ struct PortKillerApp: App {
                FileManager.default.fileExists(atPath: url.path),
                let img = NSImage(contentsOf: url) {
                 img.size = NSSize(width: 18, height: 18)
+                img.isTemplate = true  // Enable template mode for monochrome menu bar icon
                 return img
             }
         }

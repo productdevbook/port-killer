@@ -1,9 +1,31 @@
 import Foundation
 import SwiftUI
-import ServiceManagement
 @preconcurrency import UserNotifications
-import HotKey
-import Carbon
+import Defaults
+import KeyboardShortcuts
+import Sparkle
+
+// MARK: - Defaults Keys
+
+extension Defaults.Keys {
+    static let favorites = Key<Set<Int>>("favorites", default: [])
+    static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
+    static let useTreeView = Key<Bool>("useTreeView", default: false)
+    static let refreshInterval = Key<Int>("refreshInterval", default: 5)
+
+    // Sponsor-related keys
+    static let sponsorCache = Key<SponsorCache?>("sponsorCache", default: nil)
+    static let lastSponsorWindowShown = Key<Date?>("lastSponsorWindowShown", default: nil)
+    static let sponsorDisplayInterval = Key<SponsorDisplayInterval>("sponsorDisplayInterval", default: .bimonthly)
+}
+
+// MARK: - Keyboard Shortcuts
+
+extension KeyboardShortcuts.Name {
+    static let toggleMainWindow = Self("toggleMainWindow", default: .init(.p, modifiers: [.command, .shift]))
+}
+
+// MARK: - App State
 
 @Observable
 @MainActor
@@ -12,45 +34,106 @@ final class AppState: NSObject {
     var ports: [PortInfo] = []
     var isScanning = false
 
-    // MARK: - Favorites (persisted as Set<Int>)
-    var favorites: Set<Int> = [] {
-        didSet { saveFavorites() }
+    // MARK: - Filter State (for main window)
+    var filter = PortFilter()
+    var selectedSidebarItem: SidebarItem = .allPorts
+    var selectedPortID: UUID? = nil
+
+    var selectedPort: PortInfo? {
+        guard let id = selectedPortID else { return nil }
+        return ports.first { $0.id == id }
     }
 
-    // MARK: - Watch (persisted)
-    var watchedPorts: [WatchedPort] = [] {
-        didSet { saveWatched() }
-    }
+    var filteredPorts: [PortInfo] {
+        // Early return for settings (no ports shown)
+        if case .settings = selectedSidebarItem { return [] }
 
-    // MARK: - Settings
-    var launchAtLogin: Bool {
-        get { SMAppService.mainApp.status == .enabled }
-        set {
-            do {
-                if newValue { try SMAppService.mainApp.register() }
-                else { try SMAppService.mainApp.unregister() }
-            } catch {}
+        var result: [PortInfo]
+
+        // Apply sidebar selection
+        switch selectedSidebarItem {
+        case .allPorts, .settings, .sponsors:
+            result = ports
+        case .favorites:
+            // Single pass: collect active favorites and track which ports are active
+            var activePorts = Set<Int>()
+            result = ports.compactMap { port -> PortInfo? in
+                guard favorites.contains(port.port) else { return nil }
+                activePorts.insert(port.port)
+                return port
+            }
+            // Add inactive favorites
+            for favPort in favorites where !activePorts.contains(favPort) {
+                result.append(PortInfo.inactive(port: favPort))
+            }
+        case .watched:
+            let watchedPortNumbers = Set(watchedPorts.map { $0.port })
+            // Single pass: collect active watched and track which ports are active
+            var activePorts = Set<Int>()
+            result = ports.compactMap { port -> PortInfo? in
+                guard watchedPortNumbers.contains(port.port) else { return nil }
+                activePorts.insert(port.port)
+                return port
+            }
+            // Add inactive watched
+            for watchedPort in watchedPortNumbers where !activePorts.contains(watchedPort) {
+                result.append(PortInfo.inactive(port: watchedPort))
+            }
+        case .processType(let type):
+            result = ports.filter { $0.processType == type }
         }
+
+        // Apply additional filters only if needed
+        if filter.isActive {
+            result = result.filter { filter.matches($0, favorites: favorites, watched: watchedPorts) }
+        }
+
+        return result
     }
 
-    // TODO: Hotkey feature disabled for now - will be improved in next version
-    var hotkeyEnabled: Bool = false
+    // MARK: - Favorites (cached for reactivity)
+    private var _favorites: Set<Int> = Defaults[.favorites] {
+        didSet { Defaults[.favorites] = _favorites }
+    }
+    var favorites: Set<Int> {
+        get { _favorites }
+        set { _favorites = newValue }
+    }
+
+    // MARK: - Watch (cached for reactivity)
+    private var _watchedPorts: [WatchedPort] = Defaults[.watchedPorts] {
+        didSet { Defaults[.watchedPorts] = _watchedPorts }
+    }
+    var watchedPorts: [WatchedPort] {
+        get { _watchedPorts }
+        set { _watchedPorts = newValue }
+    }
+
+    // MARK: - Update Manager
+    let updateManager = UpdateManager()
 
     // MARK: - Private
     private let scanner = PortScanner()
-    private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private nonisolated(unsafe) var refreshTask: Task<Void, Never>?
     private var previousPortStates: [Int: Bool] = [:]
-    // private var hotkey: HotKey?
-    private var notificationCenter: UNUserNotificationCenter { UNUserNotificationCenter.current() }
+    @ObservationIgnored
+    private lazy var notificationCenter: UNUserNotificationCenter? = {
+        // UNUserNotificationCenter only works in .app bundle
+        guard Bundle.main.bundleIdentifier != nil,
+              Bundle.main.bundlePath.hasSuffix(".app") else { return nil }
+        return UNUserNotificationCenter.current()
+    }()
 
     // MARK: - Init
     override init() {
         super.init()
-        loadFavorites()
-        loadWatched()
-        // setupHotkey() // Disabled for now
+        setupKeyboardShortcuts()
         setupNotifications()
         startAutoRefresh()
+    }
+
+    deinit {
+        refreshTask?.cancel()
     }
 
     // MARK: - Port Operations
@@ -94,11 +177,11 @@ final class AppState: NSObject {
 
     // MARK: - Auto Refresh
     private func startAutoRefresh() {
-        refreshTask = Task {
-            await refresh()
+        refreshTask = Task { @MainActor in
+            await self.refresh()
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
-                if !Task.isCancelled { await refresh() }
+                try? await Task.sleep(for: .seconds(Defaults[.refreshInterval]))
+                if !Task.isCancelled { await self.refresh() }
             }
         }
     }
@@ -110,14 +193,6 @@ final class AppState: NSObject {
     }
 
     func isFavorite(_ port: Int) -> Bool { favorites.contains(port) }
-
-    private func saveFavorites() {
-        UserDefaults.standard.set(Array(favorites), forKey: "favoritesV2")
-    }
-
-    private func loadFavorites() {
-        favorites = Set(UserDefaults.standard.array(forKey: "favoritesV2") as? [Int] ?? [])
-    }
 
     // MARK: - Watch
     func toggleWatch(_ port: Int) {
@@ -145,41 +220,52 @@ final class AppState: NSObject {
         watchedPorts.removeAll { $0.id == id }
     }
 
-    private func saveWatched() {
-        if let data = try? JSONEncoder().encode(watchedPorts) {
-            UserDefaults.standard.set(data, forKey: "watchedV2")
-        }
-    }
-
-    private func loadWatched() {
-        if let data = UserDefaults.standard.data(forKey: "watchedV2"),
-           let decoded = try? JSONDecoder().decode([WatchedPort].self, from: data) {
-            watchedPorts = decoded
-        }
-    }
-
     private func checkWatchedPorts() {
         let activePorts = Set(ports.map { $0.port })
         for w in watchedPorts {
             let isActive = activePorts.contains(w.port)
             if let wasActive = previousPortStates[w.port] {
                 if wasActive && !isActive && w.notifyOnStop {
-                    notify("Port \(w.port) Available", "Port is now free.")
+                    notify("Port \(String(w.port)) Available", "Port is now free.")
                 } else if !wasActive && isActive && w.notifyOnStart {
                     let name = ports.first { $0.port == w.port }?.processName ?? "Unknown"
-                    notify("Port \(w.port) In Use", "Used by \(name).")
+                    notify("Port \(String(w.port)) In Use", "Used by \(name).")
                 }
             }
             previousPortStates[w.port] = isActive
         }
     }
 
+    // MARK: - Keyboard Shortcuts
+    private func setupKeyboardShortcuts() {
+        KeyboardShortcuts.onKeyUp(for: .toggleMainWindow) { [weak self] in
+            Task { @MainActor in
+                self?.toggleMainWindow()
+            }
+        }
+    }
+
+    private func toggleMainWindow() {
+        if let window = NSApp.windows.first(where: { $0.title == "PortKiller" || $0.identifier?.rawValue == "main" }) {
+            if window.isVisible {
+                window.orderOut(nil)
+            } else {
+                NSApp.setActivationPolicy(.regular)
+                NSApp.activate(ignoringOtherApps: true)
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+            }
+        } else {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
     // MARK: - Notifications
     private func setupNotifications() {
-        guard Bundle.main.bundleIdentifier != nil else { return }
-        notificationCenter.delegate = self
-        Task.detached {
-            let center = UNUserNotificationCenter.current()
+        guard let center = notificationCenter else { return }
+        center.delegate = self
+        Task {
             let settings = await center.notificationSettings()
             if settings.authorizationStatus == .notDetermined {
                 _ = try? await center.requestAuthorization(options: [.alert, .sound])
@@ -188,36 +274,13 @@ final class AppState: NSObject {
     }
 
     private func notify(_ title: String, _ body: String) {
-        guard Bundle.main.bundleIdentifier != nil else { return }
+        guard let center = notificationCenter else { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
-        notificationCenter.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
-
-    // MARK: - Hotkey (Disabled for now)
-    /*
-    private func setupHotkey() {
-        hotkey = HotKey(key: .p, modifiers: [.command, .shift])
-        hotkey?.keyDownHandler = { [weak self] in
-            Task { @MainActor in self?.toggleMenuBar() }
-        }
-    }
-
-    private func toggleMenuBar() {
-        for window in NSApp.windows {
-            let className = String(describing: type(of: window))
-            if className.contains("NSStatusBarWindow") {
-                if let button = window.contentView?.subviews.compactMap({ $0 as? NSStatusBarButton }).first {
-                    button.performClick(nil)
-                    return
-                }
-            }
-        }
-        NSApp.activate(ignoringOtherApps: true)
-    }
-    */
 }
 
 // MARK: - UNUserNotificationCenterDelegate

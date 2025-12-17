@@ -11,22 +11,129 @@ permissions:
 jobs:
   build:
     name: Build and Release
-    runs-on: macos-14  # Apple Silicon runner
+    runs-on: macos-latest  # Apple Silicon runner
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
+      - name: Import Code Signing Certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Update version in Info.plist
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"  # Remove 'v' prefix (v1.2.4 -> 1.2.4)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+
+          # Update CFBundleShortVersionString
+          sed -i '' "s/<string>.*<\/string><!--VERSION-->/<string>${VERSION}<\/string><!--VERSION-->/" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" Resources/Info.plist
+
+          echo "Updated version to ${VERSION} (build ${BUILD_NUMBER})"
+
       - name: Build release binary
         run: swift build -c release
 
       - name: Create app bundle
         run: ./scripts/build-app.sh
+
+      - name: Sign app with Developer ID
+        env:
+          DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
+        run: |
+          APP_PATH=".build/release/PortKiller.app"
+          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
+          SPARKLE="$FRAMEWORKS_PATH/Sparkle.framework/Versions/B"
+
+          # Sign Sparkle framework components (inside out, bottom-up)
+          # Note: XPC services removed in build-app.sh for non-sandboxed apps
+          if [ -d "$FRAMEWORKS_PATH/Sparkle.framework" ]; then
+            echo "Signing Sparkle framework components..."
+
+            # Autoupdate binary
+            codesign --force --options runtime --timestamp \
+              --sign "$DEVELOPER_ID_NAME" \
+              "$SPARKLE/Autoupdate"
+
+            # Updater app
+            codesign --force --options runtime --timestamp \
+              --sign "$DEVELOPER_ID_NAME" \
+              "$SPARKLE/Updater.app"
+
+            # Main framework
+            codesign --force --options runtime --timestamp \
+              --sign "$DEVELOPER_ID_NAME" \
+              "$FRAMEWORKS_PATH/Sparkle.framework"
+          fi
+
+          # Sign main app
+          codesign --force --options runtime --timestamp \
+            --sign "$DEVELOPER_ID_NAME" \
+            "$APP_PATH"
+
+          # Verify signatures
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+      - name: Notarize app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          APP_PATH=".build/release/PortKiller.app"
+
+          # Create ZIP for notarization
+          ditto -c -k --keepParent "$APP_PATH" "PortKiller.zip"
+
+          # Submit for notarization and capture output
+          SUBMIT_OUTPUT=$(xcrun notarytool submit "PortKiller.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait 2>&1) || true
+
+          echo "$SUBMIT_OUTPUT"
+
+          # Extract submission ID and get detailed log if failed
+          SUBMISSION_ID=$(echo "$SUBMIT_OUTPUT" | grep -o 'id: [a-f0-9-]*' | head -1 | cut -d' ' -f2)
+          if echo "$SUBMIT_OUTPUT" | grep -q "Invalid"; then
+            echo "=== NOTARIZATION FAILED - Getting detailed log ==="
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID"
+            exit 1
+          fi
+
+          # Staple the notarization ticket
+          xcrun stapler staple "$APP_PATH"
+
+          # Cleanup
+          rm "PortKiller.zip"
 
       - name: Create DMG
         run: |
@@ -36,7 +143,8 @@ jobs:
 
           # Create temporary directory for DMG contents
           mkdir -p dmg_contents
-          cp -r .build/release/PortKiller.app dmg_contents/
+          # Use ditto to preserve symlinks and extended attributes
+          ditto .build/release/PortKiller.app dmg_contents/PortKiller.app
 
           # Create Applications symlink
           ln -s /Applications dmg_contents/Applications
@@ -52,22 +160,160 @@ jobs:
 
           echo "DMG_NAME=$DMG_NAME" >> $GITHUB_ENV
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Sign DMG
+        env:
+          DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
+        run: |
+          codesign --force --sign "$DEVELOPER_ID_NAME" --timestamp "$DMG_NAME"
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # DMG notarization is optional since the app inside is already notarized
+          # But we try anyway for best user experience
+          SUBMIT_OUTPUT=$(xcrun notarytool submit "$DMG_NAME" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait 2>&1) || true
+
+          echo "$SUBMIT_OUTPUT"
+
+          if echo "$SUBMIT_OUTPUT" | grep -q "Accepted"; then
+            xcrun stapler staple "$DMG_NAME" || echo "Stapling failed but continuing..."
+          else
+            echo "DMG notarization failed, but app inside is already notarized. Continuing..."
+          fi
+
+      - name: Generate Sparkle EdDSA signature
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Download Sparkle tools
+          curl -L -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.8.1/Sparkle-2.8.1.tar.xz"
+          mkdir -p sparkle_tools
+          tar -xf sparkle.tar.xz -C sparkle_tools
+
+          # Generate signature - extract only the signature value
+          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_private_key
+          SIGN_OUTPUT=$(sparkle_tools/bin/sign_update "$DMG_NAME" -f /tmp/sparkle_private_key)
+          rm /tmp/sparkle_private_key
+
+          # Extract just the base64 signature from output
+          SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"$//')
+          echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          files: ${{ env.DMG_NAME }}
-          body: |
-            ## PortKiller ${{ github.ref_name }}
+          node-version: lts/*
 
-            ### Installation
-            1. Download the DMG file below
-            2. Open the DMG and drag PortKiller to Applications
-            3. Launch from Applications or Spotlight
-
-            ### Requirements
-            - macOS 15.0+ (Sequoia)
-            - Apple Silicon Mac (M1/M2/M3/M4)
-          draft: false
-          prerelease: false
+      - name: Create GitHub Release with Changelog
+        run: |
+          npx changelogithub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload DMG to Release
+        run: |
+          gh release upload ${{ github.ref_name }} "$DMG_NAME" --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update appcast.xml
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"  # Remove 'v' prefix (v1.2.7 -> 1.2.7)
+          BUILD_NUMBER=$(git rev-list --count HEAD)  # Same as CFBundleVersion in app
+          DMG_SIZE=$(stat -f%z "$DMG_NAME")
+          DMG_URL="https://github.com/productdevbook/port-killer/releases/download/${GITHUB_REF_NAME}/${DMG_NAME}"
+
+          echo "Version: $VERSION, Build: $BUILD_NUMBER"
+
+          # Create or update appcast.xml
+          cat > appcast.xml << 'APPCAST_EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <channel>
+              <title>PortKiller Updates</title>
+              <link>https://github.com/productdevbook/port-killer</link>
+              <description>Most recent updates to PortKiller</description>
+              <language>en</language>
+              <item>
+                <title>Version VERSIONPLACEHOLDER</title>
+                <pubDate>DATEPLACEHOLDER</pubDate>
+                <sparkle:version>BUILDPLACEHOLDER</sparkle:version>
+                <sparkle:shortVersionString>VERSIONPLACEHOLDER</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                <enclosure
+                  url="URLPLACEHOLDER"
+                  length="SIZEPLACEHOLDER"
+                  type="application/octet-stream"
+                  sparkle:edSignature="SIGPLACEHOLDER" />
+              </item>
+            </channel>
+          </rss>
+          APPCAST_EOF
+
+          # Replace placeholders
+          sed -i '' "s|BUILDPLACEHOLDER|${BUILD_NUMBER}|g" appcast.xml
+          sed -i '' "s|VERSIONPLACEHOLDER|${VERSION}|g" appcast.xml
+          sed -i '' "s|DATEPLACEHOLDER|$(date -R)|g" appcast.xml
+          sed -i '' "s|URLPLACEHOLDER|${DMG_URL}|g" appcast.xml
+          sed -i '' "s|SIZEPLACEHOLDER|${DMG_SIZE}|g" appcast.xml
+          sed -i '' "s|SIGPLACEHOLDER|${SPARKLE_SIGNATURE}|g" appcast.xml
+
+      - name: Commit appcast.xml
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git add appcast.xml
+          git commit -m "chore: update appcast.xml for ${GITHUB_REF_NAME}" || echo "No changes to commit"
+          git push origin main
+
+      - name: Update Homebrew Tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          DMG_URL="https://github.com/productdevbook/port-killer/releases/download/${GITHUB_REF_NAME}/${DMG_NAME}"
+
+          # Get SHA256 of the DMG
+          SHA256=$(shasum -a 256 "$DMG_NAME" | cut -d' ' -f1)
+
+          # Clone homebrew-tap repo
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/productdevbook/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+
+          # Update cask formula
+          cat > Casks/portkiller.rb << EOF
+          cask "portkiller" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
+
+            url "https://github.com/productdevbook/port-killer/releases/download/v#{version}/PortKiller-v#{version}-arm64.dmg"
+            name "PortKiller"
+            desc "Menu bar app to find and kill processes running on open ports"
+            homepage "https://github.com/productdevbook/port-killer"
+
+            depends_on macos: ">= :sequoia"
+            depends_on arch: :arm64
+
+            app "PortKiller.app"
+
+            zap trash: [
+              "~/Library/Preferences/com.productdevbook.PortKiller.plist",
+              "~/Library/Caches/com.productdevbook.PortKiller",
+            ]
+          end
+          EOF
+
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/portkiller.rb
+          git commit -m "Update portkiller to ${VERSION}"
+          git push
