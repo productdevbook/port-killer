@@ -55,11 +55,11 @@ jobs:
 
           echo "Updated version to ${VERSION} (build ${BUILD_NUMBER})"
 
-      - name: Build release binary
-        run: swift build -c release
-
       - name: Create app bundle
-        run: ./scripts/build-app.sh
+        run: |
+          # Clean any cached build to ensure patched accessors are used
+          rm -rf .build/*/release/*.build/DerivedSources/resource_bundle_accessor.swift 2>/dev/null || true
+          ./scripts/build-app.sh
 
       - name: Sign app with Developer ID
         env:

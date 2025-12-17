@@ -21,8 +21,13 @@ for accessor in .build/*/release/*.build/DerivedSources/resource_bundle_accessor
     if [ -f "$accessor" ]; then
         # Check if already patched
         if ! grep -q "resourceURL" "$accessor"; then
-            bundle_name=$(basename "$(dirname "$(dirname "$accessor")")" .build)
-            echo "  → Patching $bundle_name"
+            # Extract target name from path (e.g., KeyboardShortcuts from KeyboardShortcuts.build)
+            target_name=$(basename "$(dirname "$(dirname "$accessor")")" .build)
+
+            # SPM bundle naming convention: PackageName_TargetName.bundle
+            # For most packages, package name = target name, so it's TargetName_TargetName
+            bundle_name="${target_name}_${target_name}"
+            echo "  → Patching $target_name (bundle: $bundle_name)"
 
             # Replace the simple accessor with one that checks resourceURL first
             cat > "$accessor" << 'ACCESSOR_EOF'
@@ -63,7 +68,7 @@ ACCESSOR_EOF
 
             # Force recompilation by removing compiled object files
             module_build_dir=$(dirname "$(dirname "$accessor")")
-            echo "  → Forcing recompilation of $bundle_name"
+            echo "  → Forcing recompilation of $target_name"
             rm -f "$module_build_dir"/*.o 2>/dev/null || true
             rm -f "$module_build_dir"/*.swiftmodule 2>/dev/null || true
         fi
