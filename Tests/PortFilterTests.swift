@@ -255,8 +255,8 @@ struct PortFilterTests {
         let matchingPort = createPort(port: 3000, processName: "node")
         #expect(filter.matches(matchingPort, favorites: [], watched: []))
 
-        // Fails search
-        let failsSearch = createPort(port: 3000, processName: "python")
+        // Fails search (command also shouldn't contain "node")
+        let failsSearch = createPort(port: 3000, processName: "python", command: "python app.py")
         #expect(!filter.matches(failsSearch, favorites: [], watched: []))
 
         // Fails range
