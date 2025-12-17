@@ -171,7 +171,7 @@ struct SettingsView: View {
                         SettingsDivider()
                         SettingsLinkRow(title: "Report Issue", subtitle: "Found a bug?", icon: "ladybug.fill", url: AppInfo.githubIssues)
                         SettingsDivider()
-                        SettingsLinkRow(title: "Twitter/X", subtitle: "@pdevbook", icon: "at", url: AppInfo.twitterURL)
+                        SettingsLinkRow(title: "Twitter/X", subtitle: "@productdevbook", icon: "at", url: AppInfo.twitterURL)
                     }
                 }
             }
