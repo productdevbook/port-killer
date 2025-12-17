@@ -271,7 +271,7 @@ struct ProcessGroupRow: View {
 				Spacer()
 				
 				// PID
-				Text("PID \(group.id)")
+				Text("PID \(String(group.id))")
 					.font(.caption2)
 					.foregroundStyle(.secondary)
 				
@@ -457,7 +457,7 @@ struct PortRow: View {
 				
 				Spacer()
 				
-				Text("PID \(port.pid)")
+				Text("PID \(String(port.pid))")
 					.font(.caption)
 					.foregroundStyle(.secondary)
 					.opacity(isKilling ? 0.5 : 1)

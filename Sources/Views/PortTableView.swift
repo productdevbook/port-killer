@@ -225,7 +225,7 @@ struct PortListRow: View {
             .frame(minWidth: 150, maxWidth: .infinity, alignment: .leading)
 
             // PID
-            Text(port.isActive ? "\(port.pid)" : "-")
+            Text(port.isActive ? String(port.pid) : "-")
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 70, alignment: .leading)
