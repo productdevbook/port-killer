@@ -1,0 +1,165 @@
+import SwiftUI
+
+// MARK: - Sponsors Page View (Full Page in Main Window)
+
+struct SponsorsPageView: View {
+    @Bindable var sponsorManager: SponsorManager
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 80, maximum: 100), spacing: 16)
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Header
+                HStack(spacing: 16) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.pink)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sponsors")
+                            .font(.title2)
+                            .fontWeight(.bold)
+
+                        Text("Thank you for supporting PortKiller!")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    if let url = URL(string: AppInfo.githubSponsors) {
+                        Link(destination: url) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "heart.fill")
+                                Text("Become a Sponsor")
+                            }
+                            .font(.callout)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.pink)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+
+                // Sponsors Grid
+                if sponsorManager.sponsors.isEmpty && !sponsorManager.isLoading {
+                    emptyState
+                } else {
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(sponsorManager.sponsors) { sponsor in
+                            SponsorCard(sponsor: sponsor)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+
+            }
+            .padding(.bottom, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .task {
+            if sponsorManager.sponsors.isEmpty {
+                await sponsorManager.refreshSponsors()
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            if sponsorManager.error != nil {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.secondary)
+
+                Text("Couldn't load sponsors")
+                    .font(.title2)
+                    .fontWeight(.medium)
+
+                Button("Try Again") {
+                    Task {
+                        await sponsorManager.refreshSponsors()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.secondary)
+
+                Text("Be the first sponsor!")
+                    .font(.title2)
+                    .fontWeight(.medium)
+
+                if let url = URL(string: AppInfo.githubSponsors) {
+                    Link("Become a Sponsor", destination: url)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.pink)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(60)
+    }
+}
+
+// MARK: - Sponsor Card
+
+struct SponsorCard: View {
+    let sponsor: Sponsor
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            AsyncImage(url: URL(string: sponsor.avatarUrl)) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure:
+                    Image(systemName: "person.circle.fill")
+                        .resizable()
+                        .foregroundStyle(.secondary)
+                case .empty:
+                    ProgressView()
+                @unknown default:
+                    EmptyView()
+                }
+            }
+            .frame(width: 48, height: 48)
+            .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+            )
+            .scaleEffect(isHovered ? 1.08 : 1.0)
+
+            Text(sponsor.displayName)
+                .font(.caption)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .frame(width: 80)
+        .padding(10)
+        .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
+        .cornerRadius(8)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .onTapGesture {
+            if let url = sponsor.profileUrl {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        .help("@\(sponsor.login)")
+    }
+}

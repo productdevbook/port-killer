@@ -3,13 +3,17 @@ import ApplicationServices
 @preconcurrency import UserNotifications
 import Sparkle
 import LaunchAtLogin
+import Defaults
 
 struct SettingsView: View {
     @Bindable var state: AppState
     @ObservedObject var updateManager: UpdateManager
+    @Environment(SponsorManager.self) var sponsorManager
+    @Environment(\.openWindow) private var openWindow
     @State private var hasAccessibility = AXIsProcessTrusted()
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var permissionCheckTimer: Timer?
+    @State private var sponsorDisplayInterval = Defaults[.sponsorDisplayInterval]
 
     var body: some View {
         ScrollView {
@@ -187,6 +191,56 @@ struct SettingsView: View {
                                 set: { updateManager.automaticallyDownloadsUpdates = $0 }
                             )
                         )
+                    }
+                }
+
+                // MARK: - Sponsors
+                SettingsGroup("Sponsors", icon: "heart.fill") {
+                    VStack(spacing: 0) {
+                        SettingsRowContainer {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Show Sponsors Window")
+                                        .fontWeight(.medium)
+                                    Text("How often to display the sponsors window")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Picker("", selection: $sponsorDisplayInterval) {
+                                    ForEach(SponsorDisplayInterval.allCases, id: \.self) { interval in
+                                        Text(interval.localizedName).tag(interval)
+                                    }
+                                }
+                                .frame(width: 130)
+                                .onChange(of: sponsorDisplayInterval) { _, newValue in
+                                    Defaults[.sponsorDisplayInterval] = newValue
+                                }
+                            }
+                        }
+
+                        SettingsDivider()
+
+                        SettingsRowContainer {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("View Sponsors")
+                                        .fontWeight(.medium)
+                                    Text("See all current supporters")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Button("Show Window") {
+                                    sponsorManager.showSponsorsWindow()
+                                    openWindow(id: "sponsors")
+                                }
+                            }
+                        }
                     }
                 }
 

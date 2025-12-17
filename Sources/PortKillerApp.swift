@@ -3,6 +3,8 @@ import SwiftUI
 @main
 struct PortKillerApp: App {
     @State private var state = AppState()
+    @State private var sponsorManager = SponsorManager()
+    @Environment(\.openWindow) private var openWindow
 
     init() {
         // Disable automatic window tabbing (prevents Chrome-like tabs)
@@ -14,12 +16,25 @@ struct PortKillerApp: App {
         Window("PortKiller", id: "main") {
             MainWindowView()
                 .environment(state)
+                .environment(sponsorManager)
+                .task {
+                    try? await Task.sleep(for: .seconds(3))
+                    sponsorManager.checkAndShowIfNeeded()
+                }
+                .onChange(of: sponsorManager.shouldShowWindow) { _, shouldShow in
+                    if shouldShow {
+                        state.selectedSidebarItem = .sponsors
+                        NSApp.activate(ignoringOtherApps: true)
+                        openWindow(id: "main")
+                        sponsorManager.markWindowShown()
+                    }
+                }
         }
         .windowStyle(.automatic)
         .defaultSize(width: 1000, height: 600)
         .commands {
             CommandGroup(replacing: .newItem) {} // Disable Cmd+N
-            
+
             CommandGroup(after: .appInfo) {
 				Button("Check for Updates...", systemImage: "arrow.triangle.2.circlepath") {
 					state.updateManager.checkForUpdates()

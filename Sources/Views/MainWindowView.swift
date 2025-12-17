@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
+    @Environment(SponsorManager.self) private var sponsorManager
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showKillAllConfirmation = false
 
@@ -60,12 +61,18 @@ struct MainWindowView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        if appState.selectedSidebarItem == .settings {
+        switch appState.selectedSidebarItem {
+        case .settings:
             SettingsView(state: appState, updateManager: appState.updateManager)
                 .id("settings")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationSplitViewColumnWidth(min: 400, ideal: 600, max: .infinity)
-        } else {
+        case .sponsors:
+            SponsorsPageView(sponsorManager: sponsorManager)
+                .id("sponsors")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationSplitViewColumnWidth(min: 400, ideal: 600, max: .infinity)
+        default:
             VStack(spacing: 0) {
                 PortTableView()
 
@@ -77,7 +84,7 @@ struct MainWindowView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        if appState.selectedSidebarItem == .settings {
+        if appState.selectedSidebarItem == .settings || appState.selectedSidebarItem == .sponsors {
             EmptyView()
         } else if let selectedPort = appState.selectedPort {
             PortDetailView(port: selectedPort)

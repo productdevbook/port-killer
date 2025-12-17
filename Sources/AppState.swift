@@ -12,6 +12,11 @@ extension Defaults.Keys {
     static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
     static let useTreeView = Key<Bool>("useTreeView", default: false)
     static let refreshInterval = Key<Int>("refreshInterval", default: 5)
+
+    // Sponsor-related keys
+    static let sponsorCache = Key<SponsorCache?>("sponsorCache", default: nil)
+    static let lastSponsorWindowShown = Key<Date?>("lastSponsorWindowShown", default: nil)
+    static let sponsorDisplayInterval = Key<SponsorDisplayInterval>("sponsorDisplayInterval", default: .bimonthly)
 }
 
 // MARK: - Keyboard Shortcuts
@@ -47,7 +52,7 @@ final class AppState: NSObject {
 
         // Apply sidebar selection
         switch selectedSidebarItem {
-        case .allPorts, .settings:
+        case .allPorts, .settings, .sponsors:
             result = ports
         case .favorites:
             // Single pass: collect active favorites and track which ports are active

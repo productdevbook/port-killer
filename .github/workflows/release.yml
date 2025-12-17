@@ -44,6 +44,8 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
 
       - name: Update version in Info.plist
+        env:
+          GITHUB_SPONSORS_TOKEN: ${{ secrets.GITHUB_SPONSORS_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"  # Remove 'v' prefix (v1.2.4 -> 1.2.4)
           BUILD_NUMBER=$(git rev-list --count HEAD)
@@ -52,6 +54,12 @@ jobs:
           sed -i '' "s/<string>.*<\/string><!--VERSION-->/<string>${VERSION}<\/string><!--VERSION-->/" Resources/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" Resources/Info.plist
+
+          # Inject GitHub Sponsors token (if available)
+          if [ -n "$GITHUB_SPONSORS_TOKEN" ]; then
+            /usr/libexec/PlistBuddy -c "Set :GitHubSponsorsToken ${GITHUB_SPONSORS_TOKEN}" Resources/Info.plist
+            echo "Injected GitHub Sponsors token"
+          fi
 
           echo "Updated version to ${VERSION} (build ${BUILD_NUMBER})"
 

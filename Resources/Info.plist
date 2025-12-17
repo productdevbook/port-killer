@@ -35,5 +35,8 @@
     <string>F/FTbv7ZnucHLHqUmAF0w3peyir2Jxsf1k3J5TU85U0=</string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
+    <!-- GitHub Sponsors API Token (injected during CI build) -->
+    <key>GitHubSponsorsToken</key>
+    <string></string>
 </dict>
 </plist>
