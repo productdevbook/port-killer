@@ -72,6 +72,15 @@ enum PortForwardStatus: String, Sendable {
 
 // MARK: - Connection Runtime State
 
+/// A single log entry for a port-forward connection
+struct PortForwardLogEntry: Identifiable, Sendable {
+    let id = UUID()
+    let timestamp: Date
+    let message: String
+    let type: PortForwardProcessType
+    let isError: Bool
+}
+
 /// Runtime state for a port-forward connection (not persisted)
 @Observable
 @MainActor
@@ -83,6 +92,20 @@ final class PortForwardConnectionState: Identifiable, Hashable {
     var portForwardTask: Task<Void, Never>?
     var proxyTask: Task<Void, Never>?
     var lastError: String?
+    var logs: [PortForwardLogEntry] = []
+
+    func appendLog(_ message: String, type: PortForwardProcessType, isError: Bool = false) {
+        let entry = PortForwardLogEntry(timestamp: Date(), message: message, type: type, isError: isError)
+        logs.append(entry)
+        // Keep only last 500 log entries
+        if logs.count > 500 {
+            logs.removeFirst(logs.count - 500)
+        }
+    }
+
+    func clearLogs() {
+        logs.removeAll()
+    }
 
     /// Whether the connection is fully established (port-forward + optional proxy)
     var isFullyConnected: Bool {

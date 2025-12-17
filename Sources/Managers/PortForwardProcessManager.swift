@@ -32,10 +32,22 @@ enum KubectlError: Error, LocalizedError, Sendable {
 
 // MARK: - Process Manager Actor
 
+/// Callback for log output from port-forward processes
+typealias LogHandler = @Sendable (String, PortForwardProcessType, Bool) -> Void
+
 actor PortForwardProcessManager {
     private var processes: [UUID: [PortForwardProcessType: Process]] = [:]
     private var outputTasks: [UUID: [PortForwardProcessType: Task<Void, Never>]] = [:]
     private var connectionErrors: [UUID: Date] = [:]
+    private var logHandlers: [UUID: LogHandler] = [:]
+
+    func setLogHandler(for id: UUID, handler: @escaping LogHandler) {
+        logHandlers[id] = handler
+    }
+
+    func removeLogHandler(for id: UUID) {
+        logHandlers.removeValue(forKey: id)
+    }
 
     // MARK: - Port Forward
 
@@ -228,6 +240,11 @@ actor PortForwardProcessManager {
 
                         if isError {
                             await self?.markConnectionError(id: id)
+                        }
+
+                        // Send log to handler
+                        if let handler = await self?.logHandlers[id] {
+                            handler(line, type, isError)
                         }
                     }
                 }

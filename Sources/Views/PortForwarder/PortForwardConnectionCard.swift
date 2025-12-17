@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PortForwardConnectionCard: View {
     let connection: PortForwardConnectionState
+    var isSelected: Bool = false
+    var onSelect: (() -> Void)?
     @Environment(AppState.self) private var appState
     @State private var isExpanded = false
 
@@ -130,9 +132,7 @@ struct PortForwardConnectionCard: View {
             .padding(12)
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    isExpanded.toggle()
-                }
+                onSelect?()
             }
 
             if isExpanded {
@@ -143,11 +143,11 @@ struct PortForwardConnectionCard: View {
                     .padding(12)
             }
         }
-        .background(statusColor.opacity(0.05))
+        .background(isSelected ? Color.accentColor.opacity(0.1) : statusColor.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(statusColor.opacity(0.3), lineWidth: 1)
+                .stroke(isSelected ? Color.accentColor : statusColor.opacity(0.3), lineWidth: isSelected ? 2 : 1)
         )
     }
 }

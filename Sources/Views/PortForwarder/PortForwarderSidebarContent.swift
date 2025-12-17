@@ -3,67 +3,85 @@ import SwiftUI
 struct PortForwarderSidebarContent: View {
     @Environment(AppState.self) private var appState
     @State private var discoveryManager: KubernetesDiscoveryManager?
+    @State private var selectedConnectionId: UUID?
+
+    private var selectedConnection: PortForwardConnectionState? {
+        guard let id = selectedConnectionId else { return nil }
+        return appState.portForwardManager.connections.first { $0.id == id }
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with action buttons
-            HStack {
-                Text("K8s Port Forward")
-                    .font(.headline)
+        HSplitView {
+            // Left: Connection list
+            VStack(spacing: 0) {
+                // Header with action buttons
+                HStack {
+                    Text("Connections")
+                        .font(.headline)
 
-                Spacer()
+                    Spacer()
 
-                Button {
-                    let config = PortForwardConnectionConfig(
-                        name: "New Connection",
-                        namespace: "default",
-                        service: "service-name",
-                        localPort: 8080,
-                        remotePort: 80
-                    )
-                    appState.portForwardManager.addConnection(config)
-                } label: {
-                    Label("Add", systemImage: "plus.circle.fill")
-                }
-                .buttonStyle(.bordered)
-                .help("Add Connection")
-
-                Button {
-                    let dm = KubernetesDiscoveryManager(processManager: appState.portForwardManager.processManager)
-                    Task { await dm.loadNamespaces() }
-                    discoveryManager = dm
-                } label: {
-                    Label("Import", systemImage: "square.and.arrow.down.fill")
-                }
-                .buttonStyle(.bordered)
-                .disabled(!DependencyChecker.shared.allRequiredInstalled)
-                .help("Import from Kubernetes")
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-
-            Divider()
-
-            // Dependency warning banner
-            if !DependencyChecker.shared.allRequiredInstalled {
-                DependencyWarningBanner()
-            }
-
-            // Main content
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Connection cards
-                    ForEach(appState.portForwardManager.connections) { connection in
-                        PortForwardConnectionCard(connection: connection)
+                    Button {
+                        let config = PortForwardConnectionConfig(
+                            name: "New Connection",
+                            namespace: "default",
+                            service: "service-name",
+                            localPort: 8080,
+                            remotePort: 80
+                        )
+                        appState.portForwardManager.addConnection(config)
+                    } label: {
+                        Label("Add", systemImage: "plus.circle.fill")
                     }
+                    .buttonStyle(.bordered)
+                    .help("Add Connection")
+
+                    Button {
+                        let dm = KubernetesDiscoveryManager(processManager: appState.portForwardManager.processManager)
+                        Task { await dm.loadNamespaces() }
+                        discoveryManager = dm
+                    } label: {
+                        Label("Import", systemImage: "square.and.arrow.down.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!DependencyChecker.shared.allRequiredInstalled)
+                    .help("Import from Kubernetes")
                 }
-                .padding(20)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+
+                // Dependency warning banner
+                if !DependencyChecker.shared.allRequiredInstalled {
+                    DependencyWarningBanner()
+                }
+
+                // Main content
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Connection cards
+                        ForEach(appState.portForwardManager.connections) { connection in
+                            PortForwardConnectionCard(
+                                connection: connection,
+                                isSelected: selectedConnectionId == connection.id,
+                                onSelect: { selectedConnectionId = connection.id }
+                            )
+                        }
+                    }
+                    .padding(16)
+                }
+
+                Divider()
+
+                // Status bar
+                PortForwarderStatusBar()
             }
+            .frame(minWidth: 350)
 
-            Divider()
-
-            // Status bar
-            PortForwarderStatusBar()
+            // Right: Log panel
+            ConnectionLogPanel(connection: selectedConnection)
+                .frame(minWidth: 300)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(item: $discoveryManager) { dm in
@@ -78,6 +96,113 @@ struct PortForwarderSidebarContent: View {
                 }
             )
         }
+    }
+}
+
+// MARK: - Log Panel
+
+struct ConnectionLogPanel: View {
+    let connection: PortForwardConnectionState?
+
+    private static let dateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "HH:mm:ss"
+        return df
+    }()
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                if let conn = connection {
+                    Text("Logs: \(conn.config.name)")
+                        .font(.headline)
+                } else {
+                    Text("Logs")
+                        .font(.headline)
+                }
+
+                Spacer()
+
+                if let conn = connection, !conn.logs.isEmpty {
+                    Button {
+                        conn.clearLogs()
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Clear Logs")
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Divider()
+
+            if let conn = connection {
+                if conn.logs.isEmpty {
+                    VStack(spacing: 8) {
+                        Spacer()
+                        Image(systemName: "text.alignleft")
+                            .font(.system(size: 32))
+                            .foregroundStyle(.tertiary)
+                        Text("No logs yet")
+                            .foregroundStyle(.secondary)
+                        Text("Logs will appear when the connection is active")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                    }
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 2) {
+                                ForEach(conn.logs) { log in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text(Self.dateFormatter.string(from: log.timestamp))
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(.tertiary)
+
+                                        Text(log.type == .portForward ? "kubectl" : "socat")
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(log.type == .portForward ? .blue : .purple)
+                                            .frame(width: 50, alignment: .leading)
+
+                                        Text(log.message)
+                                            .font(.system(.caption, design: .monospaced))
+                                            .foregroundStyle(log.isError ? .red : .primary)
+                                            .textSelection(.enabled)
+                                    }
+                                    .id(log.id)
+                                }
+                            }
+                            .padding(12)
+                        }
+                        .onChange(of: conn.logs.count) {
+                            if let lastLog = conn.logs.last {
+                                withAnimation {
+                                    proxy.scrollTo(lastLog.id, anchor: .bottom)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                VStack(spacing: 8) {
+                    Spacer()
+                    Image(systemName: "sidebar.right")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.tertiary)
+                    Text("Select a connection")
+                        .foregroundStyle(.secondary)
+                    Text("Click on a connection to view its logs")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                }
+            }
+        }
+        .background(Color(nsColor: .textBackgroundColor))
     }
 }
 

@@ -120,6 +120,15 @@ final class PortForwardManager {
         guard let state = connections.first(where: { $0.id == id }) else { return }
         let config = state.config
 
+        // Set up log handler
+        Task {
+            await processManager.setLogHandler(for: id) { [weak state] message, type, isError in
+                Task { @MainActor in
+                    state?.appendLog(message, type: type, isError: isError)
+                }
+            }
+        }
+
         state.portForwardStatus = .connecting
         state.portForwardTask = Task {
             await runPortForward(for: state, config: config)
@@ -137,7 +146,10 @@ final class PortForwardManager {
         state.portForwardTask = nil
         state.portForwardStatus = .disconnected
 
-        Task { await processManager.killProcesses(for: id) }
+        Task {
+            await processManager.killProcesses(for: id)
+            await processManager.removeLogHandler(for: id)
+        }
     }
 
     func restartConnection(_ id: UUID) {
