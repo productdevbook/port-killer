@@ -1,6 +1,11 @@
 # Binary
 portkiller
 portkiller.exe
+portkiller-*
+
+# Archives
+*.tar.gz
+*.zip
 
 # Go build artifacts
 *.test

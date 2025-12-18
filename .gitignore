@@ -51,3 +51,10 @@ docs
 # Node.js / Bun
 node_modules/
 bun.lockb
+
+# Go / CLI
+cli/portkiller
+cli/portkiller.exe
+cli/portkiller-*
+cli/*.tar.gz
+cli/*.zip

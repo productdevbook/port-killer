@@ -4,13 +4,26 @@ A fast, cross-platform CLI tool to find and kill processes listening on ports.
 
 ## Installation
 
-### From Source
+### Homebrew (macOS/Linux)
+
+```bash
+brew tap productdevbook/tap
+brew install portkiller-cli
+```
+
+### Quick Install (macOS/Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/productdevbook/port-killer/main/cli/install.sh | sh
+```
+
+### Go Install
 
 ```bash
 go install github.com/productdevbook/port-killer/cli@latest
 ```
 
-### From Releases
+### Manual Download
 
 Download the binary for your platform from [Releases](https://github.com/productdevbook/port-killer/releases).
 
@@ -53,21 +66,31 @@ portkiller kill 3000 --force
 
 | Platform | Status |
 |----------|--------|
-| macOS    | ✅     |
-| Linux    | ✅     |
-| Windows  | ✅     |
+| macOS (Apple Silicon) | ✅ |
+| macOS (Intel) | ✅ |
+| Linux (x64) | ✅ |
+| Linux (ARM64) | ✅ |
+| Windows (x64) | ✅ |
 
-## Building
+## Building from Source
 
 ```bash
+cd cli
+
 # Build for current platform
 go build -o portkiller .
 
 # Cross-compile
-GOOS=linux GOARCH=amd64 go build -o portkiller-linux .
-GOOS=windows GOARCH=amd64 go build -o portkiller.exe .
-GOOS=darwin GOARCH=arm64 go build -o portkiller-mac .
+GOOS=linux GOARCH=amd64 go build -o portkiller-linux-amd64 .
+GOOS=linux GOARCH=arm64 go build -o portkiller-linux-arm64 .
+GOOS=darwin GOARCH=amd64 go build -o portkiller-darwin-amd64 .
+GOOS=darwin GOARCH=arm64 go build -o portkiller-darwin-arm64 .
+GOOS=windows GOARCH=amd64 go build -o portkiller-windows-amd64.exe .
 ```
+
+## Related
+
+- [PortKiller GUI](https://github.com/productdevbook/port-killer) - macOS menu bar app with the same functionality
 
 ## License
 
