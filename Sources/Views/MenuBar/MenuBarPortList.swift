@@ -30,12 +30,15 @@ struct MenuBarPortList: View {
                     }
                 }
 
-                // Port Forward connections
+                // Port Forward connections grouped by namespace
                 if !filteredPortForwardConnections.isEmpty {
                     sectionHeader("K8s Port Forward", icon: "point.3.connected.trianglepath.dotted", color: .blue)
 
-                    ForEach(filteredPortForwardConnections) { connection in
-                        MenuBarPortForwardRow(connection: connection, state: state)
+                    ForEach(connectionsByNamespace, id: \.namespace) { group in
+                        namespaceHeader(group.namespace, count: group.connections.count)
+                        ForEach(group.connections) { connection in
+                            MenuBarPortForwardRow(connection: connection, state: state)
+                        }
                     }
                 }
 
@@ -70,6 +73,29 @@ struct MenuBarPortList: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(Color.primary.opacity(0.03))
+    }
+
+    private var connectionsByNamespace: [(namespace: String, connections: [PortForwardConnectionState])] {
+        let grouped = Dictionary(grouping: filteredPortForwardConnections) { $0.config.namespace }
+        return grouped.map { (namespace: $0.key, connections: $0.value) }
+            .sorted { $0.namespace < $1.namespace }
+    }
+
+    private func namespaceHeader(_ namespace: String, count: Int) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "folder.fill")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Text(namespace)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Text("(\(count))")
+                .font(.caption2)
+                .foregroundStyle(.quaternary)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
     }
 
     /// Empty state shown when no ports are found
