@@ -21,17 +21,26 @@ struct MenuBarPortList: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // Port Forward connections first
+                // Active Cloudflare Tunnels
+                if !state.tunnelManager.tunnels.isEmpty {
+                    sectionHeader("Cloudflare Tunnels", icon: "cloud.fill", color: .orange)
+
+                    ForEach(state.tunnelManager.tunnels) { tunnel in
+                        MenuBarTunnelRow(tunnel: tunnel, state: state)
+                    }
+                }
+
+                // Port Forward connections
                 if !filteredPortForwardConnections.isEmpty {
                     sectionHeader("K8s Port Forward", icon: "point.3.connected.trianglepath.dotted", color: .blue)
 
                     ForEach(filteredPortForwardConnections) { connection in
-                        PortForwardRow(connection: connection, state: state)
+                        MenuBarPortForwardRow(connection: connection, state: state)
                     }
                 }
 
                 // Normal ports
-                if filteredPorts.isEmpty && filteredPortForwardConnections.isEmpty {
+                if filteredPorts.isEmpty && filteredPortForwardConnections.isEmpty && state.tunnelManager.tunnels.isEmpty {
                     emptyState
                 } else if !filteredPorts.isEmpty {
                     sectionHeader("Local Ports", icon: "network", color: .green)
@@ -79,7 +88,7 @@ struct MenuBarPortList: View {
     /// Tree view groups ports by process
     private var treeView: some View {
         ForEach(groupedByProcess) { group in
-            ProcessGroupRow(
+            MenuBarProcessGroupRow(
                 group: group,
                 isExpanded: expandedProcesses.contains(group.id),
                 onToggleExpand: {
@@ -102,7 +111,7 @@ struct MenuBarPortList: View {
     /// List view shows flat list of ports
     private var listView: some View {
         ForEach(filteredPorts) { port in
-            PortRow(port: port, state: state, confirmingKill: $confirmingKillPort)
+            MenuBarPortRow(port: port, state: state, confirmingKill: $confirmingKillPort)
         }
     }
 }

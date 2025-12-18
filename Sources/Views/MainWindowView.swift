@@ -18,7 +18,7 @@ struct MainWindowView: View {
                 .navigationSplitViewColumnWidth(min: 300, ideal: 400, max: .infinity)
         } detail: {
             detailView
-                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+                .navigationSplitViewColumnWidth(min: 400, ideal: 500, max: 600)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
@@ -80,6 +80,11 @@ struct MainWindowView: View {
                 .id("port-forwarder")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationSplitViewColumnWidth(min: 400, ideal: 600, max: .infinity)
+        case .cloudflareTunnels:
+            CloudflareTunnelsView()
+                .id("cloudflare-tunnels")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .navigationSplitViewColumnWidth(min: 400, ideal: 600, max: .infinity)
         default:
             VStack(spacing: 0) {
                 PortTableView()
@@ -92,7 +97,7 @@ struct MainWindowView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        if appState.selectedSidebarItem == .settings || appState.selectedSidebarItem == .sponsors {
+        if appState.selectedSidebarItem == .settings || appState.selectedSidebarItem == .sponsors || appState.selectedSidebarItem == .cloudflareTunnels {
             EmptyView()
         } else if appState.selectedSidebarItem == .kubernetesPortForward {
             ConnectionLogPanel(connection: appState.selectedPortForwardConnection)

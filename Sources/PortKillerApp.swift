@@ -46,9 +46,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return .terminateNow
         }
 
-        // Kill all port-forward connections before terminating
+        // Kill all port-forward connections and tunnels before terminating
         Task {
             await appState.portForwardManager.killStuckProcesses()
+            await appState.tunnelManager.stopAllTunnels()
             await MainActor.run {
                 NSApp.reply(toApplicationShouldTerminate: true)
             }

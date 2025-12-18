@@ -22,6 +22,7 @@ struct SidebarView: View {
 
             Section("Networking") {
                 kubernetesPortForwardRow
+                cloudflareTunnelsRow
             }
 
             Section("Process Types") {
@@ -159,6 +160,33 @@ struct SidebarView: View {
         .tag(SidebarItem.kubernetesPortForward)
     }
 
+    // MARK: - Cloudflare Tunnels Row
+
+    private var cloudflareTunnelsRow: some View {
+        Label {
+            HStack {
+                Text("Cloudflare Tunnels")
+                Spacer()
+
+                // Status indicator
+                if appState.tunnelManager.activeTunnelCount > 0 {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                }
+
+                Text("\(appState.tunnelManager.tunnels.count)")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                    .frame(minWidth: 20)
+            }
+        } icon: {
+            Image(systemName: "cloud.fill")
+                .foregroundStyle(.orange)
+        }
+        .tag(SidebarItem.cloudflareTunnels)
+    }
+
     // MARK: - Standard Row
 
     private func sidebarRow(_ item: SidebarItem, count: Int) -> some View {
@@ -188,12 +216,12 @@ struct SidebarView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack(spacing: 8) {
-                    TextField("Min", value: $state.filter.minPort, format: .number)
+                    TextField("Min", value: $state.filter.minPort, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 60)
                     Text("-")
                         .foregroundStyle(.secondary)
-                    TextField("Max", value: $state.filter.maxPort, format: .number)
+                    TextField("Max", value: $state.filter.maxPort, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 60)
                 }

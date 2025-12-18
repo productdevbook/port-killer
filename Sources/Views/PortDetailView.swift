@@ -180,6 +180,11 @@ struct PortDetailView: View {
                     .buttonStyle(.bordered)
                 }
 
+                // Tunnel section
+                if port.isActive {
+                    tunnelSection
+                }
+
                 Button(role: .destructive) {
                     showKillConfirmation = true
                 } label: {
@@ -189,6 +194,35 @@ struct PortDetailView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var tunnelSection: some View {
+        if !appState.tunnelManager.isCloudflaredInstalled {
+            CloudflaredMissingBanner()
+        } else if let tunnel = appState.tunnelManager.tunnelState(for: port.port) {
+            TunnelStatusBadge(
+                tunnel: tunnel,
+                onCopyURL: {
+                    appState.tunnelManager.copyURL(for: port.port)
+                },
+                onStop: {
+                    appState.tunnelManager.stopTunnel(for: port.port)
+                }
+            )
+        } else {
+            Button {
+                appState.tunnelManager.startTunnel(for: port.port, portInfoId: port.id)
+            } label: {
+                HStack {
+                    Image(systemName: "cloud.fill")
+                    Text("Share via Tunnel")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .help("Create a public URL for this port via Cloudflare Tunnel")
         }
     }
 
