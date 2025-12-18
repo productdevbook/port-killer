@@ -10,10 +10,10 @@ let package = Package(
         .executable(name: "PortKiller", targets: ["PortKiller"])
     ],
     dependencies: [
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.0.0"),
-        .package(url: "https://github.com/sindresorhus/Defaults", from: "8.0.0"),
-        .package(url: "https://github.com/sindresorhus/LaunchAtLogin-Modern", from: "1.0.0"),
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.8.0")
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.4.0"),
+        .package(url: "https://github.com/sindresorhus/Defaults", from: "9.0.0"),
+        .package(url: "https://github.com/sindresorhus/LaunchAtLogin-Modern", from: "1.1.0"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.8.1")
     ],
     targets: [
         .executableTarget(
@@ -31,7 +31,8 @@ let package = Package(
         ),
         .testTarget(
             name: "PortKillerTests",
-            dependencies: ["PortKiller"]
+            dependencies: ["PortKiller"],
+            path: "Tests"
         )
     ]
 )

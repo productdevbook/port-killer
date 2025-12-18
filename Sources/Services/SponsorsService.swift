@@ -4,19 +4,19 @@ import Foundation
 actor SponsorsService {
     private let sponsorsURL = URL(string: "https://raw.githubusercontent.com/productdevbook/static/main/sponsors.json")!
 
-    enum SponsorsError: Error, LocalizedError {
-        case networkError(Error)
+    enum SponsorsError: Error, LocalizedError, Sendable {
+        case networkError(String)
         case invalidResponse
-        case decodingError(Error)
+        case decodingError(String)
 
         var errorDescription: String? {
             switch self {
-            case .networkError(let error):
-                return "Network error: \(error.localizedDescription)"
+            case .networkError(let description):
+                return "Network error: \(description)"
             case .invalidResponse:
                 return "Invalid response from server"
-            case .decodingError(let error):
-                return "Failed to parse sponsors: \(error.localizedDescription)"
+            case .decodingError(let description):
+                return "Failed to parse sponsors: \(description)"
             }
         }
     }
@@ -33,7 +33,7 @@ actor SponsorsService {
         do {
             return try JSONDecoder().decode([Sponsor].self, from: data)
         } catch {
-            throw SponsorsError.decodingError(error)
+            throw SponsorsError.decodingError(error.localizedDescription)
         }
     }
 }

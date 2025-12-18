@@ -1,9 +1,37 @@
 import Foundation
 
+/**
+ * PortScanner is a Swift actor that safely scans system ports and manages process termination.
+ *
+ * This actor provides thread-safe port scanning and process killing operations.
+ * It uses system commands (lsof, ps, kill) to interact with the operating system.
+ *
+ * Key responsibilities:
+ * - Scan all listening TCP ports using lsof
+ * - Retrieve full command information for processes using ps
+ * - Kill processes gracefully (SIGTERM then SIGKILL)
+ * - Parse lsof output into structured PortInfo objects
+ *
+ * Thread Safety:
+ * This is an actor, so all methods are isolated and can be called safely from any context.
+ */
 actor PortScanner {
     private let descriptionService = ProcessDescriptionService()
 
-    /// Scan all listening TCP ports using lsof
+    /**
+     * Scans all listening TCP ports using lsof.
+     *
+     * Executes: `lsof -iTCP -sTCP:LISTEN -P -n +c 0`
+     *
+     * Flags explained:
+     * - -iTCP: Show only TCP connections
+     * - -sTCP:LISTEN: Show only listening sockets
+     * - -P: Show port numbers (don't resolve to service names)
+     * - -n: Show IP addresses (don't resolve to hostnames)
+     * - +c 0: Show full command name (unlimited length)
+     *
+     * @returns Array of PortInfo objects representing all listening ports
+     */
     func scanPorts() async -> [PortInfo] {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
@@ -29,7 +57,16 @@ actor PortScanner {
         }
     }
 
-    /// Get full command lines for processes using ps
+    /**
+     * Retrieves full command line information for all processes.
+     *
+     * Executes: `ps -axo pid,command`
+     *
+     * This provides more detailed command information than lsof alone.
+     * Commands longer than 200 characters are truncated with "...".
+     *
+     * @returns Dictionary mapping PID to full command string
+     */
     private func getProcessCommands() async -> [Int: String] {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
@@ -42,8 +79,11 @@ actor PortScanner {
         do {
             try process.run()
 
-            // IMPORTANT: Read data BEFORE waitUntilExit to avoid deadlock
-            // If pipe buffer fills up, ps will block waiting to write
+            // CRITICAL: Read data BEFORE waitUntilExit to avoid deadlock
+            // Explanation: If the pipe buffer fills up (common with large process lists),
+            // ps will block waiting to write more data. If we call waitUntilExit first,
+            // we'll wait forever for ps to finish, but ps is waiting for us to read the pipe.
+            // Reading first prevents this deadlock.
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
 
@@ -72,27 +112,47 @@ actor PortScanner {
         }
     }
 
-    /// Parse lsof output into PortInfo array
+    /**
+     * Parses lsof command output into structured PortInfo objects.
+     *
+     * Expected lsof output format:
+     * ```
+     * COMMAND    PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+     * node     34805  code   19u  IPv6 0x3d8015e195af1f3f      0t0  TCP [::1]:3000 (LISTEN)
+     * ```
+     *
+     * This method:
+     * 1. Skips the header line
+     * 2. Parses each line to extract process and port information
+     * 3. Handles escaped characters in process names (e.g., "Code\x20H" → "Code H")
+     * 4. Merges with command information from ps
+     * 5. Deduplicates entries (same port + PID)
+     *
+     * @param output - Raw string output from lsof command
+     * @param commands - Dictionary of PID to full command string from ps
+     * @returns Array of unique PortInfo objects, sorted by port number
+     */
     private func parseLsofOutput(_ output: String, commands: [Int: String]) async -> [PortInfo] {
         var ports: [PortInfo] = []
         var seen: Set<String> = []
         let lines = output.components(separatedBy: .newlines)
 
-        // Skip header line
+        // Skip header line and process each data line
         for line in lines.dropFirst() {
             guard !line.isEmpty else { continue }
 
-            // Parse: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+            // Parse lsof output columns:
+            // COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
             // Example: node      34805 code   19u  IPv6 0x3d8015e195af1f3f      0t0  TCP [::1]:3000 (LISTEN)
             let components = line.split(separator: " ", omittingEmptySubsequences: true)
             guard components.count >= 9 else { continue }
 
-            // Process name (handle escaped names like "Code\x20H")
+            // Extract process name and handle escaped characters
+            // lsof escapes special characters: "Code Helper" → "Code\x20Helper"
             var processName = String(components[0])
-            // Decode escaped characters
             processName = processName
-                .replacingOccurrences(of: "\\x20", with: " ")
-                .replacingOccurrences(of: "\\x2f", with: "/")
+                .replacingOccurrences(of: "\\x20", with: " ")  // Space
+                .replacingOccurrences(of: "\\x2f", with: "/")  // Slash
 
             guard let pid = Int(components[1]) else { continue }
 
@@ -102,11 +162,14 @@ actor PortScanner {
             // File descriptor
             let fd = String(components[3])
 
-            // NAME is near the end, before (LISTEN)
-            // Find the address:port part (second to last or contains ":")
+            // Extract the NAME column (address:port)
+            // It's usually the second-to-last column, before "(LISTEN)"
+            // Format: "127.0.0.1:3000", "*:8080", or "[::1]:3000"
+            // We search backwards to find a component with ":" that isn't a device ID
             var addressPart = ""
             for i in stride(from: components.count - 1, through: 8, by: -1) {
                 let comp = String(components[i])
+                // Skip device IDs (0x...) and sizes (0t...)
                 if comp.contains(":") && !comp.hasPrefix("0x") && !comp.hasPrefix("0t") {
                     addressPart = comp
                     break
@@ -132,13 +195,27 @@ actor PortScanner {
         return ports.sorted { $0.port < $1.port }
     }
 
-    /// Parse address string like "127.0.0.1:3000" or "*:8080"
+    /**
+     * Parses an address:port string into a PortInfo object.
+     *
+     * Handles multiple address formats:
+     * - IPv4: "127.0.0.1:3000" or "*:8080"
+     * - IPv6: "[::1]:3000" or "[fe80::1]:8080"
+     *
+     * @param address - The address:port string to parse
+     * @param processName - Name of the process using the port
+     * @param pid - Process ID
+     * @param user - User running the process
+     * @param command - Full command line of the process
+     * @param fd - File descriptor number
+     * @returns PortInfo object or nil if parsing fails
+     */
     private func parseAddress(_ address: String, processName: String, pid: Int, user: String, command: String, fd: String) async -> PortInfo? {
-        // Handle formats: "127.0.0.1:3000", "*:8080", "[::1]:3000"
         let parts: [String]
 
         if address.hasPrefix("[") {
-            // IPv6: [::1]:3000
+            // IPv6 format: [::1]:3000
+            // Split on the closing bracket to separate address from port
             guard let bracketEnd = address.firstIndex(of: "]") else { return nil }
             let afterBracket = address.index(after: bracketEnd)
             guard afterBracket < address.endIndex, address[afterBracket] == ":" else { return nil }
@@ -147,6 +224,7 @@ actor PortScanner {
             let port = String(address[portStart...])
             parts = [addr, port]
         } else {
+            // IPv4 format: 127.0.0.1:3000 or *:8080
             parts = address.components(separatedBy: ":")
         }
 
@@ -172,7 +250,15 @@ actor PortScanner {
         )
     }
 
-    /// Kill a process by PID
+    /**
+     * Kills a process by sending a termination signal.
+     *
+     * Executes: `kill -15 <PID>` (SIGTERM) or `kill -9 <PID>` (SIGKILL)
+     *
+     * @param pid - The process ID to kill
+     * @param force - If true, sends SIGKILL (-9) instead of SIGTERM (-15)
+     * @returns True if the kill command executed successfully (exit code 0)
+     */
     func killProcess(pid: Int, force: Bool = false) async -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/kill")
@@ -187,16 +273,32 @@ actor PortScanner {
         }
     }
 
-    /// Kill process, try graceful first then force
+    /**
+     * Attempts to kill a process gracefully, falling back to force kill if needed.
+     *
+     * Strategy:
+     * 1. Send SIGTERM (graceful shutdown signal)
+     * 2. Wait 500ms for process to clean up
+     * 3. Send SIGKILL (immediate termination)
+     *
+     * This two-stage approach allows processes to:
+     * - Close file handles properly
+     * - Flush buffers to disk
+     * - Send shutdown notifications
+     * - Clean up temporary resources
+     *
+     * @param pid - The process ID to kill
+     * @returns True if either kill command succeeded
+     */
     func killProcessGracefully(pid: Int) async -> Bool {
-        // Try SIGTERM first
+        // Try SIGTERM first (allows graceful shutdown)
         let graceful = await killProcess(pid: pid, force: false)
         if graceful {
-            // Wait a bit and check if process is gone
+            // Give the process time to clean up (500ms grace period)
             try? await Task.sleep(for: .milliseconds(500))
         }
 
-        // Force kill if still running
+        // Force kill with SIGKILL (immediate termination)
         return await killProcess(pid: pid, force: true)
     }
 }

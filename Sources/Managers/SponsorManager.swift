@@ -50,8 +50,8 @@ final class SponsorManager {
 
         // Refresh sponsors in background if cache is stale
         if Defaults[.sponsorCache]?.isStale ?? true {
-            Task {
-                await refreshSponsors()
+            Task { @MainActor in
+                await self.refreshSponsors()
             }
         }
     }

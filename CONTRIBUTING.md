@@ -1,76 +1,59 @@
-# Contributing to PortKiller
+# Contributing
 
-Thank you for your interest in contributing to PortKiller! This document provides guidelines and instructions for contributing.
+## Requirements
 
-## How to Contribute
+- **macOS 15.0+** - This is a macOS-only menu bar app
+- **Xcode 16+** with Swift 6.0
 
-### Reporting Bugs
-
-1. Check if the bug has already been reported in [Issues](https://github.com/productdevbook/port-killer/issues)
-2. If not, create a new issue with:
-   - Clear, descriptive title
-   - Steps to reproduce the bug
-   - Expected vs actual behavior
-   - macOS version and Mac model
-   - Any relevant screenshots
-
-### Suggesting Features
-
-1. Check existing issues for similar suggestions
-2. Create a new issue with:
-   - Clear description of the feature
-   - Use case / why it would be useful
-   - Any implementation ideas (optional)
-
-### Pull Requests
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes
-4. Test your changes thoroughly
-5. Commit with clear messages
-6. Push to your fork
-7. Open a Pull Request
-
-## Development Setup
-
-### Requirements
-
-- macOS 15.0+ (Sequoia)
-- Xcode 16+ with Swift 6.0
-
-### Building
+## Setup
 
 ```bash
-# Clone your fork
-git clone https://github.com/YOUR_USERNAME/port-killer.git
+git clone https://github.com/productdevbook/port-killer.git
 cd port-killer
-
-# Debug build
-swift build
-
-# Run directly
-swift run PortKiller
-
-# Create app bundle
-./scripts/build-app.sh
-open .build/release/PortKiller.app
 ```
+
+## Running the App
+
+```bash
+# Option 1: Xcode (recommended)
+open Package.swift
+# Press ▶️ to run
+
+# Option 2: Build script
+./scripts/build-app.sh && open .build/release/PortKiller.app
+```
+
+> ⚠️ `swift run` doesn't work for menu bar apps - use Xcode or the build script.
+
+## Building
+
+```bash
+swift build              # Debug
+swift build -c release   # Release
+./scripts/build-app.sh   # App bundle
+```
+
+## Pull Requests
+
+1. Fork the repo
+2. Create a branch (`git checkout -b feature/my-feature`)
+3. Make changes and test locally
+4. Commit (`git commit -m "feat: add feature"`)
+5. Push and create PR
 
 ## Code Style
 
-### Swift Guidelines
+- Swift 6.0 with strict concurrency
+- SwiftUI for UI
+- `@Observable` for state management
+- Keep files under 300 lines
 
-- Use Swift 6.0 features and strict concurrency
-- All UI code should be `@MainActor` isolated
-- Use actors for thread-safe operations
-- Follow Apple's Swift API Design Guidelines
+## Project Structure
 
-### Comments
-
-- Write comments in English
-- Document public APIs with `///` doc comments
-
-## Questions?
-
-Feel free to open an issue for any questions about contributing.
+```
+Sources/
+├── PortKillerApp.swift    # Entry point
+├── Managers/              # State & scanning
+├── Models/                # Data models
+└── Views/                 # SwiftUI views
+```

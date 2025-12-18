@@ -11,11 +11,14 @@ struct MainWindowView: View {
 
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView()
+                .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
         } content: {
             contentView
                 .searchable(text: $state.filter.searchText, prompt: "Search ports, processes...")
+                .navigationSplitViewColumnWidth(min: 300, ideal: 400, max: .infinity)
         } detail: {
             detailView
+                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {

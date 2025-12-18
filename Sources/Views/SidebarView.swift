@@ -44,7 +44,6 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .frame(minWidth: 200)
     }
 
     // MARK: - Favorites Row

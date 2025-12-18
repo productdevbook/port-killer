@@ -11,26 +11,52 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
-echo "🔨 Building release binary (first pass)..."
+# First build to fetch dependencies
+echo "🔨 Building release binary (fetching dependencies)..."
 swift build -c release
 
-# Patch SPM resource bundle accessors to check resourceURL (Contents/Resources) first
-# SPM generates accessors that only check bundleURL (app root), but macOS apps use Contents/Resources
-echo "🔧 Patching resource bundle accessors..."
-for accessor in .build/*/release/*.build/DerivedSources/resource_bundle_accessor.swift; do
-    if [ -f "$accessor" ]; then
-        # Check if already patched
-        if ! grep -q "resourceURL" "$accessor"; then
-            bundle_name=$(basename "$(dirname "$(dirname "$accessor")")" .build)
-            echo "  → Patching $bundle_name"
+# Patch the CHECKOUT source files directly (not DerivedSources which gets regenerated)
+# This patches the actual library code before the final build
+echo "🔧 Patching library source files for macOS app bundle compatibility..."
 
-            # Replace the simple accessor with one that checks resourceURL first
-            cat > "$accessor" << 'ACCESSOR_EOF'
+# Create a helper file that will be included to fix Bundle.module
+BUNDLE_FIX_CODE='
+// Patched Bundle.module accessor for macOS app bundles
+// This extension takes precedence over SPM-generated one due to same-module compilation
+private func findResourceBundle(named bundleName: String) -> Bundle? {
+    // For macOS app bundles: check Contents/Resources first
+    if let resourceURL = Bundle.main.resourceURL {
+        let bundlePath = resourceURL.appendingPathComponent("\(bundleName).bundle").path
+        if let bundle = Bundle(path: bundlePath) {
+            return bundle
+        }
+    }
+
+    // Fallback: check app root (Bundle.main.bundleURL)
+    let mainPath = Bundle.main.bundleURL.appendingPathComponent("\(bundleName).bundle").path
+    if let bundle = Bundle(path: mainPath) {
+        return bundle
+    }
+
+    return nil
+}
+'
+
+# Patch KeyboardShortcuts - add resourceURL check to its Utilities.swift
+KS_UTILS=".build/checkouts/KeyboardShortcuts/Sources/KeyboardShortcuts/Utilities.swift"
+if [ -f "$KS_UTILS" ] && ! grep -q "resourceURL" "$KS_UTILS"; then
+    echo "  → Patching KeyboardShortcuts/Utilities.swift"
+    # Make file writable
+    chmod +w "$KS_UTILS"
+    # Add the fix at the beginning of the file
+    cat > /tmp/ks_patch.swift << 'PATCH_EOF'
 import Foundation
 
+// PATCHED: Fix Bundle.module for macOS app bundles
+// SPM's generated accessor doesn't check Contents/Resources
 extension Foundation.Bundle {
-    static let module: Bundle = {
-        let bundleName = "BUNDLE_NAME_PLACEHOLDER"
+    static var modulePatched: Bundle {
+        let bundleName = "KeyboardShortcuts_KeyboardShortcuts"
 
         // For macOS app bundles: check Contents/Resources first
         if let resourceURL = Bundle.main.resourceURL {
@@ -40,37 +66,62 @@ extension Foundation.Bundle {
             }
         }
 
-        // Fallback: check app root (Bundle.main.bundleURL)
+        // Fallback: check app root
         let mainPath = Bundle.main.bundleURL.appendingPathComponent("\(bundleName).bundle").path
         if let bundle = Bundle(path: mainPath) {
             return bundle
         }
 
-        // Development fallback: check build directory
-        #if DEBUG
-        let buildPath = Bundle.main.bundleURL.appendingPathComponent("\(bundleName).bundle").path
-        if let bundle = Bundle(path: buildPath) {
-            return bundle
-        }
-        #endif
-
-        Swift.fatalError("could not load resource bundle: \(bundleName)")
-    }()
+        // Development: use SPM's generated accessor as last resort
+        return module
+    }
 }
-ACCESSOR_EOF
-            # Replace placeholder with actual bundle name
-            sed -i '' "s/BUNDLE_NAME_PLACEHOLDER/${bundle_name}/" "$accessor"
 
-            # Force recompilation by removing compiled object files
-            module_build_dir=$(dirname "$(dirname "$accessor")")
-            echo "  → Forcing recompilation of $bundle_name"
-            rm -f "$module_build_dir"/*.o 2>/dev/null || true
-            rm -f "$module_build_dir"/*.swiftmodule 2>/dev/null || true
-        fi
+// Patch String.localized to use modulePatched
+extension String {
+    var localizedPatched: String {
+        NSLocalizedString(self, bundle: .modulePatched, comment: self)
+    }
+}
+
+PATCH_EOF
+    # Prepend patch to the file
+    cat /tmp/ks_patch.swift "$KS_UTILS" > /tmp/ks_utils_patched.swift
+    cp /tmp/ks_utils_patched.swift "$KS_UTILS"
+
+    # Replace ".localized" (as property, not part of localizedStringWithFormat) with .localizedPatched
+    KS_RECORDER=".build/checkouts/KeyboardShortcuts/Sources/KeyboardShortcuts/RecorderCocoa.swift"
+    if [ -f "$KS_RECORDER" ]; then
+        echo "  → Patching KeyboardShortcuts/RecorderCocoa.swift"
+        chmod +w "$KS_RECORDER"
+        # Only replace .localized when followed by non-word char (not localizedStringWithFormat)
+        sed -i '' 's/\.localized\([^A-Za-z]\)/.localizedPatched\1/g' "$KS_RECORDER"
+        # Also handle .localized at end of line
+        sed -i '' 's/\.localized$/.localizedPatched/g' "$KS_RECORDER"
+    fi
+fi
+
+# Also patch any other files that use .localized in KeyboardShortcuts
+for ks_file in .build/checkouts/KeyboardShortcuts/Sources/KeyboardShortcuts/*.swift; do
+    if [ -f "$ks_file" ] && grep -q '".*"\.localized' "$ks_file" && ! grep -q 'localizedPatched' "$ks_file"; then
+        echo "  → Patching $(basename "$ks_file")"
+        chmod +w "$ks_file"
+        sed -i '' 's/\.localized\([^A-Za-z]\)/.localizedPatched\1/g' "$ks_file"
+        sed -i '' 's/\.localized$/.localizedPatched/g' "$ks_file"
     fi
 done
 
-echo "🔨 Building release binary (second pass with patched accessors)..."
+# Touch patched files to ensure SPM sees them as modified
+echo "🔄 Updating timestamps on patched files..."
+touch .build/checkouts/KeyboardShortcuts/Sources/KeyboardShortcuts/*.swift 2>/dev/null || true
+
+# Remove compiled KeyboardShortcuts objects and executable to force recompilation
+echo "🧹 Forcing recompilation..."
+rm -f .build/*/release/KeyboardShortcuts.build/*.o 2>/dev/null || true
+rm -f .build/*/release/PortKiller
+rm -rf .build/*/release/*.bundle
+
+echo "🔨 Building release binary with patched sources..."
 swift build -c release
 
 echo "📦 Creating app bundle..."
@@ -92,12 +143,12 @@ if [ -f "Resources/AppIcon.icns" ]; then
     cp "Resources/AppIcon.icns" "$RESOURCES_DIR/"
 fi
 
-# Copy all SPM resource bundles to Contents/Resources
+# Copy all SPM resource bundles to Contents/Resources (use ditto to preserve symlinks)
 for bundle in "$BUILD_DIR"/*.bundle; do
     if [ -d "$bundle" ]; then
         bundle_name=$(basename "$bundle")
         echo "  → Copying $bundle_name"
-        cp -r "$bundle" "$RESOURCES_DIR/"
+        ditto "$bundle" "$RESOURCES_DIR/$bundle_name"
     fi
 done
 
@@ -128,6 +179,32 @@ install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS_DIR/$APP_N
 # Verify bundles were copied
 echo "📂 Contents of $RESOURCES_DIR:"
 ls -la "$RESOURCES_DIR/"
+
+# Verify patched accessor is in binary (checks for resourceURL which is only in patched version)
+echo "🔍 Verifying patched accessor..."
+if strings "$MACOS_DIR/$APP_NAME" | grep -q "resourceURL"; then
+    echo "  ✅ Patched accessor verified in binary"
+else
+    echo "  ❌ ERROR: Accessor not patched correctly! Binary still uses original SPM accessor."
+    echo "  The app will crash when trying to load resource bundles."
+    exit 1
+fi
+
+# Verify required bundles exist
+echo "🔍 Verifying resource bundles..."
+MISSING_BUNDLES=0
+for bundle in KeyboardShortcuts_KeyboardShortcuts Defaults_Defaults; do
+    if [ -d "$RESOURCES_DIR/${bundle}.bundle" ]; then
+        echo "  ✅ ${bundle}.bundle"
+    else
+        echo "  ❌ Missing: ${bundle}.bundle"
+        MISSING_BUNDLES=1
+    fi
+done
+if [ $MISSING_BUNDLES -eq 1 ]; then
+    echo "  ERROR: Some resource bundles are missing!"
+    exit 1
+fi
 
 echo "🔏 Signing app bundle..."
 codesign --force --deep --sign - "$APP_DIR"

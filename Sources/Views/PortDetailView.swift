@@ -28,7 +28,6 @@ struct PortDetailView: View {
             }
             .padding()
         }
-        .frame(minWidth: 300)
         .confirmationDialog(
             "Kill Process",
             isPresented: $showKillConfirmation

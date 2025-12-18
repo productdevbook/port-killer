@@ -56,7 +56,7 @@ struct PortFilter: Equatable, Sendable {
     }
 }
 
-enum SidebarItem: Hashable, Identifiable {
+enum SidebarItem: Hashable, Identifiable, Sendable {
     case allPorts
     case favorites
     case watched

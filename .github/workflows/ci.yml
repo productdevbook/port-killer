@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'Package.swift'
+      - '.github/workflows/ci.yml'
+    tags-ignore:
+      - 'v*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Sources/**'
+      - 'Tests/**'
+      - 'Package.swift'
+      - '.github/workflows/ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build (Debug)
+        run: swift build 2>&1 | tee build.log
+
+      - name: Check for warnings
+        run: |
+          if grep -q "warning:" build.log; then
+            echo "::warning::Compiler warnings found:"
+            grep "warning:" build.log
+          else
+            echo "No compiler warnings."
+          fi
+
+      - name: Build (Release)
+        run: swift build -c release
+
+      - name: Run Tests
+        run: swift test --parallel
+
+      - name: Build App Bundle
+        run: |
+          echo "Testing app bundle creation..."
+          ./scripts/build-app.sh
+
+          # Verify bundle structure
+          APP=".build/release/PortKiller.app"
+          [ -f "$APP/Contents/MacOS/PortKiller" ] || { echo "Missing executable"; exit 1; }
+          [ -f "$APP/Contents/Info.plist" ] || { echo "Missing Info.plist"; exit 1; }
+          [ -d "$APP/Contents/Frameworks/Sparkle.framework" ] || { echo "Missing Sparkle framework"; exit 1; }
+
+          # Verify SPM resource bundles in Contents/Resources (patched accessor looks here)
+          [ -d "$APP/Contents/Resources/KeyboardShortcuts_KeyboardShortcuts.bundle" ] || { echo "Missing KeyboardShortcuts bundle"; exit 1; }
+          [ -d "$APP/Contents/Resources/Defaults_Defaults.bundle" ] || { echo "Missing Defaults bundle"; exit 1; }
+          echo "App bundle structure verified."
+
+  lint:
+    name: Lint & Validate
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Validate Package.swift
+        run: |
+          echo "Validating Package.swift..."
+          swift package describe > /dev/null
+          echo "✓ Package structure is valid"
+
+      - name: Check dependencies
+        run: |
+          echo "Dependencies:"
+          swift package show-dependencies --format flatlist
+
+      - name: Check for TODO/FIXME comments
+        run: |
+          echo "Checking for TODO/FIXME comments..."
+          TODOS=$(grep -rn "TODO\|FIXME" Sources/ --include="*.swift" || true)
+          if [ -n "$TODOS" ]; then
+            echo "::notice::Found TODO/FIXME comments (not blocking):"
+            echo "$TODOS"
+          else
+            echo "✓ No TODO/FIXME comments found"
+          fi
+
+      - name: Check file line counts
+        run: |
+          echo "Checking for files over 300 lines..."
+          FOUND=0
+          while IFS= read -r file; do
+            LINES=$(wc -l < "$file" | tr -d ' ')
+            if [ "$LINES" -gt 300 ]; then
+              echo "::warning file=$file::$file has $LINES lines (max 300)"
+              FOUND=1
+            fi
+          done < <(find Sources -name "*.swift")
+
+          if [ "$FOUND" -eq 0 ]; then
+            echo "✓ All files are within 300 line limit"
+          fi
+
+      - name: Verify documentation headers
+        run: |
+          echo "Checking for documentation headers..."
+          MISSING=""
+          while IFS= read -r file; do
+            # Check first 10 lines for doc comments
+            if ! head -10 "$file" | grep -qE "^///|^/\*\*|^\s*\*"; then
+              MISSING="$MISSING$file\n"
+            fi
+          done < <(find Sources -name "*.swift")
+
+          if [ -n "$MISSING" ]; then
+            echo "::notice::Files without documentation headers:"
+            echo -e "$MISSING"
+          else
+            echo "✓ All files have documentation headers"
+          fi
+
+      - name: Check for print statements
+        run: |
+          echo "Checking for debug print statements..."
+          PRINTS=$(grep -rn "print(" Sources/ --include="*.swift" | grep -v "// DEBUG" || true)
+          if [ -n "$PRINTS" ]; then
+            echo "::notice::Found print statements (consider removing):"
+            echo "$PRINTS" | head -10
+          else
+            echo "✓ No print statements found"
+          fi
