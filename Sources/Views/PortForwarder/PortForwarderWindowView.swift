@@ -22,7 +22,7 @@ struct PortForwarderWindowView: View {
                     Label("Settings", systemImage: "gear")
                 }
         }
-        .frame(width: 900, height: 650)
+        .frame(minWidth: 850, idealWidth: 1000, minHeight: 600, idealHeight: 700)
         .sheet(item: $discoveryManager) { dm in
             ServiceBrowserView(
                 discoveryManager: dm,

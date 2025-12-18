@@ -16,6 +16,16 @@ struct ConnectionEditSection: View {
     @State private var isEnabled: Bool = true
     @State private var useDirectExec: Bool = true
 
+    // Kubernetes discovery
+    @State private var namespaces: [KubernetesNamespace] = []
+    @State private var services: [KubernetesService] = []
+    @State private var isLoadingNamespaces = false
+    @State private var isLoadingServices = false
+    @State private var showNamespacePicker = false
+    @State private var showServicePicker = false
+    @State private var namespaceSearch = ""
+    @State private var serviceSearch = ""
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -41,8 +51,19 @@ struct ConnectionEditSection: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
-        .onAppear { loadFromConnection() }
+        .onAppear {
+            loadFromConnection()
+            loadNamespaces()
+            if !connection.config.namespace.isEmpty {
+                loadServices(for: connection.config.namespace)
+            }
+        }
         .onChange(of: connection.id) { loadFromConnection() }
+        .onChange(of: isExpanded) { _, expanded in
+            if expanded && namespaces.isEmpty {
+                loadNamespaces()
+            }
+        }
         .onChange(of: name) { saveToConnection() }
         .onChange(of: namespace) { saveToConnection() }
         .onChange(of: service) { saveToConnection() }
@@ -116,18 +137,139 @@ struct ConnectionEditSection: View {
                     Image(systemName: "folder")
                         .foregroundStyle(.tertiary)
                         .frame(width: 16, height: 22, alignment: .center)
-                    TextField("namespace", text: $namespace)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 140)
+
+                    // Namespace picker
+                    Button {
+                        showNamespacePicker.toggle()
+                    } label: {
+                        HStack {
+                            Text(namespace.isEmpty ? "namespace" : namespace)
+                                .foregroundStyle(namespace.isEmpty ? .tertiary : .primary)
+                            Spacer()
+                            if isLoadingNamespaces {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .foregroundStyle(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: 140)
+                    .popover(isPresented: $showNamespacePicker, arrowEdge: .bottom) {
+                        SearchablePickerView(
+                            items: namespaces.map(\.name),
+                            selection: namespace,
+                            isLoading: isLoadingNamespaces,
+                            placeholder: "Search namespaces...",
+                            onSelect: { selected in
+                                namespace = selected
+                                loadServices(for: selected)
+                                showNamespacePicker = false
+                            },
+                            onRefresh: { loadNamespaces() }
+                        )
+                    }
 
                     Image(systemName: "server.rack")
                         .foregroundStyle(.tertiary)
                         .frame(width: 16, height: 22, alignment: .center)
-                    TextField("service-name", text: $service)
-                        .textFieldStyle(.roundedBorder)
+
+                    // Service picker
+                    Button {
+                        showServicePicker.toggle()
+                    } label: {
+                        HStack {
+                            Text(service.isEmpty ? "service" : service)
+                                .foregroundStyle(service.isEmpty ? .tertiary : .primary)
+                            Spacer()
+                            if isLoadingServices {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .foregroundStyle(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showServicePicker, arrowEdge: .bottom) {
+                        SearchablePickerView(
+                            items: services.map(\.name),
+                            selection: service,
+                            isLoading: isLoadingServices,
+                            placeholder: "Search services...",
+                            onSelect: { selected in
+                                service = selected
+                                // Auto-fill remote port
+                                if let svc = services.first(where: { $0.name == selected }),
+                                   let firstPort = svc.ports.first {
+                                    remotePort = String(firstPort.port)
+                                }
+                                showServicePicker = false
+                            },
+                            onRefresh: { loadServices(for: namespace) }
+                        )
+                    }
                 }
             }
             .font(.system(.body, design: .monospaced))
+        }
+    }
+
+    // MARK: - Kubernetes Loading
+
+    private func loadNamespaces() {
+        isLoadingNamespaces = true
+        Task {
+            do {
+                let result = try await appState.portForwardManager.processManager.fetchNamespaces()
+                await MainActor.run {
+                    namespaces = result
+                    isLoadingNamespaces = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingNamespaces = false
+                }
+            }
+        }
+    }
+
+    private func loadServices(for ns: String) {
+        isLoadingServices = true
+        services = []
+        Task {
+            do {
+                let result = try await appState.portForwardManager.processManager.fetchServices(namespace: ns)
+                await MainActor.run {
+                    services = result
+                    isLoadingServices = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingServices = false
+                }
+            }
         }
     }
 
@@ -295,5 +437,127 @@ struct ConnectionEditSection: View {
             useDirectExec: useDirectExec
         )
         appState.portForwardManager.updateConnection(newConfig)
+    }
+}
+
+// MARK: - Searchable Picker View
+
+private struct SearchablePickerView: View {
+    let items: [String]
+    let selection: String
+    let isLoading: Bool
+    let placeholder: String
+    let onSelect: (String) -> Void
+    let onRefresh: () -> Void
+
+    @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
+
+    private var filteredItems: [String] {
+        if searchText.isEmpty {
+            return items
+        }
+        return items.filter { $0.localizedCaseInsensitiveContains(searchText) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Search field
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField(placeholder, text: $searchText)
+                    .textFieldStyle(.plain)
+                    .focused($isSearchFocused)
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(8)
+            .background(Color(nsColor: .controlBackgroundColor))
+
+            Divider()
+
+            // List
+            if isLoading {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Loading...")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding()
+            } else if filteredItems.isEmpty {
+                VStack(spacing: 8) {
+                    if items.isEmpty {
+                        Text("No items")
+                            .foregroundStyle(.secondary)
+                        Button("Refresh") { onRefresh() }
+                            .buttonStyle(.bordered)
+                    } else {
+                        Text("No matches")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredItems, id: \.self) { item in
+                            Button {
+                                onSelect(item)
+                            } label: {
+                                HStack {
+                                    if item == selection {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(.blue)
+                                            .frame(width: 16)
+                                    } else {
+                                        Color.clear.frame(width: 16)
+                                    }
+                                    Text(item)
+                                        .font(.system(.body, design: .monospaced))
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .background(item == selection ? Color.accentColor.opacity(0.1) : Color.clear)
+                        }
+                    }
+                }
+                .frame(maxHeight: 200)
+            }
+
+            Divider()
+
+            // Refresh button
+            Button {
+                onRefresh()
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Refresh")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .background(Color(nsColor: .controlBackgroundColor))
+        }
+        .frame(width: 220)
+        .onAppear {
+            isSearchFocused = true
+        }
     }
 }

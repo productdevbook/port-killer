@@ -118,7 +118,7 @@ struct ConnectionsTab: View {
 
             // Right: Log viewer
             ConnectionLogPanel(connection: selectedConnection)
-                .frame(minWidth: 300)
+                .frame(minWidth: 450)
         }
     }
 }
