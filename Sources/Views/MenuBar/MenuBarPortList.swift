@@ -35,7 +35,7 @@ struct MenuBarPortList: View {
                     sectionHeader("K8s Port Forward", icon: "point.3.connected.trianglepath.dotted", color: .blue)
 
                     ForEach(filteredPortForwardConnections) { connection in
-                        PortForwardRow(connection: connection, state: state)
+                        MenuBarPortForwardRow(connection: connection, state: state)
                     }
                 }
 
@@ -88,7 +88,7 @@ struct MenuBarPortList: View {
     /// Tree view groups ports by process
     private var treeView: some View {
         ForEach(groupedByProcess) { group in
-            ProcessGroupRow(
+            MenuBarProcessGroupRow(
                 group: group,
                 isExpanded: expandedProcesses.contains(group.id),
                 onToggleExpand: {
@@ -111,7 +111,7 @@ struct MenuBarPortList: View {
     /// List view shows flat list of ports
     private var listView: some View {
         ForEach(filteredPorts) { port in
-            PortRow(port: port, state: state, confirmingKill: $confirmingKillPort)
+            MenuBarPortRow(port: port, state: state, confirmingKill: $confirmingKillPort)
         }
     }
 }

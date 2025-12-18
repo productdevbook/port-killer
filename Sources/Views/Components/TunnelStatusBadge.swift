@@ -6,85 +6,75 @@ struct TunnelStatusBadge: View {
     let onStop: () -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
-            // Status indicator
-            Circle()
-                .fill(statusColor)
-                .frame(width: 6, height: 6)
+        HStack(spacing: 8) {
+            // Main content area
+            HStack(spacing: 8) {
+                // Status indicator
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
 
-            if tunnel.status == .active, let url = tunnel.tunnelURL {
-                // Show shortened URL
-                Text(shortenedURL(url))
-                    .font(.caption)
-                    .foregroundStyle(.blue)
-                    .lineLimit(1)
+                if tunnel.status == .active, let url = tunnel.tunnelURL {
+                    Text(shortenedURL(url))
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                } else if tunnel.status == .starting || tunnel.status == .stopping {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(tunnel.status == .starting ? "Starting tunnel..." : "Stopping...")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                } else if tunnel.status == .error {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text(tunnel.lastError ?? "Tunnel error")
+                        .font(.body)
+                        .foregroundStyle(.red)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
+            // Action buttons
+            if tunnel.status == .active {
                 Button {
                     onCopyURL()
                 } label: {
                     Image(systemName: "doc.on.doc")
-                        .font(.caption2)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .help("Copy tunnel URL")
-
-                Button {
-                    onStop()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.red)
-                }
-                .buttonStyle(.plain)
-                .help("Stop tunnel")
-            } else if tunnel.status == .starting {
-                ProgressView()
-                    .scaleEffect(0.5)
-                Text("Starting tunnel...")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else if tunnel.status == .error {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .font(.caption)
-                Text(tunnel.lastError ?? "Tunnel error")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(1)
-
-                Button {
-                    onStop()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Dismiss")
             }
+
+            Button {
+                onStop()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(tunnel.status == .active ? .red : .secondary)
+            }
+            .buttonStyle(.borderless)
+            .help(tunnel.status == .error ? "Dismiss" : "Stop tunnel")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(statusBackgroundColor.opacity(0.1))
-        .clipShape(Capsule())
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
+        }
     }
 
     private var statusColor: Color {
         switch tunnel.status {
         case .idle: .secondary
-        case .starting: .yellow
+        case .starting: .orange
         case .active: .green
-        case .stopping: .yellow
-        case .error: .red
-        }
-    }
-
-    private var statusBackgroundColor: Color {
-        switch tunnel.status {
-        case .idle: .secondary
-        case .starting: .blue
-        case .active: .blue
-        case .stopping: .blue
+        case .stopping: .orange
         case .error: .red
         }
     }

@@ -202,18 +202,15 @@ struct PortDetailView: View {
         if !appState.tunnelManager.isCloudflaredInstalled {
             CloudflaredMissingBanner()
         } else if let tunnel = appState.tunnelManager.tunnelState(for: port.port) {
-            HStack(spacing: 8) {
-                TunnelStatusBadge(
-                    tunnel: tunnel,
-                    onCopyURL: {
-                        appState.tunnelManager.copyURL(for: port.port)
-                    },
-                    onStop: {
-                        appState.tunnelManager.stopTunnel(for: port.port)
-                    }
-                )
-                Spacer()
-            }
+            TunnelStatusBadge(
+                tunnel: tunnel,
+                onCopyURL: {
+                    appState.tunnelManager.copyURL(for: port.port)
+                },
+                onStop: {
+                    appState.tunnelManager.stopTunnel(for: port.port)
+                }
+            )
         } else {
             Button {
                 appState.tunnelManager.startTunnel(for: port.port, portInfoId: port.id)
