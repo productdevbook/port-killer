@@ -21,7 +21,16 @@ struct MenuBarPortList: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // Port Forward connections first
+                // Active Cloudflare Tunnels
+                if !state.tunnelManager.tunnels.isEmpty {
+                    sectionHeader("Cloudflare Tunnels", icon: "cloud.fill", color: .orange)
+
+                    ForEach(state.tunnelManager.tunnels) { tunnel in
+                        MenuBarTunnelRow(tunnel: tunnel, state: state)
+                    }
+                }
+
+                // Port Forward connections
                 if !filteredPortForwardConnections.isEmpty {
                     sectionHeader("K8s Port Forward", icon: "point.3.connected.trianglepath.dotted", color: .blue)
 
@@ -31,7 +40,7 @@ struct MenuBarPortList: View {
                 }
 
                 // Normal ports
-                if filteredPorts.isEmpty && filteredPortForwardConnections.isEmpty {
+                if filteredPorts.isEmpty && filteredPortForwardConnections.isEmpty && state.tunnelManager.tunnels.isEmpty {
                     emptyState
                 } else if !filteredPorts.isEmpty {
                     sectionHeader("Local Ports", icon: "network", color: .green)

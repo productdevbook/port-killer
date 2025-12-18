@@ -86,7 +86,7 @@ final class AppState {
 
         // Apply sidebar selection
         switch selectedSidebarItem {
-        case .allPorts, .settings, .sponsors, .kubernetesPortForward:
+        case .allPorts, .settings, .sponsors, .kubernetesPortForward, .cloudflareTunnels:
             result = ports
         case .favorites:
             // Single pass: collect active favorites and track which ports are active
@@ -160,6 +160,11 @@ final class AppState {
 
     /// Manages Kubernetes port-forward connections
     let portForwardManager = PortForwardManager()
+
+    // MARK: - Tunnel Manager
+
+    /// Manages Cloudflare tunnel connections
+    let tunnelManager = TunnelManager()
 
     // MARK: - Private Properties
 

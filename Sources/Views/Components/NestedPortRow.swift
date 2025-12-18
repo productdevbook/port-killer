@@ -150,6 +150,49 @@ struct NestedPortListRow: View {
             } label: {
                 Label("Copy URL", systemImage: "doc.on.doc")
             }
+
+            // Tunnel section
+            if port.isActive {
+                Divider()
+
+                if appState.tunnelManager.isCloudflaredInstalled {
+                    if let tunnel = appState.tunnelManager.tunnelState(for: port.port) {
+                        if tunnel.status == .active, let url = tunnel.tunnelURL {
+                            Button {
+                                ClipboardService.copy(url)
+                            } label: {
+                                Label("Copy Tunnel URL", systemImage: "doc.on.doc")
+                            }
+
+                            Button {
+                                if let tunnelURL = URL(string: url) {
+                                    NSWorkspace.shared.open(tunnelURL)
+                                }
+                            } label: {
+                                Label("Open Tunnel URL", systemImage: "globe")
+                            }
+                        }
+
+                        Button {
+                            appState.tunnelManager.stopTunnel(for: port.port)
+                        } label: {
+                            Label("Stop Tunnel", systemImage: "icloud.slash")
+                        }
+                    } else {
+                        Button {
+                            appState.tunnelManager.startTunnel(for: port.port, portInfoId: port.id)
+                        } label: {
+                            Label("Share via Tunnel", systemImage: "cloud.fill")
+                        }
+                    }
+                } else {
+                    Button {
+                        ClipboardService.copy("brew install cloudflared")
+                    } label: {
+                        Label("Copy: brew install cloudflared", systemImage: "doc.on.doc")
+                    }
+                }
+            }
         }
     }
 
