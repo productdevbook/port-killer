@@ -28,7 +28,7 @@ struct PortForwardConnectionConfig: Identifiable, Codable, Equatable, Hashable, 
         proxyPort: Int? = nil,
         isEnabled: Bool = true,
         autoReconnect: Bool = true,
-        useDirectExec: Bool = false
+        useDirectExec: Bool = true
     ) {
         self.id = id
         self.name = name
