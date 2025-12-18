@@ -1,0 +1,21 @@
+# Binary
+portkiller
+portkiller.exe
+
+# Go build artifacts
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+debug
+__debug*
