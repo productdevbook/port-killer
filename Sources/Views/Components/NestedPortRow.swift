@@ -109,7 +109,7 @@ struct NestedPortListRow: View {
 
                 if port.isActive {
                     Button {
-                        Task { await appState.killPort(port) }
+                        appState.killPort(port)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.red)

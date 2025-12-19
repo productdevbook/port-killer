@@ -76,10 +76,8 @@ struct ProcessGroupListRow: View {
                     Button {
                         showConfirm = false
                         isKilling = true
-                        Task {
-                            for port in group.ports {
-                                await appState.killPort(port)
-                            }
+                        for port in group.ports {
+                            appState.killPort(port)
                         }
                     } label: {
                         Image(systemName: "checkmark.circle.fill")

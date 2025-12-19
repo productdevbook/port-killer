@@ -20,7 +20,7 @@ struct MenuBarActions: View {
     var body: some View {
         VStack(spacing: 0) {
             MenuItemButton(title: "Refresh", icon: "arrow.clockwise", shortcut: "R") {
-                Task { await state.refresh() }
+                state.refresh()
             }
 
             MenuItemButton(
@@ -37,7 +37,7 @@ struct MenuBarActions: View {
                         .font(.callout)
                     Spacer()
                     Button("Kill") {
-                        Task { await state.killAll() }
+                        state.killAll()
                         confirmingKillAll = false
                     }
                     .buttonStyle(.borderedProminent)

@@ -126,7 +126,7 @@ struct MenuBarPortList: View {
                 },
                 onKillProcess: {
                     for port in group.ports {
-                        Task { await state.killPort(port) }
+                        state.killPort(port)
                     }
                 },
                 state: state

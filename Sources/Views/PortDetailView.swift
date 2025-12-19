@@ -33,14 +33,10 @@ struct PortDetailView: View {
             isPresented: $showKillConfirmation
         ) {
             Button("Kill Process", role: .destructive) {
-                Task {
-                    await appState.killPort(port)
-                }
+                appState.killPort(port)
             }
             Button("Force Kill (SIGKILL)", role: .destructive) {
-                Task {
-                    await appState.killPort(port)
-                }
+                appState.killPort(port)
             }
             Button("Cancel", role: .cancel) {}
         } message: {

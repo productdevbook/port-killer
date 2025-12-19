@@ -496,20 +496,52 @@ fileprivate struct FfiConverterString: FfiConverter {
 
 
 
-public protocol RustScannerProtocol : AnyObject {
+public protocol RustEngineProtocol : AnyObject {
     
-    func forceKillProcess(pid: UInt32) throws  -> Bool
+    func addFavorite(port: UInt16) throws 
+    
+    func addWatchedPort(port: UInt16, notifyOnStart: Bool, notifyOnStop: Bool) throws  -> RustWatchedPort
+    
+    func getFavorites()  -> [UInt16]
+    
+    func getPendingNotifications()  -> [RustNotification]
+    
+    func getPorts()  -> [RustPortInfo]
+    
+    func getWatchedPorts()  -> [RustWatchedPort]
+    
+    func hasPendingNotifications()  -> Bool
+    
+    func isFavorite(port: UInt16)  -> Bool
+    
+    func isPortActive(port: UInt16)  -> Bool
     
     func isProcessRunning(pid: UInt32)  -> Bool
     
-    func killProcess(pid: UInt32) throws  -> Bool
+    func isWatched(port: UInt16)  -> Bool
     
-    func scanPorts() throws  -> [RustPortInfo]
+    func killPort(port: UInt16) throws  -> Bool
+    
+    func killProcess(pid: UInt32, force: Bool) throws  -> Bool
+    
+    func refresh() throws 
+    
+    func reloadConfig() throws 
+    
+    func removeFavorite(port: UInt16) throws 
+    
+    func removeWatchedPort(port: UInt16) throws 
+    
+    func toggleFavorite(port: UInt16) throws  -> Bool
+    
+    func toggleWatch(port: UInt16) throws  -> Bool
+    
+    func updateWatchedPort(port: UInt16, notifyOnStart: Bool, notifyOnStop: Bool) throws 
     
 }
 
-open class RustScanner:
-    RustScannerProtocol {
+open class RustEngine:
+    RustEngineProtocol {
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
@@ -543,12 +575,12 @@ open class RustScanner:
     @_documentation(visibility: private)
 #endif
     public func uniffiClonePointer() -> UnsafeMutableRawPointer {
-        return try! rustCall { uniffi_portkiller_ffi_fn_clone_rustscanner(self.pointer, $0) }
+        return try! rustCall { uniffi_portkiller_ffi_fn_clone_rustengine(self.pointer, $0) }
     }
-public convenience init() {
+public convenience init()throws  {
     let pointer =
-        try! rustCall() {
-    uniffi_portkiller_ffi_fn_constructor_rustscanner_new($0
+        try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_constructor_rustengine_new($0
     )
 }
     self.init(unsafeFromRawPointer: pointer)
@@ -559,41 +591,162 @@ public convenience init() {
             return
         }
 
-        try! rustCall { uniffi_portkiller_ffi_fn_free_rustscanner(pointer, $0) }
+        try! rustCall { uniffi_portkiller_ffi_fn_free_rustengine(pointer, $0) }
     }
 
     
 
     
-open func forceKillProcess(pid: UInt32)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeRustScannerError.lift) {
-    uniffi_portkiller_ffi_fn_method_rustscanner_force_kill_process(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(pid),$0
+open func addFavorite(port: UInt16)throws  {try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_add_favorite(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
+    )
+}
+}
+    
+open func addWatchedPort(port: UInt16, notifyOnStart: Bool, notifyOnStop: Bool)throws  -> RustWatchedPort {
+    return try  FfiConverterTypeRustWatchedPort.lift(try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_add_watched_port(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),
+        FfiConverterBool.lower(notifyOnStart),
+        FfiConverterBool.lower(notifyOnStop),$0
+    )
+})
+}
+    
+open func getFavorites() -> [UInt16] {
+    return try!  FfiConverterSequenceUInt16.lift(try! rustCall() {
+    uniffi_portkiller_ffi_fn_method_rustengine_get_favorites(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func getPendingNotifications() -> [RustNotification] {
+    return try!  FfiConverterSequenceTypeRustNotification.lift(try! rustCall() {
+    uniffi_portkiller_ffi_fn_method_rustengine_get_pending_notifications(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func getPorts() -> [RustPortInfo] {
+    return try!  FfiConverterSequenceTypeRustPortInfo.lift(try! rustCall() {
+    uniffi_portkiller_ffi_fn_method_rustengine_get_ports(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func getWatchedPorts() -> [RustWatchedPort] {
+    return try!  FfiConverterSequenceTypeRustWatchedPort.lift(try! rustCall() {
+    uniffi_portkiller_ffi_fn_method_rustengine_get_watched_ports(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func hasPendingNotifications() -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_portkiller_ffi_fn_method_rustengine_has_pending_notifications(self.uniffiClonePointer(),$0
+    )
+})
+}
+    
+open func isFavorite(port: UInt16) -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_portkiller_ffi_fn_method_rustengine_is_favorite(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
+    )
+})
+}
+    
+open func isPortActive(port: UInt16) -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_portkiller_ffi_fn_method_rustengine_is_port_active(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
     )
 })
 }
     
 open func isProcessRunning(pid: UInt32) -> Bool {
     return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_portkiller_ffi_fn_method_rustscanner_is_process_running(self.uniffiClonePointer(),
+    uniffi_portkiller_ffi_fn_method_rustengine_is_process_running(self.uniffiClonePointer(),
         FfiConverterUInt32.lower(pid),$0
     )
 })
 }
     
-open func killProcess(pid: UInt32)throws  -> Bool {
-    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeRustScannerError.lift) {
-    uniffi_portkiller_ffi_fn_method_rustscanner_kill_process(self.uniffiClonePointer(),
-        FfiConverterUInt32.lower(pid),$0
+open func isWatched(port: UInt16) -> Bool {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_portkiller_ffi_fn_method_rustengine_is_watched(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
     )
 })
 }
     
-open func scanPorts()throws  -> [RustPortInfo] {
-    return try  FfiConverterSequenceTypeRustPortInfo.lift(try rustCallWithError(FfiConverterTypeRustScannerError.lift) {
-    uniffi_portkiller_ffi_fn_method_rustscanner_scan_ports(self.uniffiClonePointer(),$0
+open func killPort(port: UInt16)throws  -> Bool {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_kill_port(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
     )
 })
+}
+    
+open func killProcess(pid: UInt32, force: Bool)throws  -> Bool {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_kill_process(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(pid),
+        FfiConverterBool.lower(force),$0
+    )
+})
+}
+    
+open func refresh()throws  {try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_refresh(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+open func reloadConfig()throws  {try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_reload_config(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+open func removeFavorite(port: UInt16)throws  {try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_remove_favorite(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
+    )
+}
+}
+    
+open func removeWatchedPort(port: UInt16)throws  {try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_remove_watched_port(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
+    )
+}
+}
+    
+open func toggleFavorite(port: UInt16)throws  -> Bool {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_toggle_favorite(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
+    )
+})
+}
+    
+open func toggleWatch(port: UInt16)throws  -> Bool {
+    return try  FfiConverterBool.lift(try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_toggle_watch(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),$0
+    )
+})
+}
+    
+open func updateWatchedPort(port: UInt16, notifyOnStart: Bool, notifyOnStop: Bool)throws  {try rustCallWithError(FfiConverterTypeRustEngineError.lift) {
+    uniffi_portkiller_ffi_fn_method_rustengine_update_watched_port(self.uniffiClonePointer(),
+        FfiConverterUInt16.lower(port),
+        FfiConverterBool.lower(notifyOnStart),
+        FfiConverterBool.lower(notifyOnStop),$0
+    )
+}
 }
     
 
@@ -602,20 +755,20 @@ open func scanPorts()throws  -> [RustPortInfo] {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeRustScanner: FfiConverter {
+public struct FfiConverterTypeRustEngine: FfiConverter {
 
     typealias FfiType = UnsafeMutableRawPointer
-    typealias SwiftType = RustScanner
+    typealias SwiftType = RustEngine
 
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> RustScanner {
-        return RustScanner(unsafeFromRawPointer: pointer)
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> RustEngine {
+        return RustEngine(unsafeFromRawPointer: pointer)
     }
 
-    public static func lower(_ value: RustScanner) -> UnsafeMutableRawPointer {
+    public static func lower(_ value: RustEngine) -> UnsafeMutableRawPointer {
         return value.uniffiClonePointer()
     }
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RustScanner {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RustEngine {
         let v: UInt64 = try readInt(&buf)
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
@@ -626,7 +779,7 @@ public struct FfiConverterTypeRustScanner: FfiConverter {
         return try lift(ptr!)
     }
 
-    public static func write(_ value: RustScanner, into buf: inout [UInt8]) {
+    public static func write(_ value: RustEngine, into buf: inout [UInt8]) {
         // This fiddling is because `Int` is the thing that's the same size as a pointer.
         // The Rust code won't compile if a pointer won't fit in a `UInt64`.
         writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
@@ -639,15 +792,89 @@ public struct FfiConverterTypeRustScanner: FfiConverter {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeRustScanner_lift(_ pointer: UnsafeMutableRawPointer) throws -> RustScanner {
-    return try FfiConverterTypeRustScanner.lift(pointer)
+public func FfiConverterTypeRustEngine_lift(_ pointer: UnsafeMutableRawPointer) throws -> RustEngine {
+    return try FfiConverterTypeRustEngine.lift(pointer)
 }
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public func FfiConverterTypeRustScanner_lower(_ value: RustScanner) -> UnsafeMutableRawPointer {
-    return FfiConverterTypeRustScanner.lower(value)
+public func FfiConverterTypeRustEngine_lower(_ value: RustEngine) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeRustEngine.lower(value)
+}
+
+
+public struct RustNotification {
+    public var notificationType: String
+    public var port: UInt16
+    public var processName: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(notificationType: String, port: UInt16, processName: String?) {
+        self.notificationType = notificationType
+        self.port = port
+        self.processName = processName
+    }
+}
+
+
+
+extension RustNotification: Equatable, Hashable {
+    public static func ==(lhs: RustNotification, rhs: RustNotification) -> Bool {
+        if lhs.notificationType != rhs.notificationType {
+            return false
+        }
+        if lhs.port != rhs.port {
+            return false
+        }
+        if lhs.processName != rhs.processName {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(notificationType)
+        hasher.combine(port)
+        hasher.combine(processName)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRustNotification: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RustNotification {
+        return
+            try RustNotification(
+                notificationType: FfiConverterString.read(from: &buf), 
+                port: FfiConverterUInt16.read(from: &buf), 
+                processName: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: RustNotification, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.notificationType, into: &buf)
+        FfiConverterUInt16.write(value.port, into: &buf)
+        FfiConverterOptionString.write(value.processName, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRustNotification_lift(_ buf: RustBuffer) throws -> RustNotification {
+    return try FfiConverterTypeRustNotification.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRustNotification_lower(_ value: RustNotification) -> RustBuffer {
+    return FfiConverterTypeRustNotification.lower(value)
 }
 
 
@@ -781,7 +1008,89 @@ public func FfiConverterTypeRustPortInfo_lower(_ value: RustPortInfo) -> RustBuf
 }
 
 
-public enum RustScannerError {
+public struct RustWatchedPort {
+    public var id: String
+    public var port: UInt16
+    public var notifyOnStart: Bool
+    public var notifyOnStop: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, port: UInt16, notifyOnStart: Bool, notifyOnStop: Bool) {
+        self.id = id
+        self.port = port
+        self.notifyOnStart = notifyOnStart
+        self.notifyOnStop = notifyOnStop
+    }
+}
+
+
+
+extension RustWatchedPort: Equatable, Hashable {
+    public static func ==(lhs: RustWatchedPort, rhs: RustWatchedPort) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.port != rhs.port {
+            return false
+        }
+        if lhs.notifyOnStart != rhs.notifyOnStart {
+            return false
+        }
+        if lhs.notifyOnStop != rhs.notifyOnStop {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(port)
+        hasher.combine(notifyOnStart)
+        hasher.combine(notifyOnStop)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRustWatchedPort: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RustWatchedPort {
+        return
+            try RustWatchedPort(
+                id: FfiConverterString.read(from: &buf), 
+                port: FfiConverterUInt16.read(from: &buf), 
+                notifyOnStart: FfiConverterBool.read(from: &buf), 
+                notifyOnStop: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: RustWatchedPort, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterUInt16.write(value.port, into: &buf)
+        FfiConverterBool.write(value.notifyOnStart, into: &buf)
+        FfiConverterBool.write(value.notifyOnStop, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRustWatchedPort_lift(_ buf: RustBuffer) throws -> RustWatchedPort {
+    return try FfiConverterTypeRustWatchedPort.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRustWatchedPort_lower(_ value: RustWatchedPort) -> RustBuffer {
+    return FfiConverterTypeRustWatchedPort.lower(value)
+}
+
+
+public enum RustEngineError {
 
     
     
@@ -791,16 +1100,18 @@ public enum RustScannerError {
     
     case PermissionDenied(message: String)
     
+    case ConfigError(message: String)
+    
 }
 
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeRustScannerError: FfiConverterRustBuffer {
-    typealias SwiftType = RustScannerError
+public struct FfiConverterTypeRustEngineError: FfiConverterRustBuffer {
+    typealias SwiftType = RustEngineError
 
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RustScannerError {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RustEngineError {
         let variant: Int32 = try readInt(&buf)
         switch variant {
 
@@ -819,12 +1130,16 @@ public struct FfiConverterTypeRustScannerError: FfiConverterRustBuffer {
             message: try FfiConverterString.read(from: &buf)
         )
         
+        case 4: return .ConfigError(
+            message: try FfiConverterString.read(from: &buf)
+        )
+        
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
-    public static func write(_ value: RustScannerError, into buf: inout [UInt8]) {
+    public static func write(_ value: RustEngineError, into buf: inout [UInt8]) {
         switch value {
 
         
@@ -836,6 +1151,8 @@ public struct FfiConverterTypeRustScannerError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(2))
         case .PermissionDenied(_ /* message is ignored*/):
             writeInt(&buf, Int32(3))
+        case .ConfigError(_ /* message is ignored*/):
+            writeInt(&buf, Int32(4))
 
         
         }
@@ -843,11 +1160,85 @@ public struct FfiConverterTypeRustScannerError: FfiConverterRustBuffer {
 }
 
 
-extension RustScannerError: Equatable, Hashable {}
+extension RustEngineError: Equatable, Hashable {}
 
-extension RustScannerError: Foundation.LocalizedError {
+extension RustEngineError: Foundation.LocalizedError {
     public var errorDescription: String? {
         String(reflecting: self)
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
+    typealias SwiftType = String?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterString.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterString.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceUInt16: FfiConverterRustBuffer {
+    typealias SwiftType = [UInt16]
+
+    public static func write(_ value: [UInt16], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterUInt16.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [UInt16] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [UInt16]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterUInt16.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeRustNotification: FfiConverterRustBuffer {
+    typealias SwiftType = [RustNotification]
+
+    public static func write(_ value: [RustNotification], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeRustNotification.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [RustNotification] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [RustNotification]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeRustNotification.read(from: &buf))
+        }
+        return seq
     }
 }
 
@@ -876,6 +1267,31 @@ fileprivate struct FfiConverterSequenceTypeRustPortInfo: FfiConverterRustBuffer 
     }
 }
 
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeRustWatchedPort: FfiConverterRustBuffer {
+    typealias SwiftType = [RustWatchedPort]
+
+    public static func write(_ value: [RustWatchedPort], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeRustWatchedPort.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [RustWatchedPort] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [RustWatchedPort]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeRustWatchedPort.read(from: &buf))
+        }
+        return seq
+    }
+}
+
 private enum InitializationResult {
     case ok
     case contractVersionMismatch
@@ -891,19 +1307,67 @@ nonisolated(unsafe) private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if (uniffi_portkiller_ffi_checksum_method_rustscanner_force_kill_process() != 19099) {
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_add_favorite() != 12088) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_portkiller_ffi_checksum_method_rustscanner_is_process_running() != 50643) {
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_add_watched_port() != 62351) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_portkiller_ffi_checksum_method_rustscanner_kill_process() != 64528) {
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_get_favorites() != 39295) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_portkiller_ffi_checksum_method_rustscanner_scan_ports() != 13800) {
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_get_pending_notifications() != 35984) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_portkiller_ffi_checksum_constructor_rustscanner_new() != 15913) {
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_get_ports() != 57191) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_get_watched_ports() != 21591) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_has_pending_notifications() != 40219) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_is_favorite() != 42718) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_is_port_active() != 1835) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_is_process_running() != 24331) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_is_watched() != 27199) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_kill_port() != 30517) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_kill_process() != 40992) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_refresh() != 62873) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_reload_config() != 59240) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_remove_favorite() != 61235) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_remove_watched_port() != 20679) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_toggle_favorite() != 24554) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_toggle_watch() != 61784) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_method_rustengine_update_watched_port() != 61189) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_portkiller_ffi_checksum_constructor_rustengine_new() != 46607) {
         return InitializationResult.apiChecksumMismatch
     }
 

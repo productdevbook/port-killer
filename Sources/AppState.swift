@@ -7,8 +7,8 @@ import Sparkle
 // MARK: - Defaults Keys
 
 extension Defaults.Keys {
-    static let favorites = Key<Set<Int>>("favorites", default: [])
-    static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
+    // Note: favorites and watchedPorts are now stored in Rust config (~/.portkiller/config.json)
+    // This enables sharing between the macOS app and CLI
     static let useTreeView = Key<Bool>("useTreeView", default: false)
     static let refreshInterval = Key<Int>("refreshInterval", default: 5)
 
@@ -26,20 +26,22 @@ extension KeyboardShortcuts.Name {
 
 // MARK: - App State
 
-/// AppState manages the core application state including ports, favorites,
-/// watched ports, filters, keyboard shortcuts, and auto-refresh functionality.
+/// AppState manages the core application state.
+///
+/// All business logic (scanning, notifications, state tracking) is in Rust.
+/// Swift only handles UI state and rendering.
 @Observable
 @MainActor
 final class AppState {
-    // MARK: - Port State
+    // MARK: - Port State (from Rust)
 
-    /// All currently scanned ports
-    var ports: [PortInfo] = []
+    /// All currently cached ports (from Rust engine)
+    private(set) var ports: [PortInfo] = []
 
     /// Whether a port scan is currently in progress
-    var isScanning = false
+    private(set) var isScanning = false
 
-    // MARK: - Filter State
+    // MARK: - UI State
 
     /// Current filter settings for the port list
     var filter = PortFilter()
@@ -65,11 +67,15 @@ final class AppState {
         return portForwardManager.connections.first { $0.id == id }
     }
 
+    // MARK: - Filtered Ports (Computed)
+
     /// Returns filtered ports based on sidebar selection and active filters.
     var filteredPorts: [PortInfo] {
         if case .settings = selectedSidebarItem { return [] }
 
         var result: [PortInfo]
+        let favs = favorites
+        let watched = watchedPorts
 
         switch selectedSidebarItem {
         case .allPorts, .settings, .sponsors, .kubernetesPortForward, .cloudflareTunnels:
@@ -77,15 +83,15 @@ final class AppState {
         case .favorites:
             var activePorts = Set<Int>()
             result = ports.compactMap { port -> PortInfo? in
-                guard favorites.contains(port.port) else { return nil }
+                guard favs.contains(port.port) else { return nil }
                 activePorts.insert(port.port)
                 return port
             }
-            for favPort in favorites where !activePorts.contains(favPort) {
+            for favPort in favs where !activePorts.contains(favPort) {
                 result.append(PortInfo.inactive(port: favPort))
             }
         case .watched:
-            let watchedPortNumbers = Set(watchedPorts.map { $0.port })
+            let watchedPortNumbers = Set(watched.map { $0.port })
             var activePorts = Set<Int>()
             result = ports.compactMap { port -> PortInfo? in
                 guard watchedPortNumbers.contains(port.port) else { return nil }
@@ -100,36 +106,24 @@ final class AppState {
         }
 
         if filter.isActive {
-            result = result.filter { filter.matches($0, favorites: favorites, watched: watchedPorts) }
+            result = result.filter { filter.matches($0, favorites: favs, watched: watched) }
         }
 
         return result
     }
 
-    // MARK: - Favorites
+    // MARK: - Favorites (from Rust)
 
-    /// Cached favorites set, synced with UserDefaults
-    private var _favorites: Set<Int> = Defaults[.favorites] {
-        didSet { Defaults[.favorites] = _favorites }
-    }
-
-    /// Port numbers marked as favorites by the user
+    /// Port numbers marked as favorites (read from Rust)
     var favorites: Set<Int> {
-        get { _favorites }
-        set { _favorites = newValue }
+        scanner.getFavorites()
     }
 
-    // MARK: - Watched Ports
+    // MARK: - Watched Ports (from Rust)
 
-    /// Cached watched ports array, synced with UserDefaults
-    private var _watchedPorts: [WatchedPort] = Defaults[.watchedPorts] {
-        didSet { Defaults[.watchedPorts] = _watchedPorts }
-    }
-
-    /// Ports being watched for state changes
+    /// Ports being watched for state changes (read from Rust)
     var watchedPorts: [WatchedPort] {
-        get { _watchedPorts }
-        set { _watchedPorts = newValue }
+        scanner.getWatchedPorts()
     }
 
     // MARK: - Managers
@@ -143,21 +137,198 @@ final class AppState {
     /// Manages Cloudflare tunnel connections
     let tunnelManager = TunnelManager()
 
-    // MARK: - Internal Properties (for extensions)
+    // MARK: - Internal Properties
 
-    /// Rust-backed port scanning actor
-    let scanner = RustPortScanner()
+    /// Rust engine wrapper - all business logic lives here
+    let scanner: RustPortScanner
 
-    /// Background task for auto-refresh
-    @ObservationIgnored var refreshTask: Task<Void, Never>?
-
-    /// Tracks previous port states for watch notifications
-    var previousPortStates: [Int: Bool] = [:]
+    /// Timer for periodic UI refresh
+    @ObservationIgnored private var refreshTimer: Timer?
 
     // MARK: - Initialization
 
     init() {
+        // Initialize Rust engine
+        do {
+            scanner = try RustPortScanner()
+        } catch {
+            fatalError("Failed to initialize Rust engine: \(error)")
+        }
+
         setupKeyboardShortcuts()
         startAutoRefresh()
+    }
+
+    // MARK: - Auto Refresh
+
+    /// Start the auto-refresh timer.
+    func startAutoRefresh() {
+        stopAutoRefresh()
+
+        // Initial refresh
+        refresh()
+
+        // Schedule periodic refresh
+        let interval = TimeInterval(Defaults[.refreshInterval])
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.refresh()
+            }
+        }
+    }
+
+    /// Stop the auto-refresh timer.
+    func stopAutoRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+    }
+
+    /// Perform a single refresh cycle.
+    /// Runs the heavy Rust scanning on a background thread to avoid blocking the main thread.
+    func refresh() {
+        guard !isScanning else { return }
+        isScanning = true
+
+        // Run Rust scanning on background thread to avoid blocking main thread
+        Task.detached(priority: .userInitiated) { [scanner] in
+            do {
+                // Tell Rust to scan ports (this blocks but on background thread)
+                try scanner.refresh()
+            } catch {
+                #if DEBUG
+                print("Refresh error: \(error)")
+                #endif
+            }
+
+            // Update UI on main thread
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.ports = scanner.getPorts()
+                self.processNotifications()
+                self.isScanning = false
+            }
+        }
+    }
+
+    /// Process pending notifications from Rust engine.
+    private func processNotifications() {
+        let notifications = scanner.getPendingNotifications()
+
+        for notification in notifications {
+            switch notification.type {
+            case "started":
+                NotificationService.shared.notify(
+                    title: "Port \(notification.port) In Use",
+                    body: "Used by \(notification.processName ?? "Unknown")."
+                )
+            case "stopped":
+                NotificationService.shared.notify(
+                    title: "Port \(notification.port) Available",
+                    body: "Port is now free."
+                )
+            default:
+                break
+            }
+        }
+    }
+
+    // MARK: - Port Operations
+
+    /// Kill a process on a specific port.
+    func killPort(_ port: PortInfo) {
+        do {
+            _ = try scanner.killPort(port.port)
+            // Refresh to update UI
+            refresh()
+        } catch {
+            #if DEBUG
+            print("Kill port error: \(error)")
+            #endif
+        }
+    }
+
+    /// Kill all ports in the current filtered list.
+    func killAll() {
+        for port in filteredPorts where port.isActive {
+            do {
+                _ = try scanner.killPort(port.port)
+            } catch {
+                #if DEBUG
+                print("Kill port \(port.port) error: \(error)")
+                #endif
+            }
+        }
+        refresh()
+    }
+
+    // MARK: - Favorites Operations
+
+    /// Toggle favorite status for a port.
+    func toggleFavorite(_ port: Int) {
+        do {
+            _ = try scanner.toggleFavorite(port: port)
+        } catch {
+            #if DEBUG
+            print("Toggle favorite error: \(error)")
+            #endif
+        }
+    }
+
+    /// Check if a port is a favorite.
+    func isFavorite(_ port: Int) -> Bool {
+        scanner.isFavorite(port: port)
+    }
+
+    // MARK: - Watch Operations
+
+    /// Toggle watch status for a port.
+    func toggleWatch(_ port: Int) {
+        do {
+            _ = try scanner.toggleWatch(port: port)
+        } catch {
+            #if DEBUG
+            print("Toggle watch error: \(error)")
+            #endif
+        }
+    }
+
+    /// Check if a port is being watched.
+    func isWatching(_ port: Int) -> Bool {
+        scanner.isWatched(port: port)
+    }
+
+    /// Update watch notification settings.
+    func updateWatch(_ port: Int, onStart: Bool, onStop: Bool) {
+        do {
+            try scanner.updateWatchedPort(port: port, notifyOnStart: onStart, notifyOnStop: onStop)
+        } catch {
+            #if DEBUG
+            print("Update watch error: \(error)")
+            #endif
+        }
+    }
+
+    /// Remove a watched port by ID.
+    func removeWatch(_ id: UUID) {
+        if let wp = watchedPorts.first(where: { $0.id == id }) {
+            do {
+                try scanner.removeWatchedPort(port: wp.port)
+            } catch {
+                #if DEBUG
+                print("Remove watch error: \(error)")
+                #endif
+            }
+        }
+    }
+
+    /// Add a watched port.
+    func addWatchedPort(port: Int, notifyOnStart: Bool = true, notifyOnStop: Bool = true) {
+        do {
+            _ = try scanner.addWatchedPort(port: port, notifyOnStart: notifyOnStart, notifyOnStop: notifyOnStop)
+        } catch {
+            #if DEBUG
+            print("Add watched port error: \(error)")
+            #endif
+        }
     }
 }

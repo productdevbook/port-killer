@@ -2,10 +2,11 @@ namespace portkiller_ffi {
 };
 
 [Error]
-enum RustScannerError {
+enum RustEngineError {
     "ScanFailed",
     "KillFailed",
     "PermissionDenied",
+    "ConfigError",
 };
 
 dictionary RustPortInfo {
@@ -21,17 +22,77 @@ dictionary RustPortInfo {
     string process_type;
 };
 
-interface RustScanner {
+dictionary RustWatchedPort {
+    string id;
+    u16 port;
+    boolean notify_on_start;
+    boolean notify_on_stop;
+};
+
+dictionary RustNotification {
+    string notification_type;
+    u16 port;
+    string? process_name;
+};
+
+// Main Engine Interface - All business logic lives here
+interface RustEngine {
+    [Throws=RustEngineError]
     constructor();
 
-    [Throws=RustScannerError]
-    sequence<RustPortInfo> scan_ports();
+    // Refresh - call this every 5 seconds from Swift
+    [Throws=RustEngineError]
+    void refresh();
 
-    [Throws=RustScannerError]
-    boolean kill_process(u32 pid);
+    // State access (cached, fast)
+    sequence<RustPortInfo> get_ports();
+    boolean is_port_active(u16 port);
 
-    [Throws=RustScannerError]
-    boolean force_kill_process(u32 pid);
+    // Notifications
+    sequence<RustNotification> get_pending_notifications();
+    boolean has_pending_notifications();
+
+    // Process management
+    [Throws=RustEngineError]
+    boolean kill_port(u16 port);
+
+    [Throws=RustEngineError]
+    boolean kill_process(u32 pid, boolean force);
 
     boolean is_process_running(u32 pid);
+
+    // Favorites
+    sequence<u16> get_favorites();
+
+    [Throws=RustEngineError]
+    void add_favorite(u16 port);
+
+    [Throws=RustEngineError]
+    void remove_favorite(u16 port);
+
+    [Throws=RustEngineError]
+    boolean toggle_favorite(u16 port);
+
+    boolean is_favorite(u16 port);
+
+    // Watched ports
+    sequence<RustWatchedPort> get_watched_ports();
+
+    [Throws=RustEngineError]
+    RustWatchedPort add_watched_port(u16 port, boolean notify_on_start, boolean notify_on_stop);
+
+    [Throws=RustEngineError]
+    void remove_watched_port(u16 port);
+
+    [Throws=RustEngineError]
+    void update_watched_port(u16 port, boolean notify_on_start, boolean notify_on_stop);
+
+    [Throws=RustEngineError]
+    boolean toggle_watch(u16 port);
+
+    boolean is_watched(u16 port);
+
+    // Config
+    [Throws=RustEngineError]
+    void reload_config();
 };

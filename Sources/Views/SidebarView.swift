@@ -69,7 +69,13 @@ struct SidebarView: View {
                 .help("Add Favorite Port")
                 .popover(isPresented: $showAddFavoritePopover) {
                     AddPortPopover(mode: .favorite) { port, _, _ in
-                        appState.favorites.insert(port)
+                        do {
+                            try appState.scanner.addFavorite(port: port)
+                        } catch {
+                            #if DEBUG
+                            print("Add favorite error: \(error)")
+                            #endif
+                        }
                     }
                 }
 
@@ -110,9 +116,7 @@ struct SidebarView: View {
                 .help("Add Watched Port")
                 .popover(isPresented: $showAddWatchPopover) {
                     AddPortPopover(mode: .watch) { port, onStart, onStop in
-                        appState.watchedPorts.append(
-                            WatchedPort(port: port, notifyOnStart: onStart, notifyOnStop: onStop)
-                        )
+                        appState.addWatchedPort(port: port, notifyOnStart: onStart, notifyOnStop: onStop)
                     }
                 }
 

@@ -2,108 +2,153 @@
  * RustPortScanner.swift
  * PortKiller
  *
- * Swift wrapper around the Rust portkiller-ffi library.
- * Provides the same interface as the native Swift PortScanner but uses
- * the Rust implementation for port scanning and process killing.
+ * Swift wrapper around the Rust PortKillerEngine.
+ * All business logic lives in Rust - Swift only renders UI.
  */
 
 import Foundation
 
-/// Port scanner that uses the Rust backend via UniFFI bindings.
+/// Wrapper around Rust PortKillerEngine.
 ///
-/// This actor wraps the Rust `RustScanner` and provides a compatible
-/// interface with the native Swift `PortScanner`. Use this when you want
-/// to leverage the Rust implementation.
-///
-/// Thread Safety:
-/// This is an actor, so all methods are isolated and can be called safely from any context.
-actor RustPortScanner {
+/// This is NOT an actor - the underlying Rust engine handles thread safety.
+/// All methods are synchronous and return cached state from Rust.
+final class RustPortScanner: @unchecked Sendable {
 
-    /// The underlying Rust scanner instance
-    private let scanner: RustScanner
+    /// The underlying Rust engine instance
+    private let engine: RustEngine
 
-    /// Initialize the Rust port scanner
-    init() {
-        self.scanner = RustScanner()
+    /// Initialize the Rust engine
+    init() throws {
+        self.engine = try RustEngine()
     }
 
-    /// Scans all listening TCP ports using the Rust backend.
-    ///
-    /// Uses the Rust `lsof` parser which provides the same output as the
-    /// native Swift implementation.
-    ///
-    /// - Returns: Array of PortInfo objects representing all listening ports
-    func scanPorts() async -> [PortInfo] {
-        do {
-            let rustPorts = try scanner.scanPorts()
-            return rustPorts.map { rustPort in
-                // Convert from RustPortInfo (UniFFI) to Swift PortInfo
-                PortInfo.active(
-                    port: Int(rustPort.port),
-                    pid: Int(rustPort.pid),
-                    processName: rustPort.processName,
-                    address: rustPort.address,
-                    user: rustPort.user,
-                    command: rustPort.command,
-                    fd: rustPort.fd
-                )
-            }
-        } catch {
-            // Log error in debug mode
-            #if DEBUG
-            print("RustPortScanner.scanPorts error: \(error)")
-            #endif
-            return []
+    // MARK: - Refresh
+
+    /// Perform a single refresh cycle.
+    /// Call this every 5 seconds. This scans ports and updates cached state.
+    func refresh() throws {
+        try engine.refresh()
+    }
+
+    // MARK: - Port State (Cached, Fast)
+
+    /// Get all currently cached ports.
+    func getPorts() -> [PortInfo] {
+        engine.getPorts().map { PortInfo.fromRust($0) }
+    }
+
+    /// Check if a specific port is active.
+    func isPortActive(port: Int) -> Bool {
+        engine.isPortActive(port: UInt16(port))
+    }
+
+    // MARK: - Notifications
+
+    /// Get and clear pending notifications.
+    /// Returns notifications for watched port state changes.
+    func getPendingNotifications() -> [(type: String, port: Int, processName: String?)] {
+        engine.getPendingNotifications().map {
+            (type: $0.notificationType, port: Int($0.port), processName: $0.processName)
         }
+    }
+
+    /// Check if there are pending notifications.
+    func hasPendingNotifications() -> Bool {
+        engine.hasPendingNotifications()
+    }
+
+    // MARK: - Process Management
+
+    /// Kill a process by port number.
+    func killPort(_ port: Int) throws -> Bool {
+        try engine.killPort(port: UInt16(port))
     }
 
     /// Kill a process by PID.
-    ///
-    /// - Parameters:
-    ///   - pid: The process ID to kill
-    ///   - force: If true, sends SIGKILL immediately; otherwise SIGTERM
-    /// - Returns: True if the kill signal was sent successfully
-    func killProcess(pid: Int, force: Bool = false) async -> Bool {
-        do {
-            if force {
-                return try scanner.forceKillProcess(pid: UInt32(pid))
-            } else {
-                return try scanner.killProcess(pid: UInt32(pid))
-            }
-        } catch {
-            #if DEBUG
-            print("RustPortScanner.killProcess error: \(error)")
-            #endif
-            return false
-        }
+    func killProcess(pid: Int, force: Bool = false) throws -> Bool {
+        try engine.killProcess(pid: UInt32(pid), force: force)
     }
 
-    /// Kill a process gracefully using the two-stage approach.
-    ///
-    /// Strategy:
-    /// 1. Send SIGTERM (graceful shutdown signal)
-    /// 2. Wait for 500ms
-    /// 3. Send SIGKILL if the process is still running
-    ///
-    /// - Parameter pid: The process ID to kill
-    /// - Returns: True if the process was killed
-    func killProcessGracefully(pid: Int) async -> Bool {
-        do {
-            return try scanner.killProcess(pid: UInt32(pid))
-        } catch {
-            #if DEBUG
-            print("RustPortScanner.killProcessGracefully error: \(error)")
-            #endif
-            return false
-        }
-    }
-
-    /// Check if a process is currently running.
-    ///
-    /// - Parameter pid: The process ID to check
-    /// - Returns: True if the process exists
+    /// Check if a process is running.
     func isProcessRunning(pid: Int) -> Bool {
-        scanner.isProcessRunning(pid: UInt32(pid))
+        engine.isProcessRunning(pid: UInt32(pid))
+    }
+
+    // MARK: - Favorites
+
+    /// Get all favorite ports.
+    func getFavorites() -> Set<Int> {
+        Set(engine.getFavorites().map { Int($0) })
+    }
+
+    /// Add a port to favorites.
+    func addFavorite(port: Int) throws {
+        try engine.addFavorite(port: UInt16(port))
+    }
+
+    /// Remove a port from favorites.
+    func removeFavorite(port: Int) throws {
+        try engine.removeFavorite(port: UInt16(port))
+    }
+
+    /// Toggle favorite status for a port.
+    /// Returns true if now a favorite, false if removed.
+    func toggleFavorite(port: Int) throws -> Bool {
+        try engine.toggleFavorite(port: UInt16(port))
+    }
+
+    /// Check if a port is a favorite.
+    func isFavorite(port: Int) -> Bool {
+        engine.isFavorite(port: UInt16(port))
+    }
+
+    // MARK: - Watched Ports
+
+    /// Get all watched ports.
+    func getWatchedPorts() -> [WatchedPort] {
+        engine.getWatchedPorts().compactMap { WatchedPort.fromRust($0) }
+    }
+
+    /// Add a watched port.
+    func addWatchedPort(port: Int, notifyOnStart: Bool = true, notifyOnStop: Bool = true) throws -> WatchedPort? {
+        let rustPort = try engine.addWatchedPort(
+            port: UInt16(port),
+            notifyOnStart: notifyOnStart,
+            notifyOnStop: notifyOnStop
+        )
+        return WatchedPort.fromRust(rustPort)
+    }
+
+    /// Remove a watched port.
+    func removeWatchedPort(port: Int) throws {
+        try engine.removeWatchedPort(port: UInt16(port))
+    }
+
+    /// Update watched port notification settings.
+    func updateWatchedPort(port: Int, notifyOnStart: Bool, notifyOnStop: Bool) throws {
+        try engine.updateWatchedPort(
+            port: UInt16(port),
+            notifyOnStart: notifyOnStart,
+            notifyOnStop: notifyOnStop
+        )
+    }
+
+    /// Toggle watch status for a port.
+    /// Returns true if now watched, false if removed.
+    func toggleWatch(port: Int) throws -> Bool {
+        try engine.toggleWatch(port: UInt16(port))
+    }
+
+    /// Check if a port is being watched.
+    func isWatched(port: Int) -> Bool {
+        engine.isWatched(port: UInt16(port))
+    }
+
+    // MARK: - Config
+
+    /// Reload configuration from disk.
+    func reloadConfig() throws {
+        try engine.reloadConfig()
     }
 }
 
@@ -111,9 +156,6 @@ actor RustPortScanner {
 
 extension PortInfo {
     /// Create a PortInfo from Rust FFI RustPortInfo
-    ///
-    /// - Parameter rustPort: The UniFFI-generated RustPortInfo from Rust
-    /// - Returns: A Swift PortInfo instance
     static func fromRust(_ rustPort: RustPortInfo) -> PortInfo {
         PortInfo.active(
             port: Int(rustPort.port),
@@ -122,8 +164,8 @@ extension PortInfo {
             address: rustPort.address,
             user: rustPort.user,
             command: rustPort.command,
-            fd: rustPort.fd
+            fd: rustPort.fd,
+            processType: ProcessType.fromRustString(rustPort.processType)
         )
     }
 }
-

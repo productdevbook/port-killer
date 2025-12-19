@@ -109,9 +109,7 @@ struct PortListRow: View {
 
                 if port.isActive {
                     Button {
-                        Task {
-                            await appState.killPort(port)
-                        }
+                        appState.killPort(port)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.red)
@@ -122,7 +120,7 @@ struct PortListRow: View {
                     Button {
                         // Remove from favorites/watched
                         if appState.isFavorite(port.port) {
-                            appState.favorites.remove(port.port)
+                            appState.toggleFavorite(port.port)
                         }
                         if appState.isWatching(port.port) {
                             appState.toggleWatch(port.port)
@@ -183,9 +181,7 @@ struct PortListRow: View {
                 Divider()
 
                 Button(role: .destructive) {
-                    Task {
-                        await appState.killPort(port)
-                    }
+                    appState.killPort(port)
                 } label: {
                     Label("Kill Process", systemImage: "xmark.circle")
                 }
