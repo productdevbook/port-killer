@@ -1,8 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
 	"fmt"
-	"time"
 )
 
 // WatchedPort represents a port being watched for state changes
@@ -25,9 +25,35 @@ type Store interface {
 	Save(cfg *Config) error
 }
 
-// NewStore returns a platform-specific config store
+// NewStore returns the shared config store
 func NewStore() Store {
-	return newPlatformStore()
+	store, err := NewSharedStore()
+	if err != nil {
+		// Fallback: return a store that will return empty config
+		return &fallbackStore{}
+	}
+
+	// Migrate from plist if shared config is empty
+	cfg, _ := store.Load()
+	if len(cfg.Favorites) == 0 && len(cfg.WatchedPorts) == 0 {
+		if plistCfg := loadFromPlist(); plistCfg != nil {
+			if len(plistCfg.Favorites) > 0 || len(plistCfg.WatchedPorts) > 0 {
+				store.Save(plistCfg)
+			}
+		}
+	}
+
+	return store
+}
+
+type fallbackStore struct{}
+
+func (f *fallbackStore) Load() (*Config, error) {
+	return &Config{Favorites: []int{}, WatchedPorts: []WatchedPort{}}, nil
+}
+
+func (f *fallbackStore) Save(cfg *Config) error {
+	return nil
 }
 
 // IsFavorite checks if a port is in favorites
@@ -91,7 +117,13 @@ func (c *Config) RemoveWatched(port int) {
 	c.WatchedPorts = filtered
 }
 
-// generateID creates a simple unique ID
+// generateID creates a UUID v4 compatible with macOS app
 func generateID() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	uuid := make([]byte, 16)
+	rand.Read(uuid)
+	// Set version 4 and variant bits
+	uuid[6] = (uuid[6] & 0x0f) | 0x40
+	uuid[8] = (uuid[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08X-%04X-%04X-%04X-%012X",
+		uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:16])
 }

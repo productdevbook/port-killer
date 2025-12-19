@@ -74,3 +74,8 @@ func (s *jsonStore) Save(cfg *Config) error {
 
 	return os.WriteFile(s.path, data, 0644)
 }
+
+// loadFromPlist is a no-op on non-darwin platforms
+func loadFromPlist() *Config {
+	return nil
+}

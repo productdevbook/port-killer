@@ -4,11 +4,9 @@ import Defaults
 import KeyboardShortcuts
 import Sparkle
 
-// MARK: - Defaults Keys
+// MARK: - Defaults Keys (app-specific, not shared with CLI)
 
 extension Defaults.Keys {
-    static let favorites = Key<Set<Int>>("favorites", default: [])
-    static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
     static let useTreeView = Key<Bool>("useTreeView", default: false)
     static let refreshInterval = Key<Int>("refreshInterval", default: 5)
 
@@ -106,11 +104,11 @@ final class AppState {
         return result
     }
 
-    // MARK: - Favorites
+    // MARK: - Favorites (synced with CLI via ~/.portkiller/config.json)
 
-    /// Cached favorites set, synced with UserDefaults
-    private var _favorites: Set<Int> = Defaults[.favorites] {
-        didSet { Defaults[.favorites] = _favorites }
+    /// Cached favorites set
+    private var _favorites: Set<Int> = SharedConfigStore.shared.favorites {
+        didSet { SharedConfigStore.shared.favorites = _favorites }
     }
 
     /// Port numbers marked as favorites by the user
@@ -119,11 +117,11 @@ final class AppState {
         set { _favorites = newValue }
     }
 
-    // MARK: - Watched Ports
+    // MARK: - Watched Ports (synced with CLI via ~/.portkiller/config.json)
 
-    /// Cached watched ports array, synced with UserDefaults
-    private var _watchedPorts: [WatchedPort] = Defaults[.watchedPorts] {
-        didSet { Defaults[.watchedPorts] = _watchedPorts }
+    /// Cached watched ports array
+    private var _watchedPorts: [WatchedPort] = SharedConfigStore.shared.watchedPorts {
+        didSet { SharedConfigStore.shared.watchedPorts = _watchedPorts }
     }
 
     /// Ports being watched for state changes
@@ -159,5 +157,28 @@ final class AppState {
     init() {
         setupKeyboardShortcuts()
         startAutoRefresh()
+        setupConfigSync()
+    }
+
+    // MARK: - Config Sync with CLI
+
+    /// Set up file watching for shared config
+    private func setupConfigSync() {
+        SharedConfigStore.shared.onConfigChanged = { [weak self] in
+            self?.reloadFromSharedConfig()
+        }
+    }
+
+    /// Reload config from shared JSON file
+    func reloadFromSharedConfig() {
+        let diskFavorites = SharedConfigStore.shared.favorites
+        if _favorites != diskFavorites {
+            _favorites = diskFavorites
+        }
+
+        let diskWatchedPorts = SharedConfigStore.shared.watchedPorts
+        if _watchedPorts != diskWatchedPorts {
+            _watchedPorts = diskWatchedPorts
+        }
     }
 }
