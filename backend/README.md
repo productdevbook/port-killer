@@ -1,6 +1,6 @@
 # PortKiller Backend
 
-Rust workspace containing the core library and CLI for port management.
+Rust workspace containing the core library, CLI, and FFI bindings for Swift integration.
 
 ## Structure
 
@@ -15,11 +15,15 @@ backend/
 │       ├── error.rs
 │       ├── models/
 │       └── scanner/
-└── cli/            # portkiller CLI binary
+├── cli/            # portkiller CLI binary
+│   └── src/
+│       ├── main.rs
+│       ├── commands/
+│       └── tui/
+└── ffi/            # UniFFI bindings for Swift
     └── src/
-        ├── main.rs
-        ├── commands/
-        └── tui/
+        ├── lib.rs
+        └── lib.udl
 ```
 
 ## Quick Start
@@ -194,13 +198,67 @@ This format is compatible with the Swift macOS app for seamless sync.
 
 ---
 
+## Swift Integration (FFI)
+
+The `ffi` crate provides UniFFI bindings for the Swift macOS app.
+
+### Build XCFramework
+
+```bash
+# From project root
+./scripts/build-rust-xcframework.sh
+```
+
+This creates:
+- `Frameworks/PortKillerCore.xcframework` - Universal static library
+- `Sources/RustBridge/portkiller_ffi.swift` - Generated Swift bindings
+
+### Architecture
+
+```
+Swift App (PortKiller.app)
+    │
+    ▼
+RustPortScanner.swift (wrapper)
+    │
+    ▼
+portkiller_ffi.swift (UniFFI generated)
+    │
+    ▼
+PortKillerCore.xcframework (static library)
+    │
+    ▼
+portkiller-core (Rust library)
+```
+
+### Exposed API
+
+```swift
+// Create scanner
+let scanner = RustScanner()
+
+// Scan ports
+let ports: [RustPortInfo] = try scanner.scanPorts()
+
+// Kill process (graceful: SIGTERM → 500ms → SIGKILL)
+let success: Bool = try scanner.killProcess(pid: 1234)
+
+// Force kill (SIGKILL immediately)
+let success: Bool = try scanner.forceKillProcess(pid: 1234)
+
+// Check if process is running
+let running: Bool = scanner.isProcessRunning(pid: 1234)
+```
+
+---
+
 ## Platform Support
 
-| Platform | Core | CLI |
-|----------|------|-----|
-| macOS | ✅ Full (lsof) | ✅ |
-| Linux | 🚧 Planned | ✅ |
-| Windows | 🚧 Planned | ✅ |
+| Platform | Core | CLI | Swift FFI |
+|----------|------|-----|-----------|
+| macOS | ✅ Full (lsof) | ✅ | ✅ |
+| Linux | 🚧 Planned | ✅ | ❌ |
+| Windows | 🚧 Planned | ✅ | ❌ |
 
 ---
 

@@ -34,6 +34,9 @@ struct SettingsView: View {
                 // MARK: - General
                 GeneralSettingsSection()
 
+                // MARK: - Advanced
+                AdvancedSettingsSection()
+
                 // MARK: - Port Forwarding
                 PortForwardingSettingsSection()
 

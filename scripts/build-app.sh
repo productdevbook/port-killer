@@ -172,6 +172,16 @@ echo "🗑️ Removing unnecessary XPC services..."
 rm -rf "$CONTENTS_DIR/Frameworks/Sparkle.framework/Versions/B/XPCServices"
 rm -f "$CONTENTS_DIR/Frameworks/Sparkle.framework/XPCServices"
 
+# Copy Rust XCFramework if it exists
+XCFRAMEWORK_DIR="Frameworks/PortKillerCore.xcframework"
+if [ -d "$XCFRAMEWORK_DIR" ]; then
+    echo "📦 Copying PortKillerCore.xcframework (Rust backend)..."
+    ditto "$XCFRAMEWORK_DIR" "$CONTENTS_DIR/Frameworks/PortKillerCore.xcframework"
+else
+    echo "⚠️ PortKillerCore.xcframework not found - Rust backend will not be available"
+    echo "   Run ./scripts/build-rust-xcframework.sh to build it"
+fi
+
 # Add rpath so executable can find the framework
 echo "🔗 Setting up framework path..."
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS_DIR/$APP_NAME" 2>/dev/null || true

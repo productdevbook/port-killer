@@ -1,0 +1,24 @@
+[package]
+name = "portkiller-ffi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "UniFFI bindings for portkiller-core"
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+name = "portkiller_ffi"
+
+[dependencies]
+portkiller-core.workspace = true
+uniffi = { version = "0.28", features = ["tokio", "cli"] }
+tokio.workspace = true
+thiserror.workspace = true
+
+[build-dependencies]
+uniffi = { version = "0.28", features = ["build"] }
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"

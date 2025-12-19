@@ -145,8 +145,8 @@ final class AppState {
 
     // MARK: - Internal Properties (for extensions)
 
-    /// Port scanning actor
-    let scanner = PortScanner()
+    /// Rust-backed port scanning actor
+    let scanner = RustPortScanner()
 
     /// Background task for auto-refresh
     @ObservationIgnored var refreshTask: Task<Void, Never>?

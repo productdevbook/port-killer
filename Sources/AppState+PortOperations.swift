@@ -1,7 +1,7 @@
 import Foundation
 
 extension AppState {
-    /// Refreshes the port list by scanning for active ports.
+    /// Refreshes the port list by scanning for active ports using the Rust backend.
     func refresh() async {
         guard !isScanning else { return }
         isScanning = true

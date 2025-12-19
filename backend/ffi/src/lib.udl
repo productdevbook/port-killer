@@ -1,0 +1,37 @@
+namespace portkiller_ffi {
+};
+
+[Error]
+enum RustScannerError {
+    "ScanFailed",
+    "KillFailed",
+    "PermissionDenied",
+};
+
+dictionary RustPortInfo {
+    string id;
+    u16 port;
+    u32 pid;
+    string process_name;
+    string address;
+    string user;
+    string command;
+    string fd;
+    boolean is_active;
+    string process_type;
+};
+
+interface RustScanner {
+    constructor();
+
+    [Throws=RustScannerError]
+    sequence<RustPortInfo> scan_ports();
+
+    [Throws=RustScannerError]
+    boolean kill_process(u32 pid);
+
+    [Throws=RustScannerError]
+    boolean force_kill_process(u32 pid);
+
+    boolean is_process_running(u32 pid);
+};
