@@ -33,15 +33,21 @@ pub enum RustEngineError {
 
 impl From<portkiller_core::Error> for RustEngineError {
     fn from(e: portkiller_core::Error) -> Self {
-        let msg = e.to_string();
-        if msg.contains("Permission denied") {
-            RustEngineError::PermissionDenied { msg }
-        } else if msg.contains("kill") || msg.contains("Kill") {
-            RustEngineError::KillFailed { msg }
-        } else if msg.contains("config") || msg.contains("Config") {
-            RustEngineError::ConfigError { msg }
-        } else {
-            RustEngineError::ScanFailed { msg }
+        use portkiller_core::Error;
+        match e {
+            Error::PermissionDenied(msg) => RustEngineError::PermissionDenied { msg },
+            Error::KillFailed { pid, reason } => RustEngineError::KillFailed {
+                msg: format!("Failed to kill process {}: {}", pid, reason),
+            },
+            Error::Config(msg) => RustEngineError::ConfigError { msg },
+            Error::Kubernetes(ke) => RustEngineError::ConfigError {
+                msg: ke.to_string(),
+            },
+            Error::CommandFailed(msg) => RustEngineError::ScanFailed { msg },
+            Error::ParseError(msg) => RustEngineError::ScanFailed { msg },
+            Error::Io(e) => RustEngineError::ScanFailed { msg: e.to_string() },
+            Error::Json(e) => RustEngineError::ConfigError { msg: e.to_string() },
+            Error::UnsupportedPlatform(msg) => RustEngineError::ScanFailed { msg },
         }
     }
 }

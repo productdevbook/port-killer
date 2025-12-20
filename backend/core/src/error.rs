@@ -2,6 +2,8 @@
 
 use thiserror::Error;
 
+use crate::kubernetes::errors::KubectlError;
+
 /// Result type alias for portkiller operations.
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -39,4 +41,8 @@ pub enum Error {
     /// Platform not supported.
     #[error("Platform not supported: {0}")]
     UnsupportedPlatform(String),
+
+    /// Kubernetes/kubectl error.
+    #[error("Kubernetes error: {0}")]
+    Kubernetes(#[from] KubectlError),
 }

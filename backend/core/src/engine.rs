@@ -455,14 +455,14 @@ impl PortKillerEngine {
     pub fn fetch_namespaces(&self) -> Result<Vec<KubernetesNamespace>> {
         self.runtime
             .block_on(self.kubernetes.fetch_namespaces())
-            .map_err(|e| crate::error::Error::CommandFailed(e.to_string()))
+            .map_err(crate::error::Error::from)
     }
 
     /// Fetches services in a specific namespace.
     pub fn fetch_services(&self, namespace: &str) -> Result<Vec<KubernetesService>> {
         self.runtime
             .block_on(self.kubernetes.fetch_services(namespace))
-            .map_err(|e| crate::error::Error::CommandFailed(e.to_string()))
+            .map_err(crate::error::Error::from)
     }
 
     /// Returns true if kubectl is available.
@@ -520,7 +520,7 @@ impl PortKillerEngine {
             .map_err(|e| crate::error::Error::Config(format!("Invalid UUID: {}", e)))?;
         self.kubernetes
             .start_connection(uuid)
-            .map_err(|e| crate::error::Error::CommandFailed(e.to_string()))
+            .map_err(crate::error::Error::from)
     }
 
     /// Stops a port forward connection.
@@ -529,7 +529,7 @@ impl PortKillerEngine {
             .map_err(|e| crate::error::Error::Config(format!("Invalid UUID: {}", e)))?;
         self.kubernetes
             .stop_connection(uuid)
-            .map_err(|e| crate::error::Error::CommandFailed(e.to_string()))
+            .map_err(crate::error::Error::from)
     }
 
     /// Restarts a port forward connection.
@@ -538,14 +538,14 @@ impl PortKillerEngine {
             .map_err(|e| crate::error::Error::Config(format!("Invalid UUID: {}", e)))?;
         self.kubernetes
             .restart_connection(uuid)
-            .map_err(|e| crate::error::Error::CommandFailed(e.to_string()))
+            .map_err(crate::error::Error::from)
     }
 
     /// Stops all port forward connections.
     pub fn stop_all_port_forwards(&self) -> Result<()> {
         self.kubernetes
             .stop_all()
-            .map_err(|e| crate::error::Error::CommandFailed(e.to_string()))
+            .map_err(crate::error::Error::from)
     }
 
     // =========================================================================
