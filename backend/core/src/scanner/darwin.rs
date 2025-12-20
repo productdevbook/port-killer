@@ -13,6 +13,8 @@ use super::Scanner;
 /// macOS-specific port scanner using lsof.
 pub struct DarwinScanner;
 
+use super::utils::Utils;
+
 impl DarwinScanner {
     /// Create a new macOS scanner.
     pub fn new() -> Self {
@@ -139,7 +141,7 @@ impl DarwinScanner {
                 .unwrap_or_else(|| process_name.clone());
 
             // Parse address and port
-            let (address, port) = match self.parse_address(&address_part) {
+            let (address, port) = match Utils::parse_address(&address_part) {
                 Some((a, p)) => (a, p),
                 None => continue,
             };
@@ -163,33 +165,6 @@ impl DarwinScanner {
         // Sort by port number
         ports.sort_by_key(|p| p.port);
         ports
-    }
-
-    /// Parse an address:port string.
-    ///
-    /// Handles multiple address formats:
-    /// - IPv4: "127.0.0.1:3000" or "*:8080"
-    /// - IPv6: "[::1]:3000" or "[fe80::1]:8080"
-    fn parse_address(&self, address: &str) -> Option<(String, u16)> {
-        if address.starts_with('[') {
-            // IPv6 format: [::1]:3000
-            let bracket_end = address.find(']')?;
-            if bracket_end + 1 >= address.len() || address.as_bytes()[bracket_end + 1] != b':' {
-                return None;
-            }
-            let addr = &address[..=bracket_end];
-            let port_str = &address[bracket_end + 2..];
-            let port: u16 = port_str.parse().ok()?;
-            Some((addr.to_string(), port))
-        } else {
-            // IPv4 format: 127.0.0.1:3000 or *:8080
-            let last_colon = address.rfind(':')?;
-            let addr = &address[..last_colon];
-            let port_str = &address[last_colon + 1..];
-            let port: u16 = port_str.parse().ok()?;
-            let addr = if addr.is_empty() { "*" } else { addr };
-            Some((addr.to_string(), port))
-        }
     }
 }
 
@@ -230,32 +205,6 @@ impl Scanner for DarwinScanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_ipv4_address() {
-        let scanner = DarwinScanner::new();
-
-        let (addr, port) = scanner.parse_address("127.0.0.1:3000").unwrap();
-        assert_eq!(addr, "127.0.0.1");
-        assert_eq!(port, 3000);
-
-        let (addr, port) = scanner.parse_address("*:8080").unwrap();
-        assert_eq!(addr, "*");
-        assert_eq!(port, 8080);
-    }
-
-    #[test]
-    fn test_parse_ipv6_address() {
-        let scanner = DarwinScanner::new();
-
-        let (addr, port) = scanner.parse_address("[::1]:3000").unwrap();
-        assert_eq!(addr, "[::1]");
-        assert_eq!(port, 3000);
-
-        let (addr, port) = scanner.parse_address("[fe80::1]:8080").unwrap();
-        assert_eq!(addr, "[fe80::1]");
-        assert_eq!(port, 8080);
-    }
 
     #[test]
     fn test_parse_lsof_output() {

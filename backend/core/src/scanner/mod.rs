@@ -8,6 +8,7 @@ mod linux;
 
 #[cfg(target_os = "windows")]
 mod windows;
+mod utils;
 
 use crate::error::Result;
 use crate::models::PortInfo;
