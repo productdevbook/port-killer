@@ -208,70 +208,99 @@ impl KubernetesConnectionManager {
 
         // Start based on mode
         if config.use_direct_exec {
-            // Direct exec mode: single process handles everything
-            self.process_manager.start_direct_exec_proxy(id, &config)?;
-
-            // Wait for stabilization
-            std::thread::sleep(PROXY_STABILIZATION);
-
-            // Check if port is open
-            let effective_port = config.effective_port();
-            if self.process_manager.is_port_open(effective_port) {
-                self.update_state(id, |state| {
-                    state.port_forward_status = PortForwardStatus::Connected;
-                    state.proxy_status = PortForwardStatus::Connected;
-                });
-                self.add_connected_notification(id, &config.name);
-            } else {
-                self.update_state(id, |state| {
-                    state.port_forward_status = PortForwardStatus::Error;
-                    state.last_error = Some("Failed to establish connection".to_string());
-                });
-            }
+            self.start_direct_exec_connection(id, &config)
         } else {
-            // Standard mode: kubectl port-forward + optional proxy
-            self.process_manager.start_port_forward(id, &config)?;
+            self.start_standard_connection(id, &config)
+        }
+    }
 
-            // Wait for kubectl to stabilize
-            std::thread::sleep(PORT_FORWARD_STABILIZATION);
+    /// Starts a connection using direct exec mode (socat + embedded kubectl).
+    fn start_direct_exec_connection(
+        &self,
+        id: Uuid,
+        config: &PortForwardConnectionConfig,
+    ) -> Result<()> {
+        self.process_manager.start_direct_exec_proxy(id, config)?;
 
-            // Check if port-forward is working
-            if self.process_manager.is_port_open(config.local_port) {
-                self.update_state(id, |state| {
-                    state.port_forward_status = PortForwardStatus::Connected;
-                });
+        // Wait for stabilization
+        std::thread::sleep(PROXY_STABILIZATION);
 
-                // Start proxy if configured
-                if let Some(proxy_port) = config.proxy_port {
-                    self.update_state(id, |state| {
-                        state.proxy_status = PortForwardStatus::Connecting;
-                    });
+        // Check if port is open
+        let effective_port = config.effective_port();
+        if self.process_manager.is_port_open(effective_port) {
+            self.update_state(id, |state| {
+                state.port_forward_status = PortForwardStatus::Connected;
+                state.proxy_status = PortForwardStatus::Connected;
+            });
+            self.add_connected_notification(id, &config.name);
+        } else {
+            self.update_state(id, |state| {
+                state.port_forward_status = PortForwardStatus::Error;
+                state.last_error = Some("Failed to establish connection".to_string());
+            });
+        }
 
-                    self.process_manager
-                        .start_proxy(id, proxy_port, config.local_port)?;
+        Ok(())
+    }
 
-                    // Wait for proxy to stabilize
-                    std::thread::sleep(PROXY_STABILIZATION);
+    /// Starts a connection using standard mode (kubectl port-forward + optional proxy).
+    fn start_standard_connection(
+        &self,
+        id: Uuid,
+        config: &PortForwardConnectionConfig,
+    ) -> Result<()> {
+        self.process_manager.start_port_forward(id, config)?;
 
-                    if self.process_manager.is_port_open(proxy_port) {
-                        self.update_state(id, |state| {
-                            state.proxy_status = PortForwardStatus::Connected;
-                        });
-                    } else {
-                        self.update_state(id, |state| {
-                            state.proxy_status = PortForwardStatus::Error;
-                            state.last_error = Some("Proxy failed to start".to_string());
-                        });
-                    }
-                }
+        // Wait for kubectl to stabilize
+        std::thread::sleep(PORT_FORWARD_STABILIZATION);
 
-                self.add_connected_notification(id, &config.name);
-            } else {
-                self.update_state(id, |state| {
-                    state.port_forward_status = PortForwardStatus::Error;
-                    state.last_error = Some("Port forward failed to establish".to_string());
-                });
-            }
+        // Check if port-forward is working
+        if !self.process_manager.is_port_open(config.local_port) {
+            self.update_state(id, |state| {
+                state.port_forward_status = PortForwardStatus::Error;
+                state.last_error = Some("Port forward failed to establish".to_string());
+            });
+            return Ok(());
+        }
+
+        self.update_state(id, |state| {
+            state.port_forward_status = PortForwardStatus::Connected;
+        });
+
+        // Start proxy if configured
+        if let Some(proxy_port) = config.proxy_port {
+            self.start_proxy_for_connection(id, proxy_port, config.local_port)?;
+        }
+
+        self.add_connected_notification(id, &config.name);
+        Ok(())
+    }
+
+    /// Starts a proxy for an existing port-forward connection.
+    fn start_proxy_for_connection(
+        &self,
+        id: Uuid,
+        proxy_port: u16,
+        local_port: u16,
+    ) -> Result<()> {
+        self.update_state(id, |state| {
+            state.proxy_status = PortForwardStatus::Connecting;
+        });
+
+        self.process_manager.start_proxy(id, proxy_port, local_port)?;
+
+        // Wait for proxy to stabilize
+        std::thread::sleep(PROXY_STABILIZATION);
+
+        if self.process_manager.is_port_open(proxy_port) {
+            self.update_state(id, |state| {
+                state.proxy_status = PortForwardStatus::Connected;
+            });
+        } else {
+            self.update_state(id, |state| {
+                state.proxy_status = PortForwardStatus::Error;
+                state.last_error = Some("Proxy failed to start".to_string());
+            });
         }
 
         Ok(())
