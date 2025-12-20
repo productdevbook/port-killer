@@ -138,8 +138,24 @@ cp "Resources/Info.plist" "$CONTENTS_DIR/"
 echo "📂 Contents of $BUILD_DIR:"
 ls -la "$BUILD_DIR/" | grep -E "\.bundle$|^total" || echo "  (no bundles found)"
 
-# Copy icon if exists
-if [ -f "Resources/AppIcon.icns" ]; then
+# Generate icons from AppIcon.icon using actool (Xcode 26+)
+if [ -d "Resources/AppIcon.icon" ]; then
+    echo "🎨 Compiling AppIcon.icon with actool..."
+    
+    # Use actool to compile .icon folder - generates both Assets.car and fallback .icns
+    xcrun actool "Resources/AppIcon.icon" \
+        --compile "$RESOURCES_DIR" \
+        --app-icon AppIcon \
+        --target-device mac \
+        --platform macosx \
+        --minimum-deployment-target 15.0 \
+        --include-all-app-icons \
+        --output-partial-info-plist /tmp/icon-info.plist
+    
+    echo "  ✅ Generated AppIcon.icns and Assets.car"
+elif [ -f "Resources/AppIcon.icns" ]; then
+    # Fallback: copy static .icns if .icon folder doesn't exist
+    echo "  → Copying static AppIcon.icns (legacy fallback)"
     cp "Resources/AppIcon.icns" "$RESOURCES_DIR/"
 fi
 
