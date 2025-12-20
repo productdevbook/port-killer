@@ -17,8 +17,8 @@ use crate::kubernetes::{
     KubernetesConnectionManager, KubernetesNamespace, KubernetesService,
     PortForwardConnectionConfig, PortForwardConnectionState, PortForwardNotification,
 };
-use crate::models::{filter_ports, PortFilter, PortInfo, WatchedPort};
-use crate::scanner::PortScanner;
+use crate::domain::{filter_ports, PortFilter, PortInfo, WatchedPort};
+use crate::adapters::PortScanner;
 
 /// Notification types for port state changes.
 #[derive(Debug, Clone)]

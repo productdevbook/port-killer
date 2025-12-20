@@ -43,6 +43,11 @@ impl PortScanner {
             inner: windows::WindowsScanner::new(),
         }
     }
+
+    /// Scan all listening TCP ports.
+    pub async fn scan(&self) -> Result<Vec<PortInfo>> {
+        self.inner.scan().await
+    }
 }
 
 impl Default for PortScanner {

@@ -25,21 +25,22 @@ pub mod ports;
 pub mod adapters;
 pub mod application;
 
-// Legacy modules (will be migrated to adapters)
+// Core modules
 pub mod config;
 pub mod engine;
 pub mod error;
 pub mod killer;
 pub mod kubernetes;
-pub mod models;
-pub mod scanner;
 
 // Re-export domain types (primary API)
 pub use domain::{filter_ports, PortFilter, PortInfo, ProcessType, WatchedPort};
+
+// Re-export adapters
+pub use adapters::PortScanner;
 
 // Re-export other commonly used types
 pub use config::ConfigStore;
 pub use engine::{Notification, PortKillerEngine};
 pub use error::{Error, Result};
 pub use killer::ProcessKiller;
-pub use scanner::{PortScanner, Scanner};
+pub use ports::PortScannerPort;

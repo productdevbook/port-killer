@@ -11,7 +11,7 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
 use crate::error::{Error, Result};
-use crate::models::WatchedPort;
+use crate::domain::WatchedPort;
 
 /// Configuration data stored in JSON format.
 ///
