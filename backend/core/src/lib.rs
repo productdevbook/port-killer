@@ -23,6 +23,7 @@
 pub mod domain;
 pub mod ports;
 pub mod adapters;
+pub mod application;
 
 // Legacy modules (will be migrated to adapters)
 pub mod config;

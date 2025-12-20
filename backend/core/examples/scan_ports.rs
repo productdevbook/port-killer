@@ -2,7 +2,7 @@
 
 use portkiller_core::{PortScanner, ProcessType};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     println!("Scanning ports...\n");
 

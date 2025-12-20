@@ -12,7 +12,7 @@
 use portkiller_core::{ConfigStore, PortScanner, ProcessKiller, ProcessType};
 use std::env;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     let args: Vec<String> = env::args().collect();
 
