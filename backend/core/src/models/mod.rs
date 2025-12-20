@@ -1,11 +1,7 @@
 //! Data models for port and process information.
+//!
+//! NOTE: This module re-exports types from `domain` for backwards compatibility.
+//! New code should import directly from `crate::domain`.
 
-mod port_filter;
-mod port_info;
-mod process_type;
-mod watched_port;
-
-pub use port_filter::{filter_ports, PortFilter};
-pub use port_info::PortInfo;
-pub use process_type::ProcessType;
-pub use watched_port::WatchedPort;
+// Re-export from domain layer
+pub use crate::domain::{filter_ports, PortFilter, PortInfo, ProcessType, WatchedPort};
