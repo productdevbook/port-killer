@@ -115,9 +115,11 @@ async fn main() -> anyhow::Result<()> {
             FavoritesAction::List => commands::favorites::list(cli.json).await?,
         },
         Some(Commands::Watch { action }) => match action {
-            WatchAction::Add { port, on_start, on_stop } => {
-                commands::watch::add(port, on_start, on_stop).await?
-            }
+            WatchAction::Add {
+                port,
+                on_start,
+                on_stop,
+            } => commands::watch::add(port, on_start, on_stop).await?,
             WatchAction::Remove { port } => commands::watch::remove(port).await?,
             WatchAction::List => commands::watch::list(cli.json).await?,
         },

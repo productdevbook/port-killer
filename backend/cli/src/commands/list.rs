@@ -28,8 +28,8 @@ pub async fn run(port_filter: Option<u16>, name_filter: Option<String>, json: bo
 
     // Table header
     println!(
-        "{:<6} {:<8} {:<20} {:<15} {:<8} {}",
-        "PORT", "PID", "PROCESS", "ADDRESS", "TYPE", "COMMAND"
+        "{:<6} {:<8} {:<20} {:<15} {:<8} COMMAND",
+        "PORT", "PID", "PROCESS", "ADDRESS", "TYPE"
     );
     println!("{}", "-".repeat(80));
 

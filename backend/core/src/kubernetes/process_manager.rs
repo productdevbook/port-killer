@@ -1,11 +1,11 @@
 //! Process manager for kubectl port-forward and socat processes.
 
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::net::TcpStream;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::RwLock;
 use std::time::{Duration, Instant};
 
 use uuid::Uuid;
@@ -114,7 +114,11 @@ impl PortForwardProcessManager {
     /// Starts a direct exec proxy for multi-connection support.
     ///
     /// This creates a wrapper script that spawns kubectl port-forward per connection.
-    pub fn start_direct_exec_proxy(&self, id: Uuid, config: &PortForwardConnectionConfig) -> Result<()> {
+    pub fn start_direct_exec_proxy(
+        &self,
+        id: Uuid,
+        config: &PortForwardConnectionConfig,
+    ) -> Result<()> {
         let kubectl_path = self
             .discovery
             .kubectl_path()
@@ -134,15 +138,17 @@ impl PortForwardProcessManager {
             config.remote_port,
         );
 
-        let script_path = format!("/tmp/pf-wrapper-{}.sh", id);
+        let script_path = std::env::temp_dir().join(format!("pf-wrapper-{}.sh", id));
+        let script_path_str = script_path.to_string_lossy();
 
         // Write script
-        std::fs::write(&script_path, script_content)
-            .map_err(|e| KubectlError::ProcessError(format!("Failed to write wrapper script: {}", e)))?;
+        std::fs::write(&script_path, script_content).map_err(|e| {
+            KubectlError::ProcessError(format!("Failed to write wrapper script: {}", e))
+        })?;
 
         // Make executable
         Command::new("chmod")
-            .args(["+x", &script_path])
+            .args(["+x", script_path_str.as_ref()])
             .status()
             .map_err(|e| KubectlError::ProcessError(format!("Failed to chmod script: {}", e)))?;
 
@@ -151,12 +157,14 @@ impl PortForwardProcessManager {
         let child = Command::new(socat_path)
             .args([
                 &format!("TCP-LISTEN:{},fork,reuseaddr", external_port),
-                &format!("EXEC:{}", script_path),
+                &format!("EXEC:{}", script_path_str),
             ])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| KubectlError::ProcessError(format!("Failed to start direct exec proxy: {}", e)))?;
+            .map_err(|e| {
+                KubectlError::ProcessError(format!("Failed to start direct exec proxy: {}", e))
+            })?;
 
         self.register_process(id, PortForwardProcessType::Proxy, child);
         Ok(())
@@ -164,7 +172,7 @@ impl PortForwardProcessManager {
 
     /// Kills all processes for a connection.
     pub fn kill_processes(&self, id: Uuid) -> Result<()> {
-        let mut processes = self.processes.write().unwrap();
+        let mut processes = self.processes.write();
 
         if let Some(procs) = processes.remove(&id) {
             for (_, mut child) in procs {
@@ -174,23 +182,24 @@ impl PortForwardProcessManager {
         }
 
         // Kill any processes using the wrapper script (catches forked children)
-        let script_path = format!("/tmp/pf-wrapper-{}.sh", id);
+        let script_path = std::env::temp_dir().join(format!("pf-wrapper-{}.sh", id));
+        let script_path_str = script_path.to_string_lossy();
         let _ = Command::new("pkill")
-            .args(["-f", &script_path])
+            .args(["-f", script_path_str.as_ref()])
             .status();
 
         // Clean up wrapper script
         let _ = std::fs::remove_file(&script_path);
 
         // Clear any errors
-        self.connection_errors.write().unwrap().remove(&id);
+        self.connection_errors.write().remove(&id);
 
         Ok(())
     }
 
     /// Kills a specific process type for a connection.
     pub fn kill_process(&self, id: Uuid, process_type: PortForwardProcessType) -> Result<()> {
-        let mut processes = self.processes.write().unwrap();
+        let mut processes = self.processes.write();
 
         if let Some(procs) = processes.get_mut(&id) {
             if let Some(mut child) = procs.remove(&process_type) {
@@ -217,8 +226,8 @@ impl PortForwardProcessManager {
         std::thread::sleep(Duration::from_millis(500));
 
         // Clear our tracking
-        self.processes.write().unwrap().clear();
-        self.connection_errors.write().unwrap().clear();
+        self.processes.write().clear();
+        self.connection_errors.write().clear();
 
         // Clean up wrapper scripts
         let _ = std::fs::read_dir("/tmp").map(|entries| {
@@ -244,7 +253,7 @@ impl PortForwardProcessManager {
 
     /// Checks if a specific process is running.
     pub fn is_process_running(&self, id: Uuid, process_type: PortForwardProcessType) -> bool {
-        let mut processes = self.processes.write().unwrap();
+        let mut processes = self.processes.write();
 
         if let Some(procs) = processes.get_mut(&id) {
             if let Some(child) = procs.get_mut(&process_type) {
@@ -277,14 +286,13 @@ impl PortForwardProcessManager {
 
     /// Marks a connection as having an error.
     pub fn mark_connection_error(&self, id: Uuid) {
-        self.connection_errors.write().unwrap().insert(id, Instant::now());
+        self.connection_errors.write().insert(id, Instant::now());
     }
 
     /// Checks if a connection has had a recent error.
     pub fn has_recent_error(&self, id: Uuid) -> bool {
         self.connection_errors
             .read()
-            .unwrap()
             .get(&id)
             .map(|t| t.elapsed() < RECENT_ERROR_WINDOW)
             .unwrap_or(false)
@@ -292,7 +300,7 @@ impl PortForwardProcessManager {
 
     /// Clears the error flag for a connection.
     pub fn clear_error(&self, id: Uuid) {
-        self.connection_errors.write().unwrap().remove(&id);
+        self.connection_errors.write().remove(&id);
     }
 
     // =========================================================================
@@ -301,8 +309,12 @@ impl PortForwardProcessManager {
 
     /// Reads available output from a process.
     /// Returns (stdout_lines, stderr_lines, has_error).
-    pub fn read_process_output(&self, id: Uuid, process_type: PortForwardProcessType) -> Vec<String> {
-        let mut processes = self.processes.write().unwrap();
+    pub fn read_process_output(
+        &self,
+        id: Uuid,
+        process_type: PortForwardProcessType,
+    ) -> Vec<String> {
+        let mut processes = self.processes.write();
         let mut lines = Vec::new();
 
         if let Some(procs) = processes.get_mut(&id) {
@@ -310,20 +322,16 @@ impl PortForwardProcessManager {
                 // Read from stdout
                 if let Some(ref mut stdout) = child.stdout {
                     let reader = BufReader::new(stdout);
-                    for line in reader.lines().take(100) {
-                        if let Ok(line) = line {
-                            lines.push(line);
-                        }
+                    for line in reader.lines().take(100).flatten() {
+                        lines.push(line);
                     }
                 }
 
                 // Read from stderr
                 if let Some(ref mut stderr) = child.stderr {
                     let reader = BufReader::new(stderr);
-                    for line in reader.lines().take(100) {
-                        if let Ok(line) = line {
-                            lines.push(line);
-                        }
+                    for line in reader.lines().take(100).flatten() {
+                        lines.push(line);
                     }
                 }
             }
@@ -349,7 +357,9 @@ impl PortForwardProcessManager {
             for pid_str in pids_str.lines() {
                 if let Ok(pid) = pid_str.trim().parse::<i32>() {
                     // Try SIGTERM first
-                    let _ = Command::new("kill").args(["-15", &pid.to_string()]).status();
+                    let _ = Command::new("kill")
+                        .args(["-15", &pid.to_string()])
+                        .status();
 
                     // Wait briefly
                     std::thread::sleep(KILL_GRACE_PERIOD);
@@ -375,8 +385,8 @@ impl PortForwardProcessManager {
     // =========================================================================
 
     fn register_process(&self, id: Uuid, process_type: PortForwardProcessType, child: Child) {
-        let mut processes = self.processes.write().unwrap();
-        let entry = processes.entry(id).or_insert_with(HashMap::new);
+        let mut processes = self.processes.write();
+        let entry = processes.entry(id).or_default();
 
         // Kill existing process of the same type before registering new one
         if let Some(mut old_child) = entry.remove(&process_type) {
@@ -396,8 +406,8 @@ impl Default for PortForwardProcessManager {
 
 /// Creates a bash wrapper script for multi-connection proxy.
 fn create_wrapper_script(
-    kubectl_path: &PathBuf,
-    socat_path: &PathBuf,
+    kubectl_path: &Path,
+    socat_path: &Path,
     namespace: &str,
     service: &str,
     remote_port: u16,

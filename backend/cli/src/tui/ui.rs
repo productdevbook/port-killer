@@ -77,8 +77,7 @@ fn draw_table(f: &mut Frame, app: &App, area: Rect) {
             Cell::from(type_str).style(Style::default().fg(type_color)),
             Cell::from(if is_favorite { "★" } else { " " })
                 .style(Style::default().fg(Color::Yellow)),
-            Cell::from(if is_watched { "👁" } else { " " })
-                .style(Style::default().fg(Color::Cyan)),
+            Cell::from(if is_watched { "👁" } else { " " }).style(Style::default().fg(Color::Cyan)),
         ];
 
         let style = if is_selected {

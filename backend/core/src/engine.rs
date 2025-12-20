@@ -4,9 +4,9 @@
 //! state caching, notifications, and auto-refresh functionality.
 //! All business logic lives here, making Swift UI a thin layer.
 
+use parking_lot::RwLock;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::RwLock;
 
 use tokio::runtime::{Builder, Runtime};
 
@@ -65,11 +65,14 @@ impl PortKillerEngine {
     /// Ensure the config directory exists.
     fn ensure_config_dir() -> Result<()> {
         let config_dir = dirs::home_dir()
-            .ok_or_else(|| crate::error::Error::Config("Could not find home directory".to_string()))?
+            .ok_or_else(|| {
+                crate::error::Error::Config("Could not find home directory".to_string())
+            })?
             .join(".portkiller");
 
-        std::fs::create_dir_all(&config_dir)
-            .map_err(|e| crate::error::Error::Config(format!("Failed to create config directory: {}", e)))?;
+        std::fs::create_dir_all(&config_dir).map_err(|e| {
+            crate::error::Error::Config(format!("Failed to create config directory: {}", e))
+        })?;
 
         Ok(())
     }
@@ -91,12 +94,16 @@ impl PortKillerEngine {
         let watched = runtime.block_on(config.get_watched_ports())?;
 
         // Create Kubernetes connection manager
-        let kubernetes = KubernetesConnectionManager::new()
-            .map_err(|e| crate::error::Error::Config(format!("Failed to create Kubernetes manager: {}", e)))?;
+        let kubernetes = KubernetesConnectionManager::new().map_err(|e| {
+            crate::error::Error::Config(format!("Failed to create Kubernetes manager: {}", e))
+        })?;
 
         // Load Kubernetes connections
-        runtime.block_on(kubernetes.reload_connections())
-            .map_err(|e| crate::error::Error::Config(format!("Failed to load Kubernetes connections: {}", e)))?;
+        runtime
+            .block_on(kubernetes.reload_connections())
+            .map_err(|e| {
+                crate::error::Error::Config(format!("Failed to load Kubernetes connections: {}", e))
+            })?;
 
         Ok(Self {
             scanner: PortScanner::new(),
@@ -119,7 +126,8 @@ impl PortKillerEngine {
     /// Note: The actual refresh is triggered by Swift calling `refresh()`.
     /// This just stores the preferred interval for reference.
     pub fn set_refresh_interval(&self, interval_secs: u64) {
-        self.refresh_interval_secs.store(interval_secs, Ordering::SeqCst);
+        self.refresh_interval_secs
+            .store(interval_secs, Ordering::SeqCst);
     }
 
     /// Get the current refresh interval (in seconds).
@@ -146,13 +154,13 @@ impl PortKillerEngine {
         let new_ports = self.runtime.block_on(self.scanner.scan())?;
 
         // Get watched ports for notifications
-        let watched = self.watched_cache.read().unwrap().clone();
+        let watched = self.watched_cache.read().clone();
 
         // Check for state changes and generate notifications
         self.check_watched_ports(&new_ports, &watched);
 
         // Update cached ports
-        *self.ports.write().unwrap() = new_ports;
+        *self.ports.write() = new_ports;
 
         Ok(())
     }
@@ -160,8 +168,8 @@ impl PortKillerEngine {
     /// Check watched ports for state changes and generate notifications.
     fn check_watched_ports(&self, new_ports: &[PortInfo], watched: &[WatchedPort]) {
         let active_ports: HashSet<u16> = new_ports.iter().map(|p| p.port).collect();
-        let mut prev_states = self.previous_states.write().unwrap();
-        let mut notifications = self.pending_notifications.write().unwrap();
+        let mut prev_states = self.previous_states.write();
+        let mut notifications = self.pending_notifications.write();
 
         for w in watched {
             let is_active = active_ports.contains(&w.port);
@@ -195,42 +203,43 @@ impl PortKillerEngine {
 
     /// Get all currently cached ports.
     pub fn get_ports(&self) -> Vec<PortInfo> {
-        self.ports.read().unwrap().clone()
+        self.ports.read().clone()
     }
 
     /// Get filtered ports based on the provided filter.
     pub fn get_filtered_ports(&self, filter: &PortFilter) -> Vec<PortInfo> {
-        let ports = self.ports.read().unwrap();
-        let favorites = self.favorites_cache.read().unwrap();
-        let watched = self.watched_cache.read().unwrap();
+        let ports = self.ports.read();
+        let favorites = self.favorites_cache.read();
+        let watched = self.watched_cache.read();
 
         filter_ports(&ports, filter, &favorites, &watched)
     }
 
     /// Check if a specific port is currently active.
     pub fn is_port_active(&self, port: u16) -> bool {
-        self.ports.read().unwrap().iter().any(|p| p.port == port)
+        self.ports.read().iter().any(|p| p.port == port)
     }
 
     // MARK: - Notifications
 
     /// Get and clear pending notifications.
     pub fn get_pending_notifications(&self) -> Vec<Notification> {
-        std::mem::take(&mut *self.pending_notifications.write().unwrap())
+        std::mem::take(&mut *self.pending_notifications.write())
     }
 
     /// Check if there are pending notifications.
     pub fn has_pending_notifications(&self) -> bool {
-        !self.pending_notifications.read().unwrap().is_empty()
+        !self.pending_notifications.read().is_empty()
     }
 
     // MARK: - Process Management
 
     /// Kill a process by port number.
     pub fn kill_port(&self, port: u16) -> Result<bool> {
-        let ports = self.ports.read().unwrap();
+        let ports = self.ports.read();
         if let Some(port_info) = ports.iter().find(|p| p.port == port) {
-            self.runtime.block_on(self.killer.kill_gracefully(port_info.pid))
+            self.runtime
+                .block_on(self.killer.kill_gracefully(port_info.pid))
         } else {
             Ok(false)
         }
@@ -254,26 +263,26 @@ impl PortKillerEngine {
 
     /// Get all favorite ports.
     pub fn get_favorites(&self) -> HashSet<u16> {
-        self.favorites_cache.read().unwrap().clone()
+        self.favorites_cache.read().clone()
     }
 
     /// Add a port to favorites.
     pub fn add_favorite(&self, port: u16) -> Result<()> {
         self.runtime.block_on(self.config.add_favorite(port))?;
-        self.favorites_cache.write().unwrap().insert(port);
+        self.favorites_cache.write().insert(port);
         Ok(())
     }
 
     /// Remove a port from favorites.
     pub fn remove_favorite(&self, port: u16) -> Result<()> {
         self.runtime.block_on(self.config.remove_favorite(port))?;
-        self.favorites_cache.write().unwrap().remove(&port);
+        self.favorites_cache.write().remove(&port);
         Ok(())
     }
 
     /// Toggle favorite status for a port.
     pub fn toggle_favorite(&self, port: u16) -> Result<bool> {
-        let is_favorite = self.favorites_cache.read().unwrap().contains(&port);
+        let is_favorite = self.favorites_cache.read().contains(&port);
         if is_favorite {
             self.remove_favorite(port)?;
             Ok(false)
@@ -285,14 +294,14 @@ impl PortKillerEngine {
 
     /// Check if a port is a favorite.
     pub fn is_favorite(&self, port: u16) -> bool {
-        self.favorites_cache.read().unwrap().contains(&port)
+        self.favorites_cache.read().contains(&port)
     }
 
     // MARK: - Watched Ports
 
     /// Get all watched ports.
     pub fn get_watched_ports(&self) -> Vec<WatchedPort> {
-        self.watched_cache.read().unwrap().clone()
+        self.watched_cache.read().clone()
     }
 
     /// Add a watched port.
@@ -306,26 +315,29 @@ impl PortKillerEngine {
 
         // Update notification settings if different from defaults
         if !notify_on_start || !notify_on_stop {
-            self.runtime.block_on(
-                self.config.update_watched_port(port, notify_on_start, notify_on_stop)
-            )?;
+            self.runtime.block_on(self.config.update_watched_port(
+                port,
+                notify_on_start,
+                notify_on_stop,
+            ))?;
         }
 
         let mut wp_updated = wp.clone();
         wp_updated.notify_on_start = notify_on_start;
         wp_updated.notify_on_stop = notify_on_stop;
 
-        self.watched_cache.write().unwrap().push(wp_updated.clone());
+        self.watched_cache.write().push(wp_updated.clone());
         Ok(wp_updated)
     }
 
     /// Remove a watched port.
     pub fn remove_watched_port(&self, port: u16) -> Result<()> {
-        self.runtime.block_on(self.config.remove_watched_port(port))?;
-        self.watched_cache.write().unwrap().retain(|w| w.port != port);
+        self.runtime
+            .block_on(self.config.remove_watched_port(port))?;
+        self.watched_cache.write().retain(|w| w.port != port);
 
         // Clean up previous state
-        self.previous_states.write().unwrap().remove(&port);
+        self.previous_states.write().remove(&port);
 
         Ok(())
     }
@@ -337,11 +349,18 @@ impl PortKillerEngine {
         notify_on_start: bool,
         notify_on_stop: bool,
     ) -> Result<()> {
-        self.runtime.block_on(
-            self.config.update_watched_port(port, notify_on_start, notify_on_stop)
-        )?;
+        self.runtime.block_on(self.config.update_watched_port(
+            port,
+            notify_on_start,
+            notify_on_stop,
+        ))?;
 
-        if let Some(wp) = self.watched_cache.write().unwrap().iter_mut().find(|w| w.port == port) {
+        if let Some(wp) = self
+            .watched_cache
+            .write()
+            .iter_mut()
+            .find(|w| w.port == port)
+        {
             wp.notify_on_start = notify_on_start;
             wp.notify_on_stop = notify_on_stop;
         }
@@ -351,7 +370,7 @@ impl PortKillerEngine {
 
     /// Toggle watch status for a port.
     pub fn toggle_watch(&self, port: u16) -> Result<bool> {
-        let is_watched = self.watched_cache.read().unwrap().iter().any(|w| w.port == port);
+        let is_watched = self.watched_cache.read().iter().any(|w| w.port == port);
         if is_watched {
             self.remove_watched_port(port)?;
             Ok(false)
@@ -363,7 +382,7 @@ impl PortKillerEngine {
 
     /// Check if a port is being watched.
     pub fn is_watched(&self, port: u16) -> bool {
-        self.watched_cache.read().unwrap().iter().any(|w| w.port == port)
+        self.watched_cache.read().iter().any(|w| w.port == port)
     }
 
     // MARK: - Configuration
@@ -373,13 +392,18 @@ impl PortKillerEngine {
         let favorites = self.runtime.block_on(self.config.get_favorites())?;
         let watched = self.runtime.block_on(self.config.get_watched_ports())?;
 
-        *self.favorites_cache.write().unwrap() = favorites;
-        *self.watched_cache.write().unwrap() = watched;
+        *self.favorites_cache.write() = favorites;
+        *self.watched_cache.write() = watched;
 
         // Reload Kubernetes connections
         self.runtime
             .block_on(self.kubernetes.reload_connections())
-            .map_err(|e| crate::error::Error::Config(format!("Failed to reload Kubernetes connections: {}", e)))?;
+            .map_err(|e| {
+                crate::error::Error::Config(format!(
+                    "Failed to reload Kubernetes connections: {}",
+                    e
+                ))
+            })?;
 
         Ok(())
     }
@@ -395,27 +419,32 @@ impl PortKillerEngine {
 
     /// Set the refresh interval in seconds.
     pub fn set_settings_refresh_interval(&self, interval: u64) -> Result<()> {
-        self.runtime.block_on(self.config.set_refresh_interval(interval))
+        self.runtime
+            .block_on(self.config.set_refresh_interval(interval))
     }
 
     /// Get port forward auto-start setting.
     pub fn get_settings_port_forward_auto_start(&self) -> Result<bool> {
-        self.runtime.block_on(self.config.get_port_forward_auto_start())
+        self.runtime
+            .block_on(self.config.get_port_forward_auto_start())
     }
 
     /// Set port forward auto-start setting.
     pub fn set_settings_port_forward_auto_start(&self, enabled: bool) -> Result<()> {
-        self.runtime.block_on(self.config.set_port_forward_auto_start(enabled))
+        self.runtime
+            .block_on(self.config.set_port_forward_auto_start(enabled))
     }
 
     /// Get port forward show notifications setting.
     pub fn get_settings_port_forward_show_notifications(&self) -> Result<bool> {
-        self.runtime.block_on(self.config.get_port_forward_show_notifications())
+        self.runtime
+            .block_on(self.config.get_port_forward_show_notifications())
     }
 
     /// Set port forward show notifications setting.
     pub fn set_settings_port_forward_show_notifications(&self, enabled: bool) -> Result<()> {
-        self.runtime.block_on(self.config.set_port_forward_show_notifications(enabled))
+        self.runtime
+            .block_on(self.config.set_port_forward_show_notifications(enabled))
     }
 
     // =========================================================================
@@ -472,7 +501,10 @@ impl PortKillerEngine {
     }
 
     /// Updates a port forward connection.
-    pub fn update_port_forward_connection(&self, config: PortForwardConnectionConfig) -> Result<()> {
+    pub fn update_port_forward_connection(
+        &self,
+        config: PortForwardConnectionConfig,
+    ) -> Result<()> {
         self.runtime
             .block_on(self.kubernetes.update_connection(config))
             .map_err(|e| crate::error::Error::Config(e.to_string()))

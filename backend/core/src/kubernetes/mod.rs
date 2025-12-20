@@ -20,7 +20,7 @@ pub use discovery::KubernetesDiscovery;
 pub use errors::{KubectlError, Result};
 pub use models::{
     KubernetesConfig, KubernetesNamespace, KubernetesService, PortForwardConnectionConfig,
-    PortForwardConnectionState, PortForwardNotification, PortForwardProcessType,
-    PortForwardStatus, ServicePort,
+    PortForwardConnectionState, PortForwardNotification, PortForwardProcessType, PortForwardStatus,
+    ServicePort,
 };
 pub use process_manager::PortForwardProcessManager;

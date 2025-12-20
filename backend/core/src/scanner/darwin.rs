@@ -107,7 +107,7 @@ impl DarwinScanner {
             // Extract and unescape process name
             let mut process_name = components[0].to_string();
             process_name = process_name
-                .replace("\\x20", " ")  // Space
+                .replace("\\x20", " ") // Space
                 .replace("\\x2f", "/"); // Slash
 
             // Parse PID

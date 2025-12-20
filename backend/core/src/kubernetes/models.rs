@@ -145,7 +145,10 @@ impl ServiceListResponse {
             .map(|item| KubernetesService {
                 name: item.metadata.name,
                 namespace: item.metadata.namespace,
-                service_type: item.spec.service_type.unwrap_or_else(|| "ClusterIP".to_string()),
+                service_type: item
+                    .spec
+                    .service_type
+                    .unwrap_or_else(|| "ClusterIP".to_string()),
                 cluster_ip: item.spec.cluster_ip,
                 ports: item
                     .spec
@@ -329,9 +332,15 @@ impl PortForwardNotification {
 
     pub fn connection_name(&self) -> &str {
         match self {
-            Self::Connected { connection_name, .. }
-            | Self::Disconnected { connection_name, .. }
-            | Self::Error { connection_name, .. } => connection_name,
+            Self::Connected {
+                connection_name, ..
+            }
+            | Self::Disconnected {
+                connection_name, ..
+            }
+            | Self::Error {
+                connection_name, ..
+            } => connection_name,
         }
     }
 }

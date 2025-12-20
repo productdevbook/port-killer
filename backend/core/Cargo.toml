@@ -18,6 +18,7 @@ thiserror.workspace = true
 uuid.workspace = true
 dirs.workspace = true
 regex = "1"
+parking_lot = "0.12"
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.28", features = ["signal"] }

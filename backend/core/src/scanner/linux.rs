@@ -3,25 +3,24 @@
 //! This module provides Linux-specific port scanning functionality.
 //! It uses the `ss` command (preferred) or falls back to `netstat`.
 
+use super::utils::Utils;
+use super::Scanner;
 use crate::error::{Error, Result};
 use crate::models::PortInfo;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::process::Stdio;
 use tokio::process::Command;
-use super::utils::Utils;
-use super::Scanner;
 
 /// Linux-specific port scanner.
 pub struct LinuxScanner;
 
 struct LinuxProcessInfo {
     user: String,
-    command: String
+    command: String,
 }
 
 impl LinuxScanner {
-
     /// Create a new Linux scanner.
     pub fn new() -> Self {
         Self
@@ -86,7 +85,11 @@ impl LinuxScanner {
     /// State      Recv-Q     Send-Q              Local Address:Port          Peer Address:Port     Process
     /// LISTEN     0          4096           [::ffff:127.0.0.1]:63342                    *:*         users:(("rustrover",pid=53561,fd=54))
     /// ```
-    fn parse_ss_output(&self, output: &str, process_infos: &HashMap<u32, LinuxProcessInfo>) -> Vec<PortInfo> {
+    fn parse_ss_output(
+        &self,
+        output: &str,
+        process_infos: &HashMap<u32, LinuxProcessInfo>,
+    ) -> Vec<PortInfo> {
         let mut ports = Vec::new();
         let mut seen: HashSet<(u16, u32)> = HashSet::new();
 
@@ -197,14 +200,20 @@ mod tests {
     fn test_parse_ss_output() {
         let scanner = LinuxScanner::new();
         let mut commands = HashMap::new();
-        commands.insert(55316, LinuxProcessInfo {
-            user: "user".to_string(),
-            command: "nginx".to_string(),
-        });
-        commands.insert(53561, LinuxProcessInfo {
-            user: "user".to_string(),
-            command: "node".to_string(),
-        });
+        commands.insert(
+            55316,
+            LinuxProcessInfo {
+                user: "user".to_string(),
+                command: "nginx".to_string(),
+            },
+        );
+        commands.insert(
+            53561,
+            LinuxProcessInfo {
+                user: "user".to_string(),
+                command: "node".to_string(),
+            },
+        );
 
         let output = r#"LISTEN 0 4096 [::ffff:127.0.0.1]:80 *:* users:(("nginx",pid=55316,fd=6))
 LISTEN 0 50 [::ffff:127.0.0.1]:3000 *:* users:(("node",pid=53561,fd=187))"#;
@@ -224,10 +233,13 @@ LISTEN 0 50 [::ffff:127.0.0.1]:3000 *:* users:(("node",pid=53561,fd=187))"#;
     fn test_deduplication() {
         let scanner = LinuxScanner::new();
         let mut commands = HashMap::new();
-        commands.insert(1234, LinuxProcessInfo {
-            user: "user".to_string(),
-            command: "code linux.rs".to_string(),
-        });
+        commands.insert(
+            1234,
+            LinuxProcessInfo {
+                user: "user".to_string(),
+                command: "code linux.rs".to_string(),
+            },
+        );
 
         // Same port and PID should be deduplicated
         let output = r#"LISTEN 0 4096 127.0.0.1:3000 :* users:(("code",pid=1234,fd=54))

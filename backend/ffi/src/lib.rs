@@ -229,8 +229,9 @@ impl From<PortForwardConnectionConfig> for RustPortForwardConfig {
 
 impl RustPortForwardConfig {
     fn to_core(&self) -> Result<PortForwardConnectionConfig, RustEngineError> {
-        let id = Uuid::parse_str(&self.id)
-            .map_err(|e| RustEngineError::ConfigError { msg: format!("Invalid UUID: {}", e) })?;
+        let id = Uuid::parse_str(&self.id).map_err(|e| RustEngineError::ConfigError {
+            msg: format!("Invalid UUID: {}", e),
+        })?;
         Ok(PortForwardConnectionConfig {
             id,
             name: self.name.clone(),
@@ -320,7 +321,11 @@ impl RustEngine {
 
     /// Get all cached ports.
     pub fn get_ports(&self) -> Vec<RustPortInfo> {
-        self.engine.get_ports().into_iter().map(Into::into).collect()
+        self.engine
+            .get_ports()
+            .into_iter()
+            .map(Into::into)
+            .collect()
     }
 
     /// Check if a specific port is active.
@@ -452,32 +457,50 @@ impl RustEngine {
 
     /// Get the refresh interval in seconds.
     pub fn get_settings_refresh_interval(&self) -> Result<u64, RustEngineError> {
-        self.engine.get_settings_refresh_interval().map_err(Into::into)
+        self.engine
+            .get_settings_refresh_interval()
+            .map_err(Into::into)
     }
 
     /// Set the refresh interval in seconds.
     pub fn set_settings_refresh_interval(&self, interval: u64) -> Result<(), RustEngineError> {
-        self.engine.set_settings_refresh_interval(interval).map_err(Into::into)
+        self.engine
+            .set_settings_refresh_interval(interval)
+            .map_err(Into::into)
     }
 
     /// Get port forward auto-start setting.
     pub fn get_settings_port_forward_auto_start(&self) -> Result<bool, RustEngineError> {
-        self.engine.get_settings_port_forward_auto_start().map_err(Into::into)
+        self.engine
+            .get_settings_port_forward_auto_start()
+            .map_err(Into::into)
     }
 
     /// Set port forward auto-start setting.
-    pub fn set_settings_port_forward_auto_start(&self, enabled: bool) -> Result<(), RustEngineError> {
-        self.engine.set_settings_port_forward_auto_start(enabled).map_err(Into::into)
+    pub fn set_settings_port_forward_auto_start(
+        &self,
+        enabled: bool,
+    ) -> Result<(), RustEngineError> {
+        self.engine
+            .set_settings_port_forward_auto_start(enabled)
+            .map_err(Into::into)
     }
 
     /// Get port forward show notifications setting.
     pub fn get_settings_port_forward_show_notifications(&self) -> Result<bool, RustEngineError> {
-        self.engine.get_settings_port_forward_show_notifications().map_err(Into::into)
+        self.engine
+            .get_settings_port_forward_show_notifications()
+            .map_err(Into::into)
     }
 
     /// Set port forward show notifications setting.
-    pub fn set_settings_port_forward_show_notifications(&self, enabled: bool) -> Result<(), RustEngineError> {
-        self.engine.set_settings_port_forward_show_notifications(enabled).map_err(Into::into)
+    pub fn set_settings_port_forward_show_notifications(
+        &self,
+        enabled: bool,
+    ) -> Result<(), RustEngineError> {
+        self.engine
+            .set_settings_port_forward_show_notifications(enabled)
+            .map_err(Into::into)
     }
 
     // =========================================================================
@@ -493,7 +516,10 @@ impl RustEngine {
     }
 
     /// Fetch services in a specific namespace.
-    pub fn fetch_services(&self, namespace: String) -> Result<Vec<RustKubernetesService>, RustEngineError> {
+    pub fn fetch_services(
+        &self,
+        namespace: String,
+    ) -> Result<Vec<RustKubernetesService>, RustEngineError> {
         self.engine
             .fetch_services(&namespace)
             .map(|s| s.into_iter().map(Into::into).collect())
@@ -524,20 +550,32 @@ impl RustEngine {
     }
 
     /// Add a new port forward connection.
-    pub fn add_port_forward_connection(&self, config: RustPortForwardConfig) -> Result<(), RustEngineError> {
+    pub fn add_port_forward_connection(
+        &self,
+        config: RustPortForwardConfig,
+    ) -> Result<(), RustEngineError> {
         let core_config = config.to_core()?;
-        self.engine.add_port_forward_connection(core_config).map_err(Into::into)
+        self.engine
+            .add_port_forward_connection(core_config)
+            .map_err(Into::into)
     }
 
     /// Remove a port forward connection.
     pub fn remove_port_forward_connection(&self, id: String) -> Result<(), RustEngineError> {
-        self.engine.remove_port_forward_connection(&id).map_err(Into::into)
+        self.engine
+            .remove_port_forward_connection(&id)
+            .map_err(Into::into)
     }
 
     /// Update a port forward connection.
-    pub fn update_port_forward_connection(&self, config: RustPortForwardConfig) -> Result<(), RustEngineError> {
+    pub fn update_port_forward_connection(
+        &self,
+        config: RustPortForwardConfig,
+    ) -> Result<(), RustEngineError> {
         let core_config = config.to_core()?;
-        self.engine.update_port_forward_connection(core_config).map_err(Into::into)
+        self.engine
+            .update_port_forward_connection(core_config)
+            .map_err(Into::into)
     }
 
     // =========================================================================

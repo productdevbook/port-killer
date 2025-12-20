@@ -55,9 +55,9 @@ impl KubernetesConfigStore {
     pub async fn save(&self, config: &KubernetesConfig) -> Result<()> {
         // Ensure the directory exists
         if let Some(parent) = self.config_path.parent() {
-            fs::create_dir_all(parent)
-                .await
-                .map_err(|e| KubectlError::ConfigError(format!("Failed to create config dir: {}", e)))?;
+            fs::create_dir_all(parent).await.map_err(|e| {
+                KubectlError::ConfigError(format!("Failed to create config dir: {}", e))
+            })?;
         }
 
         // Write to a temp file first, then rename (atomic write)
@@ -122,7 +122,11 @@ impl KubernetesConfigStore {
     pub async fn update_connection(&self, connection: PortForwardConnectionConfig) -> Result<()> {
         let mut config = self.load().await?;
 
-        let Some(existing) = config.connections.iter_mut().find(|c| c.id == connection.id) else {
+        let Some(existing) = config
+            .connections
+            .iter_mut()
+            .find(|c| c.id == connection.id)
+        else {
             return Err(KubectlError::ConnectionNotFound(connection.id.to_string()));
         };
 

@@ -27,7 +27,6 @@ impl Utils {
             Some((addr.to_string(), port))
         }
     }
-
 }
 
 #[cfg(test)]

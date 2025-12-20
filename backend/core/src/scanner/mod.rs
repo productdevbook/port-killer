@@ -6,9 +6,9 @@ mod darwin;
 #[cfg(target_os = "linux")]
 mod linux;
 
+mod utils;
 #[cfg(target_os = "windows")]
 mod windows;
-mod utils;
 
 use crate::error::Result;
 use crate::models::PortInfo;
@@ -57,4 +57,3 @@ impl Default for PortScanner {
         Self::new()
     }
 }
-

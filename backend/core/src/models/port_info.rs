@@ -122,7 +122,15 @@ mod tests {
 
     #[test]
     fn test_active_port() {
-        let port = PortInfo::active(3000, 1234, "node", "127.0.0.1", "user", "node server.js", "19u");
+        let port = PortInfo::active(
+            3000,
+            1234,
+            "node",
+            "127.0.0.1",
+            "user",
+            "node server.js",
+            "19u",
+        );
         assert!(port.is_active);
         assert_eq!(port.port, 3000);
         assert_eq!(port.pid, 1234);
@@ -155,7 +163,15 @@ mod tests {
 
     #[test]
     fn test_matches_search() {
-        let port = PortInfo::active(3000, 1234, "node", "127.0.0.1", "testuser", "node server.js", "19u");
+        let port = PortInfo::active(
+            3000,
+            1234,
+            "node",
+            "127.0.0.1",
+            "testuser",
+            "node server.js",
+            "19u",
+        );
 
         assert!(port.matches_search("node"));
         assert!(port.matches_search("3000"));

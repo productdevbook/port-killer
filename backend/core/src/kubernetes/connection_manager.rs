@@ -2,8 +2,8 @@
 //!
 //! Provides connection lifecycle management, state tracking, and monitoring.
 
+use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::RwLock;
 use std::time::Duration;
 
 use uuid::Uuid;
@@ -13,8 +13,7 @@ use super::discovery::KubernetesDiscovery;
 use super::errors::{KubectlError, Result};
 use super::models::{
     KubernetesNamespace, KubernetesService, PortForwardConnectionConfig,
-    PortForwardConnectionState, PortForwardNotification, PortForwardProcessType,
-    PortForwardStatus,
+    PortForwardConnectionState, PortForwardNotification, PortForwardProcessType, PortForwardStatus,
 };
 use super::process_manager::PortForwardProcessManager;
 
@@ -48,8 +47,9 @@ impl KubernetesConnectionManager {
             .ok_or_else(|| KubectlError::ConfigError("Could not find home directory".to_string()))?
             .join(".portkiller");
 
-        std::fs::create_dir_all(&config_dir)
-            .map_err(|e| KubectlError::ConfigError(format!("Failed to create config directory: {}", e)))?;
+        std::fs::create_dir_all(&config_dir).map_err(|e| {
+            KubectlError::ConfigError(format!("Failed to create config directory: {}", e))
+        })?;
 
         // Clean up any orphan processes from previous runs
         let _ = std::process::Command::new("pkill")
@@ -97,13 +97,13 @@ impl KubernetesConnectionManager {
     /// Gets all port forward connections.
     pub async fn get_connections(&self) -> Result<Vec<PortForwardConnectionConfig>> {
         let connections = self.config_store.get_connections().await?;
-        *self.configs_cache.write().unwrap() = connections.clone();
+        *self.configs_cache.write() = connections.clone();
         Ok(connections)
     }
 
     /// Gets cached connections (fast, no disk I/O).
     pub fn get_connections_cached(&self) -> Vec<PortForwardConnectionConfig> {
-        self.configs_cache.read().unwrap().clone()
+        self.configs_cache.read().clone()
     }
 
     /// Gets a single connection by ID.
@@ -118,11 +118,10 @@ impl KubernetesConnectionManager {
         // Initialize state
         self.states
             .write()
-            .unwrap()
             .insert(config.id, PortForwardConnectionState::new(config.id));
 
         // Update cache
-        self.configs_cache.write().unwrap().push(config);
+        self.configs_cache.write().push(config);
 
         Ok(())
     }
@@ -136,10 +135,10 @@ impl KubernetesConnectionManager {
         self.config_store.remove_connection(id).await?;
 
         // Remove state
-        self.states.write().unwrap().remove(&id);
+        self.states.write().remove(&id);
 
         // Update cache
-        self.configs_cache.write().unwrap().retain(|c| c.id != id);
+        self.configs_cache.write().retain(|c| c.id != id);
 
         Ok(())
     }
@@ -152,7 +151,6 @@ impl KubernetesConnectionManager {
         if let Some(cached) = self
             .configs_cache
             .write()
-            .unwrap()
             .iter_mut()
             .find(|c| c.id == config.id)
         {
@@ -165,10 +163,10 @@ impl KubernetesConnectionManager {
     /// Reloads connections from disk.
     pub async fn reload_connections(&self) -> Result<()> {
         let connections = self.config_store.get_connections().await?;
-        *self.configs_cache.write().unwrap() = connections.clone();
+        *self.configs_cache.write() = connections.clone();
 
         // Initialize states for any new connections
-        let mut states = self.states.write().unwrap();
+        let mut states = self.states.write();
         for conn in connections {
             states
                 .entry(conn.id)
@@ -185,7 +183,7 @@ impl KubernetesConnectionManager {
     /// Starts a port forward connection.
     pub fn start_connection(&self, id: Uuid) -> Result<()> {
         // Check if already connected or connecting - don't restart
-        if let Some(state) = self.states.read().unwrap().get(&id) {
+        if let Some(state) = self.states.read().get(&id) {
             if state.port_forward_status == PortForwardStatus::Connected
                 || state.port_forward_status == PortForwardStatus::Connecting
             {
@@ -193,7 +191,7 @@ impl KubernetesConnectionManager {
             }
         }
 
-        let configs = self.configs_cache.read().unwrap();
+        let configs = self.configs_cache.read();
         let config = configs
             .iter()
             .find(|c| c.id == id)
@@ -249,7 +247,8 @@ impl KubernetesConnectionManager {
                         state.proxy_status = PortForwardStatus::Connecting;
                     });
 
-                    self.process_manager.start_proxy(id, proxy_port, config.local_port)?;
+                    self.process_manager
+                        .start_proxy(id, proxy_port, config.local_port)?;
 
                     // Wait for proxy to stabilize
                     std::thread::sleep(PROXY_STABILIZATION);
@@ -283,7 +282,6 @@ impl KubernetesConnectionManager {
         let config_name = self
             .configs_cache
             .read()
-            .unwrap()
             .iter()
             .find(|c| c.id == id)
             .map(|c| c.name.clone());
@@ -295,7 +293,6 @@ impl KubernetesConnectionManager {
         let was_connected = self
             .states
             .read()
-            .unwrap()
             .get(&id)
             .map(|s| s.port_forward_status == PortForwardStatus::Connected)
             .unwrap_or(false);
@@ -313,7 +310,6 @@ impl KubernetesConnectionManager {
                 let should_notify = self
                     .configs_cache
                     .read()
-                    .unwrap()
                     .iter()
                     .find(|c| c.id == id)
                     .map(|c| c.notify_on_disconnect)
@@ -340,7 +336,7 @@ impl KubernetesConnectionManager {
         self.process_manager.kill_all()?;
 
         // Update all states
-        let mut states = self.states.write().unwrap();
+        let mut states = self.states.write();
         for state in states.values_mut() {
             state.port_forward_status = PortForwardStatus::Disconnected;
             state.proxy_status = PortForwardStatus::Disconnected;
@@ -356,12 +352,12 @@ impl KubernetesConnectionManager {
 
     /// Gets all connection states.
     pub fn get_states(&self) -> Vec<PortForwardConnectionState> {
-        self.states.read().unwrap().values().cloned().collect()
+        self.states.read().values().cloned().collect()
     }
 
     /// Gets a single connection state.
     pub fn get_state(&self, id: Uuid) -> Option<PortForwardConnectionState> {
-        self.states.read().unwrap().get(&id).cloned()
+        self.states.read().get(&id).cloned()
     }
 
     // =========================================================================
@@ -372,14 +368,14 @@ impl KubernetesConnectionManager {
     ///
     /// This should be called periodically (e.g., every 1 second).
     pub fn monitor_connections(&self) {
-        let configs = self.configs_cache.read().unwrap().clone();
+        let configs = self.configs_cache.read().clone();
 
         for config in configs {
             if !config.is_enabled || !config.auto_reconnect {
                 continue;
             }
 
-            let state = match self.states.read().unwrap().get(&config.id).cloned() {
+            let state = match self.states.read().get(&config.id).cloned() {
                 Some(s) => s,
                 None => continue,
             };
@@ -399,10 +395,10 @@ impl KubernetesConnectionManager {
 
             if needs_reconnect {
                 // Add disconnect notification if was connected
-                if state.port_forward_status == PortForwardStatus::Connected {
-                    if config.notify_on_disconnect {
-                        self.add_disconnected_notification(config.id, &config.name);
-                    }
+                if state.port_forward_status == PortForwardStatus::Connected
+                    && config.notify_on_disconnect
+                {
+                    self.add_disconnected_notification(config.id, &config.name);
                 }
 
                 // Attempt reconnect
@@ -458,7 +454,9 @@ impl KubernetesConnectionManager {
                     .is_process_running(config.id, PortForwardProcessType::Proxy)
                 {
                     // Just restart proxy, not full connection
-                    let _ = self.process_manager.start_proxy(config.id, proxy_port, config.local_port);
+                    let _ =
+                        self.process_manager
+                            .start_proxy(config.id, proxy_port, config.local_port);
                     return false;
                 }
 
@@ -477,19 +475,18 @@ impl KubernetesConnectionManager {
 
     /// Gets and clears pending notifications.
     pub fn get_pending_notifications(&self) -> Vec<PortForwardNotification> {
-        std::mem::take(&mut *self.pending_notifications.write().unwrap())
+        std::mem::take(&mut *self.pending_notifications.write())
     }
 
     /// Checks if there are pending notifications.
     pub fn has_pending_notifications(&self) -> bool {
-        !self.pending_notifications.read().unwrap().is_empty()
+        !self.pending_notifications.read().is_empty()
     }
 
     fn add_connected_notification(&self, id: Uuid, name: &str) {
         let config = self
             .configs_cache
             .read()
-            .unwrap()
             .iter()
             .find(|c| c.id == id)
             .cloned();
@@ -497,7 +494,7 @@ impl KubernetesConnectionManager {
         if let Some(config) = config {
             if config.notify_on_connect {
                 // Check if we already have a pending connected notification for this id
-                let notifications = self.pending_notifications.read().unwrap();
+                let notifications = self.pending_notifications.read();
                 let already_pending = notifications.iter().any(|n| {
                     matches!(n, PortForwardNotification::Connected { connection_id, .. } if *connection_id == id)
                 });
@@ -506,7 +503,6 @@ impl KubernetesConnectionManager {
                 if !already_pending {
                     self.pending_notifications
                         .write()
-                        .unwrap()
                         .push(PortForwardNotification::Connected {
                             connection_id: id,
                             connection_name: name.to_string(),
@@ -519,7 +515,6 @@ impl KubernetesConnectionManager {
     fn add_disconnected_notification(&self, id: Uuid, name: &str) {
         self.pending_notifications
             .write()
-            .unwrap()
             .push(PortForwardNotification::Disconnected {
                 connection_id: id,
                 connection_name: name.to_string(),
@@ -534,7 +529,7 @@ impl KubernetesConnectionManager {
     where
         F: FnOnce(&mut PortForwardConnectionState),
     {
-        let mut states = self.states.write().unwrap();
+        let mut states = self.states.write();
         if let Some(state) = states.get_mut(&id) {
             updater(state);
         } else {

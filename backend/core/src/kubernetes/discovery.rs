@@ -76,8 +76,8 @@ impl KubernetesDiscovery {
             .execute_kubectl(&["get", "namespaces", "-o", "json", "--request-timeout=10s"])
             .await?;
 
-        let response: NamespaceListResponse =
-            serde_json::from_str(&output).map_err(|e| KubectlError::ParsingFailed(e.to_string()))?;
+        let response: NamespaceListResponse = serde_json::from_str(&output)
+            .map_err(|e| KubectlError::ParsingFailed(e.to_string()))?;
 
         let mut namespaces = response.into_namespaces();
         namespaces.sort_by(|a, b| a.name.cmp(&b.name));
@@ -99,8 +99,8 @@ impl KubernetesDiscovery {
             ])
             .await?;
 
-        let response: ServiceListResponse =
-            serde_json::from_str(&output).map_err(|e| KubectlError::ParsingFailed(e.to_string()))?;
+        let response: ServiceListResponse = serde_json::from_str(&output)
+            .map_err(|e| KubectlError::ParsingFailed(e.to_string()))?;
 
         let mut services = response.into_services();
         services.sort_by(|a, b| a.name.cmp(&b.name));

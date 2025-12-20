@@ -115,9 +115,8 @@ impl ConfigStore {
     ///
     /// Default path: `~/.portkiller/config.json`
     pub fn new() -> Result<Self> {
-        let home = dirs::home_dir().ok_or_else(|| {
-            Error::Config("Could not determine home directory".to_string())
-        })?;
+        let home = dirs::home_dir()
+            .ok_or_else(|| Error::Config("Could not determine home directory".to_string()))?;
 
         let config_dir = home.join(".portkiller");
         let config_path = config_dir.join("config.json");
@@ -243,7 +242,10 @@ impl ConfigStore {
 
         // Check if already watching this port
         if watched.iter().any(|w| w.port == port) {
-            return Err(Error::Config(format!("Port {} is already being watched", port)));
+            return Err(Error::Config(format!(
+                "Port {} is already being watched",
+                port
+            )));
         }
 
         let new_watch = WatchedPort::new(port);
@@ -359,6 +361,9 @@ mod tests {
                 notify_on_start: true,
                 notify_on_stop: false,
             }],
+            refresh_interval: 5,
+            port_forward_auto_start: true,
+            port_forward_show_notifications: true,
         };
 
         store.save(&config).await.unwrap();

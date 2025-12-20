@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 /// well-known process names, enabling better organization and visualization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub enum ProcessType {
     /// Web servers (nginx, apache, caddy, etc.)
     WebServer,
@@ -18,6 +19,7 @@ pub enum ProcessType {
     /// System processes (launchd, kernel services, etc.)
     System,
     /// Other/unknown processes
+    #[default]
     Other,
 }
 
@@ -59,8 +61,17 @@ impl ProcessType {
 
         // Databases
         const DATABASES: &[&str] = &[
-            "postgres", "mysql", "mariadb", "redis", "mongo", "sqlite", "cockroach",
-            "clickhouse", "cassandra", "elasticsearch", "memcached",
+            "postgres",
+            "mysql",
+            "mariadb",
+            "redis",
+            "mongo",
+            "sqlite",
+            "cockroach",
+            "clickhouse",
+            "cassandra",
+            "elasticsearch",
+            "memcached",
         ];
         if DATABASES.iter().any(|s| name.contains(s)) {
             return ProcessType::Database;
@@ -68,9 +79,9 @@ impl ProcessType {
 
         // Development tools
         const DEV_TOOLS: &[&str] = &[
-            "node", "npm", "yarn", "pnpm", "bun", "deno", "python", "ruby", "php",
-            "java", "go", "cargo", "rustc", "swift", "vite", "webpack", "esbuild",
-            "next", "nuxt", "remix", "astro", "turbo", "parcel",
+            "node", "npm", "yarn", "pnpm", "bun", "deno", "python", "ruby", "php", "java", "go",
+            "cargo", "rustc", "swift", "vite", "webpack", "esbuild", "next", "nuxt", "remix",
+            "astro", "turbo", "parcel",
         ];
         if DEV_TOOLS.iter().any(|s| name.contains(s)) {
             return ProcessType::Development;
@@ -78,8 +89,18 @@ impl ProcessType {
 
         // System processes
         const SYSTEM_PROCS: &[&str] = &[
-            "launchd", "rapportd", "sharingd", "airplay", "control", "kernel", "mds",
-            "spotlight", "systemd", "init", "dbus", "udev",
+            "launchd",
+            "rapportd",
+            "sharingd",
+            "airplay",
+            "control",
+            "kernel",
+            "mds",
+            "spotlight",
+            "systemd",
+            "init",
+            "dbus",
+            "udev",
         ];
         if SYSTEM_PROCS.iter().any(|s| name.contains(s)) {
             return ProcessType::System;
@@ -109,12 +130,6 @@ impl ProcessType {
             ProcessType::System => "gearshape",
             ProcessType::Other => "powerplug",
         }
-    }
-}
-
-impl Default for ProcessType {
-    fn default() -> Self {
-        ProcessType::Other
     }
 }
 
