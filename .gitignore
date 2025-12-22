@@ -52,3 +52,11 @@ docs
 # Node.js / Bun
 node_modules/
 bun.lockb
+
+# Rust Backend
+backend/target/
+backend/Cargo.lock
+
+# Rust XCFramework build artifacts
+Frameworks/
+.build/rust/

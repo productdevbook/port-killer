@@ -41,13 +41,11 @@ struct PortInfo: Identifiable, Hashable, Sendable {
     /// Whether this port is currently active/listening
     let isActive: Bool
 
+    /// Process type category (from Rust backend)
+    let processType: ProcessType
+
     /// Formatted port number for display (e.g., ":3000")
     var displayPort: String { ":\(port)" }
-
-    /// Detected process type based on the process name
-    var processType: ProcessType {
-        ProcessType.detect(from: processName)
-    }
 
     /// Create an inactive placeholder for a favorited/watched port
     ///
@@ -62,7 +60,8 @@ struct PortInfo: Identifiable, Hashable, Sendable {
             user: "-",
             command: "",
             fd: "",
-            isActive: false
+            isActive: false,
+            processType: .other
         )
     }
 
@@ -76,8 +75,18 @@ struct PortInfo: Identifiable, Hashable, Sendable {
     ///   - user: Username of the process owner
     ///   - command: Full command line
     ///   - fd: File descriptor information
+    ///   - processType: Process category from Rust backend
     /// - Returns: An active PortInfo instance
-    static func active(port: Int, pid: Int, processName: String, address: String, user: String, command: String, fd: String) -> PortInfo {
+    static func active(
+        port: Int,
+        pid: Int,
+        processName: String,
+        address: String,
+        user: String,
+        command: String,
+        fd: String,
+        processType: ProcessType
+    ) -> PortInfo {
         PortInfo(
             port: port,
             pid: pid,
@@ -86,7 +95,8 @@ struct PortInfo: Identifiable, Hashable, Sendable {
             user: user,
             command: command,
             fd: fd,
-            isActive: true
+            isActive: true,
+            processType: processType
         )
     }
 }

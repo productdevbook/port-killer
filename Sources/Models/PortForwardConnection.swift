@@ -174,3 +174,55 @@ final class PortForwardConnectionState: Identifiable, Hashable {
         lhs.id == rhs.id
     }
 }
+
+// MARK: - Rust FFI Conversion
+
+extension PortForwardConnectionConfig {
+    /// Create from Rust FFI type
+    static func fromRust(_ rust: RustPortForwardConfig) -> PortForwardConnectionConfig {
+        PortForwardConnectionConfig(
+            id: UUID(uuidString: rust.id) ?? UUID(),
+            name: rust.name,
+            namespace: rust.namespace,
+            service: rust.service,
+            localPort: Int(rust.localPort),
+            remotePort: Int(rust.remotePort),
+            proxyPort: rust.proxyPort.map { Int($0) },
+            isEnabled: rust.isEnabled,
+            autoReconnect: rust.autoReconnect,
+            useDirectExec: rust.useDirectExec,
+            notifyOnConnect: rust.notifyOnConnect,
+            notifyOnDisconnect: rust.notifyOnDisconnect
+        )
+    }
+
+    /// Convert to Rust FFI type
+    func toRust() -> RustPortForwardConfig {
+        RustPortForwardConfig(
+            id: id.uuidString,
+            name: name,
+            namespace: namespace,
+            service: service,
+            localPort: UInt16(localPort),
+            remotePort: UInt16(remotePort),
+            proxyPort: proxyPort.map { UInt16($0) },
+            isEnabled: isEnabled,
+            autoReconnect: autoReconnect,
+            useDirectExec: useDirectExec,
+            notifyOnConnect: notifyOnConnect,
+            notifyOnDisconnect: notifyOnDisconnect
+        )
+    }
+}
+
+extension PortForwardStatus {
+    /// Create from Rust status string
+    static func fromRust(_ status: String) -> PortForwardStatus {
+        switch status {
+        case "connected": return .connected
+        case "connecting": return .connecting
+        case "error": return .error
+        default: return .disconnected
+        }
+    }
+}

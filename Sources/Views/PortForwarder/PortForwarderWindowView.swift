@@ -3,11 +3,11 @@ import AppKit
 
 struct PortForwarderWindowView: View {
     @Environment(AppState.self) private var appState
-    @State private var discoveryManager: KubernetesDiscoveryManager?
+    @State private var showServiceBrowser = false
 
     var body: some View {
         TabView {
-            ConnectionsTab(discoveryManager: $discoveryManager)
+            ConnectionsTab(showServiceBrowser: $showServiceBrowser)
                 .tabItem {
                     Label("Connections", systemImage: "point.3.connected.trianglepath.dotted")
                 }
@@ -23,15 +23,15 @@ struct PortForwarderWindowView: View {
                 }
         }
         .frame(minWidth: 850, idealWidth: 1000, minHeight: 600, idealHeight: 700)
-        .sheet(item: $discoveryManager) { dm in
+        .sheet(isPresented: $showServiceBrowser) {
             ServiceBrowserView(
-                discoveryManager: dm,
+                discoveryManager: appState.kubernetesDiscoveryManager,
                 onServiceSelected: { config in
                     appState.portForwardManager.addConnection(config)
-                    discoveryManager = nil
+                    showServiceBrowser = false
                 },
                 onCancel: {
-                    discoveryManager = nil
+                    showServiceBrowser = false
                 }
             )
         }

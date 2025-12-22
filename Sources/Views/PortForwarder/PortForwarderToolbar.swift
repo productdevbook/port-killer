@@ -4,7 +4,7 @@ struct PortForwarderToolbar: View {
     @Environment(AppState.self) private var appState
     @Binding var searchText: String
     @Binding var groupByNamespace: Bool
-    @Binding var discoveryManager: KubernetesDiscoveryManager?
+    @Binding var showServiceBrowser: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -58,14 +58,6 @@ struct PortForwarderToolbar: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(manager.connectedCount == 0)
-
-                Button {
-                    Task { await manager.killStuckProcesses() }
-                } label: {
-                    Label("Force Stop", systemImage: "xmark.octagon.fill")
-                }
-                .buttonStyle(.bordered)
-                .help("Kill all stuck kubectl/socat processes")
             }
 
             Button {
@@ -83,14 +75,13 @@ struct PortForwarderToolbar: View {
             .buttonStyle(.bordered)
 
             Button {
-                let dm = KubernetesDiscoveryManager(processManager: appState.portForwardManager.processManager)
-                Task { await dm.loadNamespaces() }
-                discoveryManager = dm
+                Task { appState.kubernetesDiscoveryManager.loadNamespaces() }
+                showServiceBrowser = true
             } label: {
                 Label("Import", systemImage: "square.and.arrow.down.fill")
             }
             .buttonStyle(.bordered)
-            .disabled(!DependencyChecker.shared.allRequiredInstalled)
+            .disabled(!appState.scanner.isKubectlAvailable())
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

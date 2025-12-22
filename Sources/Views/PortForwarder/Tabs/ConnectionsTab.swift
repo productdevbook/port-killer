@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ConnectionsTab: View {
     @Environment(AppState.self) private var appState
-    @Binding var discoveryManager: KubernetesDiscoveryManager?
+    @Binding var showServiceBrowser: Bool
     @State private var selectedConnectionId: UUID?
 
     private var selectedConnection: PortForwardConnectionState? {
@@ -37,14 +37,13 @@ struct ConnectionsTab: View {
                     .help("Add Connection")
 
                     Button {
-                        let dm = KubernetesDiscoveryManager(processManager: appState.portForwardManager.processManager)
-                        Task { await dm.loadNamespaces() }
-                        discoveryManager = dm
+                        Task { appState.kubernetesDiscoveryManager.loadNamespaces() }
+                        showServiceBrowser = true
                     } label: {
                         Label("Import", systemImage: "square.and.arrow.down.fill")
                     }
                     .buttonStyle(.bordered)
-                    .disabled(!DependencyChecker.shared.allRequiredInstalled)
+                    .disabled(!appState.scanner.isKubectlAvailable())
                     .help("Import from Kubernetes")
                 }
                 .padding(.horizontal, 20)
@@ -53,7 +52,7 @@ struct ConnectionsTab: View {
                 Divider()
 
                 // Dependency warning
-                if !DependencyChecker.shared.allRequiredInstalled {
+                if !appState.scanner.isKubectlAvailable() {
                     DependencyWarningBanner()
                 }
 
@@ -83,18 +82,7 @@ struct ConnectionsTab: View {
 
                     Spacer()
 
-                    if manager.isKillingProcesses {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                        Text("Killing processes...")
-                            .foregroundStyle(.secondary)
-                    } else if !manager.connections.isEmpty {
-                        Button("Kill All Stuck") {
-                            Task { await manager.killStuckProcesses() }
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-
+                    if !manager.connections.isEmpty {
                         Button("Start All") {
                             manager.startAll()
                         }

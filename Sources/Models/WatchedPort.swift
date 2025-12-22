@@ -40,4 +40,28 @@ struct WatchedPort: Identifiable, Codable, Defaults.Serializable, Sendable {
         self.notifyOnStart = notifyOnStart
         self.notifyOnStop = notifyOnStop
     }
+
+    /// Create a watched port with a specific ID (used for Rust conversion)
+    private init(id: UUID, port: Int, notifyOnStart: Bool, notifyOnStop: Bool) {
+        self.id = id
+        self.port = port
+        self.notifyOnStart = notifyOnStart
+        self.notifyOnStop = notifyOnStop
+    }
+
+    /// Create a WatchedPort from Rust FFI RustWatchedPort
+    ///
+    /// - Parameter rustPort: The UniFFI-generated RustWatchedPort from Rust
+    /// - Returns: A Swift WatchedPort instance, or nil if ID parsing fails
+    static func fromRust(_ rustPort: RustWatchedPort) -> WatchedPort? {
+        guard let id = UUID(uuidString: rustPort.id) else {
+            return nil
+        }
+        return WatchedPort(
+            id: id,
+            port: Int(rustPort.port),
+            notifyOnStart: rustPort.notifyOnStart,
+            notifyOnStop: rustPort.notifyOnStop
+        )
+    }
 }

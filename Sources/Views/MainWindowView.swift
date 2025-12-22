@@ -34,9 +34,7 @@ struct MainWindowView: View {
             isPresented: $showKillAllConfirmation
         ) {
             Button("Kill All (\(appState.filteredPorts.count) processes)", role: .destructive) {
-                Task {
-                    await appState.killAll()
-                }
+                appState.killAll()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -44,18 +42,14 @@ struct MainWindowView: View {
         }
         .onKeyPress(.delete) {
             if let port = appState.selectedPort {
-                Task {
-                    await appState.killPort(port)
-                }
+                appState.killPort(port)
                 return .handled
             }
             return .ignored
         }
         .onKeyPress(.deleteForward) {
             if let port = appState.selectedPort {
-                Task {
-                    await appState.killPort(port)
-                }
+                appState.killPort(port)
                 return .handled
             }
             return .ignored
@@ -145,9 +139,7 @@ struct MainWindowView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             Button {
-                Task {
-                    await appState.refresh()
-                }
+                appState.refresh()
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }

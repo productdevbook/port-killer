@@ -143,9 +143,10 @@ struct ConnectionEditSection: View {
 
     private func loadNamespaces() {
         isLoadingNamespaces = true
-        Task {
+        let scanner = appState.scanner
+        Task.detached {
             do {
-                let result = try await appState.portForwardManager.processManager.fetchNamespaces()
+                let result = try scanner.fetchNamespaces()
                 await MainActor.run {
                     namespaces = result
                     isLoadingNamespaces = false
@@ -161,9 +162,10 @@ struct ConnectionEditSection: View {
     private func loadServices(for ns: String) {
         isLoadingServices = true
         services = []
-        Task {
+        let scanner = appState.scanner
+        Task.detached {
             do {
-                let result = try await appState.portForwardManager.processManager.fetchServices(namespace: ns)
+                let result = try scanner.fetchServices(namespace: ns)
                 await MainActor.run {
                     services = result
                     isLoadingServices = false

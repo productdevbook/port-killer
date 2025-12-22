@@ -17,7 +17,7 @@ struct MenuBarPortRow: View {
                 Text("Kill \(port.processName)?").font(.callout).lineLimit(1)
                 Spacer()
                 HStack(spacing: 4) {
-                    Button("Kill") { isKilling = true; confirmingKill = nil; Task { await state.killPort(port) } }.buttonStyle(.borderedProminent).tint(.red).controlSize(.small)
+                    Button("Kill") { isKilling = true; confirmingKill = nil; state.killPort(port) }.buttonStyle(.borderedProminent).tint(.red).controlSize(.small)
                     Button("Cancel") { confirmingKill = nil }.buttonStyle(.bordered).controlSize(.small)
                 }
             } else {

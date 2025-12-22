@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = ["core", "cli", "ffi"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["PortKiller Contributors"]
+
+[workspace.dependencies]
+# Shared dependencies
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Use rt (single-threaded) instead of rt-multi-thread to reduce binary size and memory
+tokio = { version = "1", features = ["process", "fs", "time", "rt", "macros", "io-util"] }
+thiserror = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+dirs = "5"
+
+# Core crate
+portkiller-core = { path = "core" }
+
+# Optimize release builds for size
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Link-time optimization
+codegen-units = 1   # Better optimization
+panic = "abort"     # Smaller binary
+strip = true        # Strip symbols

@@ -137,4 +137,22 @@ extension KubernetesService {
             )
         }
     }
+
+    /// Create from Rust FFI type
+    static func fromRust(_ rust: RustKubernetesService) -> KubernetesService {
+        KubernetesService(
+            name: rust.name,
+            namespace: rust.namespace,
+            type: rust.serviceType,
+            clusterIP: rust.clusterIp,
+            ports: rust.ports.map { rustPort in
+                ServicePort(
+                    name: rustPort.name,
+                    port: Int(rustPort.port),
+                    targetPort: Int(rustPort.targetPort),
+                    protocol: rustPort.protocol
+                )
+            }
+        )
+    }
 }

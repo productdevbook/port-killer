@@ -32,10 +32,10 @@ struct ServiceBrowserView: View {
                     selectedNamespace: discoveryManager.selectedNamespace,
                     state: discoveryManager.namespaceState,
                     onSelect: { namespace in
-                        Task { await discoveryManager.selectNamespace(namespace) }
+                        Task { discoveryManager.selectNamespace(namespace) }
                     },
                     onRefresh: {
-                        Task { await discoveryManager.loadNamespaces() }
+                        Task { discoveryManager.loadNamespaces() }
                     }
                 )
                 .frame(width: 180)
@@ -106,7 +106,7 @@ struct ServiceBrowserView: View {
         .frame(width: 800, height: 500)
         .task {
             if discoveryManager.namespaceState == .idle {
-                await discoveryManager.loadNamespaces()
+                discoveryManager.loadNamespaces()
             }
         }
     }

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PortForwarderSidebarContent: View {
     @Environment(AppState.self) private var appState
-    @State private var discoveryManager: KubernetesDiscoveryManager?
+    @State private var showServiceBrowser = false
     @State private var searchText = ""
     @State private var groupByNamespace = true
 
@@ -12,13 +12,13 @@ struct PortForwarderSidebarContent: View {
             PortForwarderToolbar(
                 searchText: $searchText,
                 groupByNamespace: $groupByNamespace,
-                discoveryManager: $discoveryManager
+                showServiceBrowser: $showServiceBrowser
             )
 
             Divider()
 
             // Dependency warning banner
-            if !DependencyChecker.shared.allRequiredInstalled {
+            if !appState.scanner.isKubectlAvailable() {
                 DependencyWarningBanner()
             }
 
@@ -48,15 +48,15 @@ struct PortForwarderSidebarContent: View {
             PortForwarderStatusBar()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(item: $discoveryManager) { dm in
+        .sheet(isPresented: $showServiceBrowser) {
             ServiceBrowserView(
-                discoveryManager: dm,
+                discoveryManager: appState.kubernetesDiscoveryManager,
                 onServiceSelected: { config in
                     appState.portForwardManager.addConnection(config)
-                    discoveryManager = nil
+                    showServiceBrowser = false
                 },
                 onCancel: {
-                    discoveryManager = nil
+                    showServiceBrowser = false
                 }
             )
         }
@@ -141,7 +141,7 @@ struct PortForwarderSidebarContent: View {
 
 struct AddConnectionButtons: View {
     @Environment(AppState.self) private var appState
-    @Binding var discoveryManager: KubernetesDiscoveryManager?
+    @Binding var showServiceBrowser: Bool
 
     var body: some View {
         HStack(spacing: 16) {
@@ -166,9 +166,8 @@ struct AddConnectionButtons: View {
 
             // Import from Kubernetes button
             Button {
-                let dm = KubernetesDiscoveryManager(processManager: appState.portForwardManager.processManager)
-                Task { await dm.loadNamespaces() }
-                discoveryManager = dm
+                Task { appState.kubernetesDiscoveryManager.loadNamespaces() }
+                showServiceBrowser = true
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "square.and.arrow.down")
@@ -177,7 +176,7 @@ struct AddConnectionButtons: View {
                 .foregroundStyle(.blue)
             }
             .buttonStyle(.plain)
-            .disabled(!DependencyChecker.shared.allRequiredInstalled)
+            .disabled(!appState.scanner.isKubectlAvailable())
         }
         .padding(.top, 4)
     }

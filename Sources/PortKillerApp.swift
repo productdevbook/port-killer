@@ -46,9 +46,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return .terminateNow
         }
 
-        // Kill all port-forward connections and tunnels before terminating
+        // Stop all port-forward connections and tunnels before terminating
         Task {
-            await appState.portForwardManager.killStuckProcesses()
+            appState.portForwardManager.stopAll()
             await appState.tunnelManager.stopAllTunnels()
             await MainActor.run {
                 NSApp.reply(toApplicationShouldTerminate: true)
@@ -80,12 +80,6 @@ struct PortKillerApp: App {
                 .task {
                     // Pass state to AppDelegate for termination handling
                     appDelegate.appState = state
-
-                    // Auto-start port-forward connections if enabled
-                    if Defaults[.portForwardAutoStart] {
-                        try? await Task.sleep(for: .seconds(1))
-                        state.portForwardManager.startAll()
-                    }
 
                     try? await Task.sleep(for: .seconds(3))
                     sponsorManager.checkAndShowIfNeeded()

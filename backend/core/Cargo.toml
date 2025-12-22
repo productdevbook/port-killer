@@ -1,0 +1,28 @@
+[package]
+name = "portkiller-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Cross-platform library for port scanning and process management"
+
+[lib]
+name = "portkiller_core"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+dirs.workspace = true
+regex = "1"
+parking_lot = "0.12"
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.28", features = ["signal"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3"

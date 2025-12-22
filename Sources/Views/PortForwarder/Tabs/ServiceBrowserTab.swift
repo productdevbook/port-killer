@@ -2,13 +2,13 @@ import SwiftUI
 
 struct ServiceBrowserTab: View {
     @Environment(AppState.self) private var appState
-    @State private var discoveryManager: KubernetesDiscoveryManager?
+    @State private var isBrowsing = false
 
     var body: some View {
         VStack {
-            if let dm = discoveryManager {
+            if isBrowsing {
                 ServiceBrowserEmbedded(
-                    discoveryManager: dm,
+                    discoveryManager: appState.kubernetesDiscoveryManager,
                     onServiceSelected: { config in
                         appState.portForwardManager.addConnection(config)
                     }
@@ -28,14 +28,15 @@ struct ServiceBrowserTab: View {
                         .frame(maxWidth: 400)
 
                     Button("Start Browsing") {
-                        let dm = KubernetesDiscoveryManager(processManager: appState.portForwardManager.processManager)
-                        Task { await dm.loadNamespaces() }
-                        discoveryManager = dm
+                        Task {
+                            appState.kubernetesDiscoveryManager.loadNamespaces()
+                        }
+                        isBrowsing = true
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(!DependencyChecker.shared.allRequiredInstalled)
+                    .disabled(!appState.scanner.isKubectlAvailable())
 
-                    if !DependencyChecker.shared.allRequiredInstalled {
+                    if !appState.scanner.isKubectlAvailable() {
                         Text("kubectl is required")
                             .font(.caption)
                             .foregroundStyle(.orange)
@@ -61,10 +62,10 @@ struct ServiceBrowserEmbedded: View {
                     selectedNamespace: discoveryManager.selectedNamespace,
                     state: discoveryManager.namespaceState,
                     onSelect: { namespace in
-                        Task { await discoveryManager.selectNamespace(namespace) }
+                        Task { discoveryManager.selectNamespace(namespace) }
                     },
                     onRefresh: {
-                        Task { await discoveryManager.loadNamespaces() }
+                        Task { discoveryManager.loadNamespaces() }
                     }
                 )
                 .frame(width: 200)

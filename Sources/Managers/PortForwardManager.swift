@@ -1,15 +1,8 @@
 import Foundation
-import Defaults
 
-// MARK: - Defaults Keys for Port Forwarder
-
-extension Defaults.Keys {
-    static let portForwardConnections = Key<[PortForwardConnectionConfig]>("portForwardConnections", default: [])
-    static let portForwardAutoStart = Key<Bool>("portForwardAutoStart", default: false)
-    static let portForwardShowNotifications = Key<Bool>("portForwardShowNotifications", default: true)
-    static let customKubectlPath = Key<String?>("customKubectlPath", default: nil)
-    static let customSocatPath = Key<String?>("customSocatPath", default: nil)
-}
+// NOTE: Port forward settings (autoStart, showNotifications) are now stored in Rust config
+// See: ~/.portkiller/config.json
+// Access via: scanner.getSettingsPortForwardAutoStart(), scanner.getSettingsPortForwardShowNotifications()
 
 // MARK: - Port Forward Manager
 
@@ -18,10 +11,9 @@ extension Defaults.Keys {
 final class PortForwardManager {
     var connections: [PortForwardConnectionState] = []
     var isMonitoring = false
-    var isKillingProcesses = false
 
-    var monitorTask: Task<Void, Never>?
-    let processManager = PortForwardProcessManager()
+    private var monitorTimer: Timer?
+    private let scanner: RustPortScanner
 
     var allConnected: Bool {
         guard !connections.isEmpty else { return false }
@@ -32,43 +24,90 @@ final class PortForwardManager {
         connections.filter(\.isFullyConnected).count
     }
 
-    init() {
+    init(scanner: RustPortScanner) {
+        self.scanner = scanner
         loadConnections()
     }
 
-    // MARK: - Persistence
+    // MARK: - Load from Rust
 
     func loadConnections() {
-        let configs = Defaults[.portForwardConnections]
+        let configs = scanner.getPortForwardConnections()
         connections = configs.map { PortForwardConnectionState(config: $0) }
+        syncStatesFromRust()
     }
 
-    func saveConnections() {
-        Defaults[.portForwardConnections] = connections.map(\.config)
+    /// Sync runtime states from Rust backend (only updates if changed to reduce @Observable overhead)
+    func syncStatesFromRust() {
+        let rustStates = scanner.getPortForwardStates()
+        for rustState in rustStates {
+            // Case-insensitive comparison: Swift UUID is uppercase, Rust is lowercase
+            guard let connection = connections.first(where: { $0.id.uuidString.lowercased() == rustState.id.lowercased() }) else {
+                continue
+            }
+            // Only update if values changed (reduces @Observable notifications)
+            let newPortForwardStatus = PortForwardStatus.fromRust(rustState.portForwardStatus)
+            let newProxyStatus = PortForwardStatus.fromRust(rustState.proxyStatus)
+
+            if connection.portForwardStatus != newPortForwardStatus {
+                connection.portForwardStatus = newPortForwardStatus
+            }
+            if connection.proxyStatus != newProxyStatus {
+                connection.proxyStatus = newProxyStatus
+            }
+            if connection.lastError != rustState.lastError {
+                connection.lastError = rustState.lastError
+            }
+            if connection.isIntentionallyStopped != rustState.isIntentionallyStopped {
+                connection.isIntentionallyStopped = rustState.isIntentionallyStopped
+            }
+        }
     }
 
     // MARK: - Connection CRUD
 
     func addConnection(_ config: PortForwardConnectionConfig) {
-        connections.append(PortForwardConnectionState(config: config))
-        saveConnections()
+        // Add to Rust first (synchronous - just file I/O, should be fast)
+        do {
+            try scanner.addPortForwardConnection(config)
+            connections.append(PortForwardConnectionState(config: config))
+            print("[PortForward] Added connection: \(config.name)")
+        } catch {
+            print("[PortForward] Failed to add connection: \(error)")
+        }
     }
 
     func removeConnection(_ id: UUID) {
-        guard let index = connections.firstIndex(where: { $0.id == id }) else { return }
         stopConnection(id)
-        connections.remove(at: index)
-        saveConnections()
+        connections.removeAll { $0.id == id }
+
+        DispatchQueue.global(qos: .userInitiated).async { [scanner] in
+            do {
+                try scanner.removePortForwardConnection(id: id)
+            } catch {
+                print("Failed to remove connection: \(error)")
+            }
+        }
     }
 
     func updateConnection(_ config: PortForwardConnectionConfig) {
-        guard let index = connections.firstIndex(where: { $0.id == config.id }) else { return }
-        let wasConnected = connections[index].isFullyConnected
+        guard let connection = connections.first(where: { $0.id == config.id }) else { return }
+        let wasConnected = connection.isFullyConnected
+
         if wasConnected {
             stopConnection(config.id)
         }
-        connections[index].config = config
-        saveConnections()
+
+        connection.config = config
+
+        DispatchQueue.global(qos: .userInitiated).async { [scanner] in
+            do {
+                try scanner.updatePortForwardConnection(config)
+            } catch {
+                print("Failed to update connection: \(error)")
+            }
+        }
+
         if wasConnected && config.isEnabled {
             startConnection(config.id)
         }
@@ -77,106 +116,156 @@ final class PortForwardManager {
     // MARK: - Bulk Operations
 
     func startAll() {
+        print("[PortForward] startAll called, connections count: \(connections.count)")
         for connection in connections where connection.config.isEnabled {
+            print("[PortForward] Auto-starting: \(connection.config.name)")
             startConnection(connection.id)
         }
-        startMonitoring()
     }
 
     func stopAll() {
         stopMonitoring()
         for connection in connections {
-            stopConnection(connection.id)
-        }
-    }
-
-    func killStuckProcesses() async {
-        isKillingProcesses = true
-        stopMonitoring()
-
-        for connection in connections {
-            connection.portForwardTask?.cancel()
-            connection.proxyTask?.cancel()
-            connection.portForwardTask = nil
-            connection.proxyTask = nil
-        }
-
-        try? await Task.sleep(for: .milliseconds(200))
-
-        await processManager.killAllPortForwarderProcesses()
-
-        for connection in connections {
             connection.portForwardStatus = .disconnected
             connection.proxyStatus = .disconnected
+            connection.isIntentionallyStopped = true
         }
 
-        isKillingProcesses = false
+        DispatchQueue.global(qos: .userInitiated).async { [scanner] in
+            do {
+                try scanner.stopAllPortForwards()
+            } catch {
+                print("Failed to stop all: \(error)")
+            }
+        }
     }
 
     // MARK: - Single Connection Operations
 
     func startConnection(_ id: UUID) {
-        guard !isKillingProcesses else { return }
-        guard let state = connections.first(where: { $0.id == id }) else { return }
-        let config = state.config
-
-        // Reset intentional stop flag when starting
-        state.isIntentionallyStopped = false
-
-        Task {
-            await processManager.setLogHandler(for: id) { [weak state] message, type, isError in
-                Task { @MainActor in
-                    state?.appendLog(message, type: type, isError: isError)
-                }
-            }
-
-            await processManager.setPortConflictHandler(for: id) { [weak self, weak state] port in
-                Task { @MainActor in
-                    guard let self = self, let state = state else { return }
-                    state.appendLog("Port \(port) in use, auto-recovering...", type: .portForward, isError: false)
-
-                    await self.processManager.killProcessOnPort(port)
-
-                    try? await Task.sleep(for: .milliseconds(500))
-
-                    state.appendLog("Retrying connection...", type: .portForward, isError: false)
-                    self.restartConnection(id)
-                }
-            }
+        guard let connection = connections.first(where: { $0.id == id }) else {
+            print("[PortForward] Connection not found: \(id)")
+            return
         }
 
-        state.portForwardStatus = .connecting
-        state.portForwardTask = Task {
-            await runPortForward(for: state, config: config)
+        print("[PortForward] Starting connection: \(connection.config.name) (\(id))")
+
+        connection.isIntentionallyStopped = false
+        connection.portForwardStatus = .connecting
+
+        // Start monitoring if not already running
+        startMonitoring()
+
+        // Run on background queue to avoid blocking UI
+        DispatchQueue.global(qos: .userInitiated).async { [scanner] in
+            print("[PortForward] Calling Rust startPortForward...")
+            do {
+                try scanner.startPortForward(id: id)
+                print("[PortForward] Rust startPortForward completed successfully")
+            } catch {
+                print("[PortForward] Rust startPortForward failed: \(error)")
+                DispatchQueue.main.async {
+                    connection.portForwardStatus = .error
+                    connection.lastError = error.localizedDescription
+                }
+            }
         }
     }
 
     func stopConnection(_ id: UUID) {
-        guard let state = connections.first(where: { $0.id == id }) else { return }
+        guard let connection = connections.first(where: { $0.id == id }) else { return }
 
-        // Mark as intentionally stopped to avoid disconnect notification
-        state.isIntentionallyStopped = true
+        connection.isIntentionallyStopped = true
+        connection.portForwardStatus = .disconnected
+        connection.proxyStatus = .disconnected
 
-        state.proxyTask?.cancel()
-        state.proxyTask = nil
-        state.proxyStatus = .disconnected
-
-        state.portForwardTask?.cancel()
-        state.portForwardTask = nil
-        state.portForwardStatus = .disconnected
-
-        Task {
-            await processManager.killProcesses(for: id)
-            await processManager.removeLogHandler(for: id)
-            await processManager.removePortConflictHandler(for: id)
+        DispatchQueue.global(qos: .userInitiated).async { [scanner] in
+            do {
+                try scanner.stopPortForward(id: id)
+            } catch {
+                print("Failed to stop connection: \(error)")
+            }
         }
     }
 
     func restartConnection(_ id: UUID) {
-        stopConnection(id)
-        Task {
-            try? await Task.sleep(for: .milliseconds(500))
-            startConnection(id)
+        guard let connection = connections.first(where: { $0.id == id }) else { return }
+
+        connection.portForwardStatus = .connecting
+        connection.isIntentionallyStopped = false
+
+        startMonitoring()
+
+        DispatchQueue.global(qos: .userInitiated).async { [scanner] in
+            do {
+                try scanner.restartPortForward(id: id)
+            } catch {
+                print("Failed to restart connection: \(error)")
+            }
+        }
+    }
+
+    // MARK: - Monitoring (Timer-based for reliability)
+
+    func startMonitoring() {
+        guard !isMonitoring else { return }
+        isMonitoring = true
+        print("[PortForward] Starting monitoring...")
+
+        // Use Timer on main thread (3s interval to reduce CPU/memory overhead)
+        monitorTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.performMonitoringCycle()
+        }
+    }
+
+    func stopMonitoring() {
+        isMonitoring = false
+        monitorTimer?.invalidate()
+        monitorTimer = nil
+    }
+
+    private func performMonitoringCycle() {
+        let scanner = self.scanner
+
+        // Run Rust monitoring on background thread
+        DispatchQueue.global(qos: .utility).async {
+            scanner.monitorPortForwards()
+
+            // Update UI on main thread
+            DispatchQueue.main.async { [weak self] in
+                self?.syncStatesFromRust()
+                self?.processNotifications()
+            }
+        }
+    }
+
+    // MARK: - Notifications
+
+    private func processNotifications() {
+        // Check notification setting from Rust config
+        guard scanner.getSettingsPortForwardShowNotifications() else { return }
+
+        let notifications = scanner.getPortForwardNotifications()
+        for notification in notifications {
+            switch notification.notificationType {
+            case "connected":
+                NotificationService.shared.notify(
+                    title: "Port Forward Connected",
+                    body: "\(notification.connectionName) is now connected"
+                )
+            case "disconnected":
+                NotificationService.shared.notify(
+                    title: "Port Forward Disconnected",
+                    body: "\(notification.connectionName) disconnected"
+                )
+            case "error":
+                NotificationService.shared.notify(
+                    title: "Port Forward Error",
+                    body: "\(notification.connectionName) encountered an error"
+                )
+            default:
+                break
+            }
         }
     }
 }

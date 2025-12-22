@@ -1,17 +1,31 @@
 import SwiftUI
 
 struct PortForwarderSettingsTab: View {
-    @AppStorage("portForwardAutoStart") private var autoStart = false
-    @AppStorage("portForwardShowNotifications") private var showNotifications = true
+    @Environment(AppState.self) private var appState
+
+    @State private var autoStart = true
+    @State private var showNotifications = true
 
     var body: some View {
         Form {
             Section("Startup") {
-                Toggle("Auto-start connections on app launch", isOn: $autoStart)
+                Toggle("Auto-start connections on app launch", isOn: Binding(
+                    get: { autoStart },
+                    set: { newValue in
+                        autoStart = newValue
+                        appState.scanner.setSettingsPortForwardAutoStart(newValue)
+                    }
+                ))
             }
 
             Section("Notifications") {
-                Toggle("Show connection notifications", isOn: $showNotifications)
+                Toggle("Show connection notifications", isOn: Binding(
+                    get: { showNotifications },
+                    set: { newValue in
+                        showNotifications = newValue
+                        appState.scanner.setSettingsPortForwardShowNotifications(newValue)
+                    }
+                ))
             }
 
             Section("Dependencies") {
@@ -34,5 +48,10 @@ struct PortForwarderSettingsTab: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+        .onAppear {
+            // Load settings from Rust config
+            autoStart = appState.scanner.getSettingsPortForwardAutoStart()
+            showNotifications = appState.scanner.getSettingsPortForwardShowNotifications()
+        }
     }
 }

@@ -4,12 +4,18 @@
 /// - kubectl path and custom path input
 /// - socat path and custom path input
 /// - Auto-start toggle
+/// - Show notifications toggle
+///
+/// NOTE: Settings are stored in Rust config (~/.portkiller/config.json)
 
 import SwiftUI
 import Defaults
 
 struct PortForwardingSettingsSection: View {
-    @AppStorage("portForwardAutoStart") private var autoStart = false
+    @Environment(AppState.self) private var appState
+
+    @State private var autoStart: Bool = true
+    @State private var showNotifications: Bool = true
 
     var body: some View {
         SettingsGroup("Port Forwarding", icon: "point.3.connected.trianglepath.dotted") {
@@ -18,7 +24,28 @@ struct PortForwardingSettingsSection: View {
                 SettingsToggleRow(
                     title: "Auto-start connections",
                     subtitle: "Start all connections when app launches",
-                    isOn: $autoStart
+                    isOn: Binding(
+                        get: { autoStart },
+                        set: { newValue in
+                            autoStart = newValue
+                            appState.scanner.setSettingsPortForwardAutoStart(newValue)
+                        }
+                    )
+                )
+
+                SettingsDivider()
+
+                // Show notifications toggle
+                SettingsToggleRow(
+                    title: "Show notifications",
+                    subtitle: "Notify when connections connect or disconnect",
+                    isOn: Binding(
+                        get: { showNotifications },
+                        set: { newValue in
+                            showNotifications = newValue
+                            appState.scanner.setSettingsPortForwardShowNotifications(newValue)
+                        }
+                    )
                 )
 
                 SettingsDivider()
@@ -41,6 +68,11 @@ struct PortForwardingSettingsSection: View {
                     customPathKey: .customSocatPath
                 )
             }
+        }
+        .onAppear {
+            // Load settings from Rust config
+            autoStart = appState.scanner.getSettingsPortForwardAutoStart()
+            showNotifications = appState.scanner.getSettingsPortForwardShowNotifications()
         }
     }
 }

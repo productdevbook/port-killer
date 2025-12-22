@@ -26,15 +26,15 @@ final class KubernetesDiscoveryManager: Identifiable {
     var namespaceState: KubernetesDiscoveryState = .idle
     var serviceState: KubernetesDiscoveryState = .idle
 
-    private let processManager: PortForwardProcessManager
+    private let scanner: RustPortScanner
 
-    init(processManager: PortForwardProcessManager) {
-        self.processManager = processManager
+    init(scanner: RustPortScanner) {
+        self.scanner = scanner
     }
 
     // MARK: - Actions
 
-    func loadNamespaces() async {
+    func loadNamespaces() {
         namespaceState = .loading
         namespaces = []
         services = []
@@ -42,28 +42,44 @@ final class KubernetesDiscoveryManager: Identifiable {
         selectedService = nil
         selectedPort = nil
 
-        do {
-            namespaces = try await processManager.fetchNamespaces()
-            namespaceState = .loaded
-        } catch {
-            let message = (error as? KubectlError)?.errorDescription ?? error.localizedDescription
-            namespaceState = .error(message)
+        // Run kubectl on background queue to avoid blocking UI
+        DispatchQueue.global(qos: .userInitiated).async { [scanner, weak self] in
+            do {
+                let result = try scanner.fetchNamespaces()
+                DispatchQueue.main.async {
+                    self?.namespaces = result
+                    self?.namespaceState = .loaded
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.namespaceState = .error(error.localizedDescription)
+                }
+            }
         }
     }
 
-    func selectNamespace(_ namespace: KubernetesNamespace) async {
+    func selectNamespace(_ namespace: KubernetesNamespace) {
         selectedNamespace = namespace
         selectedService = nil
         selectedPort = nil
         services = []
         serviceState = .loading
 
-        do {
-            services = try await processManager.fetchServices(namespace: namespace.name)
-            serviceState = .loaded
-        } catch {
-            let message = (error as? KubectlError)?.errorDescription ?? error.localizedDescription
-            serviceState = .error(message)
+        let namespaceName = namespace.name
+
+        // Run kubectl on background queue to avoid blocking UI
+        DispatchQueue.global(qos: .userInitiated).async { [scanner, weak self] in
+            do {
+                let result = try scanner.fetchServices(namespace: namespaceName)
+                DispatchQueue.main.async {
+                    self?.services = result
+                    self?.serviceState = .loaded
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.serviceState = .error(error.localizedDescription)
+                }
+            }
         }
     }
 

@@ -1,0 +1,4 @@
+module portkiller_ffiFFI {
+    header "portkiller_ffiFFI.h"
+    export *
+}
