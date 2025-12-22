@@ -22,15 +22,84 @@ Perfect for developers who need to quickly free up ports like 3000, 8080, 5173, 
 
 ## Installation
 
-### Homebrew
+### macOS App (Homebrew)
 
 ```bash
 brew install --cask productdevbook/tap/portkiller
 ```
 
+### CLI Tool (Homebrew)
+
+```bash
+brew install productdevbook/tap/portkiller
+```
+
 ### Download
 
 Download from [GitHub Releases](https://github.com/productdevbook/port-killer/releases).
+
+## CLI Usage
+
+```bash
+# List all listening ports
+portkiller
+
+# Interactive TUI mode
+portkiller tui
+# or
+portkiller -i
+
+# Kill process on specific port
+portkiller kill 3000
+
+# Force kill
+portkiller kill 3000 -f
+```
+
+### TUI Keybindings
+
+| Key | Action |
+|-----|--------|
+| `j/k` | Navigate up/down |
+| `x` | Kill process |
+| `X` | Force kill |
+| `space` | Select multiple |
+| `f` | Toggle favorite |
+| `w` | Toggle watch |
+| `/` | Command palette |
+| `?` | Help |
+| `q` | Quit |
+
+## How It Works
+
+```mermaid
+flowchart TD
+    subgraph Interface
+        A[macOS Menu Bar]
+        B[CLI Command]
+        C[TUI Interactive]
+    end
+
+    A --> PS[Port Scanner]
+    B --> PS
+    C --> PS
+
+    PS --> LSOF[lsof -iTCP -P]
+    PS --> PSINFO[ps process info]
+
+    LSOF --> PARSE[Parse Output]
+    PSINFO --> PARSE
+
+    CONFIG[(~/.portkiller/config.json)] --> |Favorites, Watched| DATA
+    PARSE --> DATA[Port List]
+
+    DATA --> F[Display Ports]
+    DATA --> G[Kill Process]
+    DATA --> H[Watch & Notify]
+
+    G --> I[kill -15 SIGTERM]
+    I --> J[kill -9 SIGKILL]
+```
 
 ## Features
 
@@ -39,6 +108,14 @@ Download from [GitHub Releases](https://github.com/productdevbook/port-killer/re
 - ⚡ One-click process termination
 - 🔄 Auto-refresh every 5 seconds
 - 🔎 Search by port or process name
+
+## Platform Support
+
+| Platform | Status |
+|----------|--------|
+| macOS | Supported |
+| Linux | In Progress |
+| Windows | In Progress |
 
 ## Contributing
 

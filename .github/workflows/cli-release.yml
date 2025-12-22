@@ -1,0 +1,295 @@
+name: CLI Release
+
+on:
+  # Manual trigger from GitHub UI
+  workflow_dispatch:
+
+  # CLI release with tag
+  push:
+    tags:
+      - 'cli-v*'
+    branches:
+      - main
+    paths:
+      - 'cli/**'
+      - '.github/workflows/cli-release.yml'
+
+  # Auto-run after GUI Release completes
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
+
+  # Test CLI build on PR
+  pull_request:
+    paths:
+      - 'cli/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    # Run on tag push, or after successful CI/Release workflow
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            ext: .exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          cd cli
+
+          # Get version from tag or from source code
+          if [[ "$GITHUB_REF_NAME" == cli-v* ]]; then
+            VERSION="${GITHUB_REF_NAME#cli-v}"
+          else
+            # Extract version from cmd/root.go
+            VERSION=$(grep 'version.*=' cmd/root.go | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          fi
+
+          echo "Building CLI version: $VERSION"
+          go build -ldflags "-s -w -X github.com/productdevbook/port-killer/cli/cmd.version=${VERSION}" \
+            -o portkiller-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} .
+
+      - name: Create tarball (Unix)
+        if: matrix.goos != 'windows'
+        run: |
+          cd cli
+          tar -czvf portkiller-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz \
+            portkiller-${{ matrix.goos }}-${{ matrix.goarch }}
+
+      - name: Create zip (Windows)
+        if: matrix.goos == 'windows'
+        run: |
+          cd cli
+          Compress-Archive -Path portkiller-${{ matrix.goos }}-${{ matrix.goarch }}.exe `
+            -DestinationPath portkiller-${{ matrix.goos }}-${{ matrix.goarch }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: portkiller-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            cli/portkiller-*.tar.gz
+            cli/portkiller-*.zip
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    # Only release on tag push or after GUI release completes successfully
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/cli-v')) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find artifacts -name "portkiller-*.tar.gz" -exec cp {} release/ \;
+          find artifacts -name "portkiller-*.zip" -exec cp {} release/ \;
+          ls -la release/
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum * > cli-checksums.txt
+          cat cli-checksums.txt
+
+      - name: Find latest GUI release and update it
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get CLI version from tag or source
+          if [[ "$GITHUB_REF_NAME" == cli-v* ]]; then
+            CLI_VERSION="${GITHUB_REF_NAME#cli-v}"
+          else
+            CLI_VERSION=$(grep 'version.*=' cli/cmd/root.go | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          fi
+          echo "CLI_VERSION=$CLI_VERSION" >> $GITHUB_ENV
+
+          # Get latest v* release (GUI release)
+          LATEST_RELEASE=$(gh release list --limit 10 | grep -E "^v[0-9]" | head -1 | cut -f1)
+
+          if [ -z "$LATEST_RELEASE" ]; then
+            echo "No GUI release found, creating standalone CLI release"
+            LATEST_RELEASE="${GITHUB_REF_NAME}"
+            gh release create "$LATEST_RELEASE" \
+              --title "CLI ${GITHUB_REF_NAME}" \
+              --notes "## CLI ${GITHUB_REF_NAME}"
+          fi
+
+          echo "Updating release: $LATEST_RELEASE"
+          echo "LATEST_RELEASE=$LATEST_RELEASE" >> $GITHUB_ENV
+
+          # Upload CLI binaries to the release
+          gh release upload "$LATEST_RELEASE" release/* --clobber
+
+          # Get current release body
+          CURRENT_BODY=$(gh release view "$LATEST_RELEASE" --json body -q .body)
+
+          # Create CLI section
+          CLI_SECTION="
+          ---
+
+          ## CLI $GITHUB_REF_NAME
+
+          ### Installation
+
+          **Homebrew (macOS/Linux)**
+          \`\`\`bash
+          brew tap productdevbook/tap
+          brew install portkiller-cli
+          \`\`\`
+
+          **Quick Install (macOS/Linux)**
+          \`\`\`bash
+          curl -fsSL https://raw.githubusercontent.com/productdevbook/port-killer/main/cli/install.sh | sh
+          \`\`\`
+
+          **Go Install**
+          \`\`\`bash
+          go install github.com/productdevbook/port-killer/cli@latest
+          \`\`\`
+
+          ### CLI Downloads
+          | Platform | Architecture | Download |
+          |----------|--------------|----------|
+          | macOS | Apple Silicon (arm64) | [portkiller-darwin-arm64.tar.gz](https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-darwin-arm64.tar.gz) |
+          | macOS | Intel (amd64) | [portkiller-darwin-amd64.tar.gz](https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-darwin-amd64.tar.gz) |
+          | Linux | x64 (amd64) | [portkiller-linux-amd64.tar.gz](https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-linux-amd64.tar.gz) |
+          | Linux | ARM64 | [portkiller-linux-arm64.tar.gz](https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-linux-arm64.tar.gz) |
+          | Windows | x64 (amd64) | [portkiller-windows-amd64.zip](https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-windows-amd64.zip) |
+          "
+
+          # Check if CLI section already exists, replace or append
+          if echo "$CURRENT_BODY" | grep -q "## CLI cli-v"; then
+            # Replace existing CLI section
+            NEW_BODY=$(echo "$CURRENT_BODY" | sed '/^---$/,/^| Windows/d')
+            NEW_BODY="${NEW_BODY}${CLI_SECTION}"
+          else
+            # Append CLI section
+            NEW_BODY="${CURRENT_BODY}${CLI_SECTION}"
+          fi
+
+          # Update release body
+          echo "$NEW_BODY" > /tmp/release_body.md
+          gh release edit "$LATEST_RELEASE" --notes-file /tmp/release_body.md
+
+      - name: Update Homebrew Tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#cli-v}"
+
+          # Calculate SHA256 for each platform
+          SHA256_DARWIN_ARM64=$(sha256sum release/portkiller-darwin-arm64.tar.gz | cut -d' ' -f1)
+          SHA256_DARWIN_AMD64=$(sha256sum release/portkiller-darwin-amd64.tar.gz | cut -d' ' -f1)
+          SHA256_LINUX_ARM64=$(sha256sum release/portkiller-linux-arm64.tar.gz | cut -d' ' -f1)
+          SHA256_LINUX_AMD64=$(sha256sum release/portkiller-linux-amd64.tar.gz | cut -d' ' -f1)
+
+          # Clone homebrew-tap repo
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/productdevbook/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+
+          # Create Formula directory if not exists
+          mkdir -p Formula
+
+          # Create formula - download URL uses LATEST_RELEASE (GUI version)
+          cat > Formula/portkiller-cli.rb << EOF
+          class PortkillerCli < Formula
+            desc "Fast CLI tool to find and kill processes on ports"
+            homepage "https://github.com/productdevbook/port-killer"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-darwin-arm64.tar.gz"
+                sha256 "${SHA256_DARWIN_ARM64}"
+
+                def install
+                  bin.install "portkiller-darwin-arm64" => "portkiller"
+                end
+              else
+                url "https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-darwin-amd64.tar.gz"
+                sha256 "${SHA256_DARWIN_AMD64}"
+
+                def install
+                  bin.install "portkiller-darwin-amd64" => "portkiller"
+                end
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-linux-arm64.tar.gz"
+                sha256 "${SHA256_LINUX_ARM64}"
+
+                def install
+                  bin.install "portkiller-linux-arm64" => "portkiller"
+                end
+              else
+                url "https://github.com/productdevbook/port-killer/releases/download/${LATEST_RELEASE}/portkiller-linux-amd64.tar.gz"
+                sha256 "${SHA256_LINUX_AMD64}"
+
+                def install
+                  bin.install "portkiller-linux-amd64" => "portkiller"
+                end
+              end
+            end
+
+            test do
+              system "#{bin}/portkiller", "--version"
+            end
+          end
+          EOF
+
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/portkiller-cli.rb
+          git commit -m "Update portkiller-cli to ${VERSION}"
+          git push

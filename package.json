@@ -3,7 +3,8 @@
   "version": "3.0.0",
   "private": true,
   "scripts": {
-    "release": "bumpp"
+    "release": "bumpp",
+    "release:cli": "./cli/release.sh"
   },
   "dependencies": {
     "bumpp": "^10.3.2"
