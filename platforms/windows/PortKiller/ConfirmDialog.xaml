@@ -1,0 +1,103 @@
+<Window x:Class="PortKiller.ConfirmDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Confirm"
+        Width="360" Height="200"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="WindowBackground" Color="#F21E1E1E"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#33FFFFFF"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#B0B0B0"/>
+        <SolidColorBrush x:Key="DangerColor" Color="#FF453A"/>
+        <SolidColorBrush x:Key="AccentColor" Color="#5B9DD9"/>
+
+        <!-- Button Style -->
+        <Style x:Key="DialogButton" TargetType="Button">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource WindowBackground}" 
+            CornerRadius="12" 
+            BorderBrush="{StaticResource BorderBrush}" 
+            BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect Color="#80000000" BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.5"/>
+        </Border.Effect>
+
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <TextBlock x:Name="TitleText" Grid.Row="0" Text="Confirm Action" 
+                       FontSize="16" FontWeight="Bold" 
+                       Foreground="{StaticResource TextPrimary}" 
+                       Margin="0,0,0,12"/>
+
+            <!-- Message -->
+            <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                <TextBlock x:Name="MessageText" 
+                           Text="Kill process on port 3000?" 
+                           FontSize="13" 
+                           Foreground="{StaticResource TextPrimary}" 
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8"/>
+                <TextBlock x:Name="DetailsText" 
+                           Text="Process: node&#x0a;PID: 25944" 
+                           FontSize="11" 
+                           Foreground="{StaticResource TextSecondary}" 
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <!-- Buttons -->
+            <Grid Grid.Row="2" Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" 
+                        Content="No" 
+                        Click="NoButton_Click"
+                        Style="{StaticResource DialogButton}"
+                        Foreground="{StaticResource TextPrimary}"
+                        Background="#30FFFFFF"/>
+
+                <Button Grid.Column="2" 
+                        Content="Yes" 
+                        Click="YesButton_Click"
+                        Style="{StaticResource DialogButton}"
+                        Foreground="White"
+                        Background="{StaticResource DangerColor}"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

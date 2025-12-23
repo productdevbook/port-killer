@@ -1,0 +1,10 @@
+<Application x:Class="PortKiller.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:PortKiller"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <!-- Built-in converters -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Application.Resources>
+</Application>
