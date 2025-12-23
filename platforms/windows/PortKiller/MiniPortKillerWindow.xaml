@@ -17,14 +17,14 @@
 
     <Window.Resources>
         <!-- Colors -->
-        <SolidColorBrush x:Key="WindowBackground" Color="#E61E1E1E"/> <!-- 90% opacity dark grey -->
-        <SolidColorBrush x:Key="BorderBrush" Color="#33FFFFFF"/>
+        <SolidColorBrush x:Key="WindowBackground" Color="#C8282828"/> <!-- 78% opacity lighter grey for transparency -->
+        <SolidColorBrush x:Key="BorderBrush" Color="#40FFFFFF"/>
         <SolidColorBrush x:Key="TextPrimary" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="TextSecondary" Color="#80FFFFFF"/>
-        <SolidColorBrush x:Key="TextTertiary" Color="#4DFFFFFF"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#B0FFFFFF"/>
+        <SolidColorBrush x:Key="TextTertiary" Color="#60FFFFFF"/>
         <SolidColorBrush x:Key="AccentColor" Color="#5B9DD9"/>
         <SolidColorBrush x:Key="DangerColor" Color="#FF453A"/>
-        <SolidColorBrush x:Key="HoverBackground" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="HoverBackground" Color="#20FFFFFF"/>
 
         <!-- Menu Button Style -->
         <Style x:Key="MenuButtonStyle" TargetType="Button">
@@ -36,7 +36,10 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" 
+                                Padding="{TemplateBinding Padding}" 
+                                CornerRadius="10" 
+                                Margin="2,2">
                             <ContentPresenter/>
                         </Border>
                     </ControlTemplate>
@@ -55,10 +58,13 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="12,6"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="2,1"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" 
+                                Padding="{TemplateBinding Padding}" 
+                                CornerRadius="10">
                             <ContentPresenter/>
                         </Border>
                     </ControlTemplate>
@@ -69,9 +75,83 @@
                     <Setter Property="Background" Value="#30FFFFFF"/>
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#5B9DD9"/>
+                    <Setter Property="Background" Value="#40FFFFFF"/>
                 </Trigger>
             </Style.Triggers>
+        </Style>
+
+        <!-- Context Menu Style -->
+        <Style x:Key="ModernContextMenu" TargetType="ContextMenu">
+            <Setter Property="Background" Value="#D8282828"/>
+            <Setter Property="BorderBrush" Value="#40FFFFFF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="HasDropShadow" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="Black" Opacity="0.5" ShadowDepth="6" BlurRadius="15"/>
+                            </Border.Effect>
+                            <ItemsPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Context Menu Item Style -->
+        <Style x:Key="ModernMenuItem" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Border" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="4" Margin="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- Icon -->
+                                <ContentPresenter Grid.Column="0" 
+                                                Content="{TemplateBinding Icon}" 
+                                                Margin="0,0,8,0"
+                                                VerticalAlignment="Center"/>
+                                
+                                <!-- Header -->
+                                <ContentPresenter Grid.Column="1" 
+                                                ContentSource="Header"
+                                                VerticalAlignment="Center"/>
+                                
+                                <!-- InputGestureText (Shortcut) -->
+                                <TextBlock Grid.Column="2" 
+                                         Text="{TemplateBinding InputGestureText}"
+                                         Foreground="#999999"
+                                         Margin="12,0,0,0"
+                                         VerticalAlignment="Center"
+                                         FontSize="11"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#30FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#707070"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
     </Window.Resources>
@@ -85,6 +165,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/> <!-- Header -->
                 <RowDefinition Height="Auto"/> <!-- Search -->
+                <RowDefinition Height="Auto"/> <!-- Cloudflare Tunnels Section -->
                 <RowDefinition Height="*"/>    <!-- List -->
                 <RowDefinition Height="Auto"/> <!-- Footer -->
             </Grid.RowDefinitions>
@@ -111,7 +192,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Search Bar -->
-                <Border Grid.Column="0" Background="#33000000" CornerRadius="6" BorderBrush="#1AFFFFFF" BorderThickness="1" Height="28">
+                <Border Grid.Column="0" Background="#20FFFFFF" CornerRadius="6" BorderBrush="#30FFFFFF" BorderThickness="1" Height="28">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -149,13 +230,158 @@
                 </Border>
 
                 <!-- Count Badge (Outside Search Bar) -->
-                <Border Grid.Column="1" Background="#33FFFFFF" CornerRadius="9" Margin="8,0,0,0" Padding="0" Height="18" Width="30">
+                <Border Grid.Column="1" Background="#40FFFFFF" CornerRadius="9" Margin="8,0,0,0" Padding="0" Height="18" Width="30">
                     <TextBlock x:Name="PortCountText" Text="0" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimary}"/>
                 </Border>
             </Grid>
 
-            <!-- 3. Port List - Added Margin bottom to prevent overlap with footer -->
-            <ListBox Grid.Row="2" x:Name="PortsList" 
+            <!-- 3. Cloudflare Tunnels Section -->
+            <StackPanel Grid.Row="2" x:Name="TunnelsSection" Visibility="Collapsed" Margin="0,8,0,8">
+                <!-- Section Header -->
+                <Grid Margin="12,0,12,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Orientation="Horizontal" Grid.Column="0">
+                        <TextBlock Text="☁" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="#F4AB3A"/>
+                        <TextBlock Text="Cloudflare Tunnels" 
+                                   FontSize="11" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="{StaticResource TextSecondary}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Tunnels List -->
+                <ItemsControl x:Name="TunnelsList" Margin="0,0,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="Transparent" Padding="12,6" Margin="0,0,0,2">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#30FFFFFF"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/> <!-- Dot -->
+                                        <ColumnDefinition Width="Auto"/> <!-- Port -->
+                                        <ColumnDefinition Width="*"/>    <!-- URL -->
+                                        <ColumnDefinition Width="Auto"/> <!-- Copy Button -->
+                                        <ColumnDefinition Width="Auto"/> <!-- Close Button -->
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Green Dot (Active) -->
+                                    <Ellipse Grid.Column="0" 
+                                             Width="6" 
+                                             Height="6" 
+                                             Fill="#2ecc71" 
+                                             VerticalAlignment="Center" 
+                                             Margin="0,2,8,0"/>
+
+                                    <!-- Port Number -->
+                                    <TextBlock Grid.Column="1" 
+                                               FontWeight="Bold" 
+                                               Foreground="{StaticResource TextPrimary}" 
+                                               VerticalAlignment="Center" 
+                                               Margin="0,0,8,0">
+                                        <Run Text=":"/>
+                                        <Run Text="{Binding Port}"/>
+                                    </TextBlock>
+
+                                    <!-- Shortened URL -->
+                                    <TextBlock Grid.Column="2" 
+                                               Text="{Binding DisplayUrl}" 
+                                               Foreground="#5B9DD9"
+                                               TextTrimming="CharacterEllipsis" 
+                                               VerticalAlignment="Center"
+                                               FontFamily="Consolas"
+                                               FontSize="11"
+                                               ToolTip="{Binding TunnelUrl}"/>
+
+                                    <!-- Copy Button -->
+                                    <Button Grid.Column="3" 
+                                            Content="📋" 
+                                            Width="24" 
+                                            Height="24"
+                                            FontSize="12"
+                                            Margin="4,0,0,0"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="{StaticResource TextSecondary}"
+                                            Cursor="Hand"
+                                            Click="CopyTunnelUrl_Click"
+                                            Tag="{Binding}"
+                                            ToolTip="Copy URL">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="{TemplateBinding Background}" 
+                                                                    CornerRadius="4"
+                                                                    Padding="4">
+                                                                <ContentPresenter HorizontalAlignment="Center" 
+                                                                                VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#20FFFFFF"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+
+                                    <!-- Close/Stop Tunnel Button -->
+                                    <Button Grid.Column="4" 
+                                            Width="20" 
+                                            Height="20"
+                                            Margin="4,0,0,0"
+                                            Background="{StaticResource DangerColor}"
+                                            BorderThickness="0"
+                                            Cursor="Hand"
+                                            Click="StopTunnel_Click"
+                                            Tag="{Binding}"
+                                            ToolTip="Stop Tunnel">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}" 
+                                                        CornerRadius="10">
+                                                    <TextBlock Text="✕" 
+                                                               FontSize="10" 
+                                                               FontWeight="Normal"
+                                                               Foreground="White"
+                                                               HorizontalAlignment="Center" 
+                                                               VerticalAlignment="Center"
+                                                               Margin="0,-1,0,0"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Divider after tunnels -->
+                <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Opacity="0.3" Margin="12,8"/>
+            </StackPanel>
+
+            <!-- 4. Port List - Updated Grid.Row -->
+            <ListBox Grid.Row="3" x:Name="PortsList" 
                      Background="Transparent" 
                      BorderThickness="0"
                      Margin="0,0,0,8"
@@ -165,6 +391,69 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type models:PortInfo}">
                         <Grid x:Name="ItemGrid">
+                            <Grid.ContextMenu>
+                                <ContextMenu Style="{StaticResource ModernContextMenu}" Opened="ContextMenu_Opened">
+                                     <!-- Add to Favorites -->
+                                    <MenuItem x:Name="FavoriteMenuItem"
+                                              Header="Add to Favorites" 
+                                              Style="{StaticResource ModernMenuItem}"
+                                              Click="ContextMenu_AddToFavorites"
+                                              Tag="{Binding}">
+                                        <MenuItem.Icon>
+                                            <TextBlock Text="⭐" FontSize="14" Margin="0"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+
+                                    <!-- Watch Port -->
+                                    <MenuItem x:Name="WatchMenuItem"
+                                              Header="Watch Port" 
+                                              Style="{StaticResource ModernMenuItem}"
+                                              Click="ContextMenu_WatchPort"
+                                              Tag="{Binding}">
+                                        <MenuItem.Icon>
+                                            <TextBlock Text="👁" FontSize="14" Margin="0"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+
+                                    <!-- Separator -->
+                                    <Separator Background="#40FFFFFF" Margin="2,2"/>
+
+                                    <!-- Open in Browser -->
+                                    <MenuItem Header="Open in Browser" 
+                                              Style="{StaticResource ModernMenuItem}"
+                                              Click="ContextMenu_OpenInBrowser"
+                                              Tag="{Binding}"
+                                              InputGestureText="⌘ O">
+                                        <MenuItem.Icon>
+                                            <TextBlock Text="🌐" FontSize="14" Margin="0"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+
+                                    <!-- Copy URL -->
+                                    <MenuItem Header="Copy URL" 
+                                              Style="{StaticResource ModernMenuItem}"
+                                              Click="ContextMenu_CopyUrl"
+                                              Tag="{Binding}">
+                                        <MenuItem.Icon>
+                                            <TextBlock Text="📋" FontSize="14" Margin="0"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+
+                                     <!-- Separator -->
+                                    <Separator Background="#40FFFFFF" Margin="2,2"/>
+
+                                    <!-- Share via Tunnel -->
+                                    <MenuItem Header="Share via Tunnel" 
+                                              Style="{StaticResource ModernMenuItem}"
+                                              Click="ContextMenu_ShareViaTunnel"
+                                              Tag="{Binding}">
+                                        <MenuItem.Icon>
+                                            <TextBlock Text="☁" FontSize="14" Margin="0" Foreground="#F4AB3A"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </Grid.ContextMenu>
+
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/> <!-- Dot -->
                                 <ColumnDefinition Width="Auto"/> <!-- Port -->
@@ -173,7 +462,7 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- Green Dot -->
-                            <Ellipse x:Name="StatusDot" Grid.Column="0" Width="6" Height="6" Fill="#4CC71E" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <Ellipse x:Name="StatusDot" Grid.Column="0" Width="6" Height="6" Fill="#2ecc71" VerticalAlignment="Center" Margin="0,2,8,0"/>
 
                             <!-- Port Number -->
                             <TextBlock x:Name="PortText" Grid.Column="1" Text="{Binding DisplayPort}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -184,26 +473,50 @@
                             <!-- PID (Default Visible) -->
                             <TextBlock x:Name="PidText" Grid.Column="3" Text="{Binding Pid}" Foreground="{StaticResource TextTertiary}" FontSize="12" VerticalAlignment="Center"/>
 
-                            <!-- Processing State (Spinner) -->
-                            <TextBlock x:Name="ProcessingText" Grid.Column="3" Text="⌛" FontSize="14" Visibility="Collapsed" VerticalAlignment="Center"/>
+                            <!-- Processing State (Kill - Spinner) -->
+                            <TextBlock x:Name="ProcessingText" Grid.Column="3" Text="⌛" FontSize="14" Foreground="#F4AB3A" Visibility="Collapsed" VerticalAlignment="Center"/>
+
+                            <!-- Tunnel Processing State (Cloud with animation) -->
+                            <StackPanel x:Name="TunnelProcessingPanel" Grid.Column="3" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center">
+                                <TextBlock Text="☁" FontSize="14" Foreground="#F4AB3A" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <EventTrigger RoutedEvent="Loaded">
+                                                    <BeginStoryboard>
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                           From="1" To="0.3" Duration="0:0:0.5"
+                                                                           AutoReverse="True"/>
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </EventTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text=" Sharing..." FontSize="11" Foreground="#F4AB3A" VerticalAlignment="Center"/>
+                            </StackPanel>
 
                             <!-- Kill Button (Hidden by default, shown on hover) -->
                             <Button x:Name="KillButton" Grid.Column="3" 
-                                    Content="✕" 
                                     Visibility="Hidden"
                                     Width="20" Height="20"
-                                    FontSize="10"
-                                    Foreground="White"
                                     Background="{StaticResource DangerColor}"
                                     BorderThickness="0"
-                                    Padding="0"
                                     Cursor="Hand"
                                     PreviewMouseLeftButtonDown="KillSinglePort_Click"
                                     Tag="{Binding}">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border Background="{TemplateBinding Background}" CornerRadius="10">
-                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <TextBlock Text="✕" 
+                                                       FontSize="10" 
+                                                       FontWeight="Normal"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center" 
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,-1,0,0"/>
                                         </Border>
                                     </ControlTemplate>
                                 </Button.Template>
@@ -219,7 +532,7 @@
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0" IsHitTestVisible="False">
-                                        <Ellipse Width="6" Height="6" Fill="#4CC71E" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Ellipse Width="6" Height="6" Fill="#2ecc71" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                         <TextBlock Text="Kill " Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold"/>
                                         <TextBlock Text="{Binding ProcessName}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold"/>
                                         <TextBlock Text="?" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold"/>
@@ -300,26 +613,63 @@
             </ListBox>
 
             <!-- Empty State Overlay -->
-            <TextBlock Grid.Row="2" x:Name="EmptyStateText" Text="No active ports" 
+            <TextBlock Grid.Row="3" x:Name="EmptyStateText" Text="No active ports" 
                        HorizontalAlignment="Center" VerticalAlignment="Center" 
                        Foreground="{StaticResource TextSecondary}"
                        Visibility="Collapsed"/>
 
-            <!-- 4. Footer Menu - Adjusted Margins for better spacing -->
-            <StackPanel Grid.Row="3" Margin="0,4,0,0">
+            <!-- 5. Footer Menu - Updated Grid.Row -->
+            <StackPanel Grid.Row="4" Margin="0,4,0,0">
                 <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Opacity="0.5"/>
                 
-                <!-- Refresh -->
-                <Button Click="RefreshButton_Click" Style="{StaticResource MenuButtonStyle}" Margin="0,2,0,0">
+                <!-- Refresh Status Indicator (Raycast-style) -->
+                <Button x:Name="RefreshButton" Click="RefreshButton_Click" Style="{StaticResource MenuButtonStyle}" Margin="0,2,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="↻" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="Refresh" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                        <TextBlock Grid.Column="2" Text="Ctrl+R" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                        
+                        <!-- Status Indicator Container -->
+                        <Grid Grid.Column="0" Width="16" Height="16" Margin="0,0,8,0">
+                            <!-- Idle State: Refresh Icon -->
+                            <TextBlock x:Name="RefreshIcon" Text="↻" FontSize="14" 
+                                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                                       Visibility="Visible"/>
+                            
+                            <!-- Loading State: Spinning Circle -->
+                            <Border x:Name="LoadingSpinner" Visibility="Collapsed"
+                                    Width="14" Height="14" 
+                                    CornerRadius="7"
+                                    BorderThickness="2"
+                                    BorderBrush="#60FFFFFF"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <RotateTransform x:Name="SpinnerRotation" Angle="0"/>
+                                </Border.RenderTransform>
+                                <!-- Accent arc for spinner effect -->
+                                <Border Width="14" Height="14" CornerRadius="7" 
+                                        BorderThickness="2,2,0,0" 
+                                        BorderBrush="{StaticResource AccentColor}"
+                                        Margin="-2"/>
+                            </Border>
+                            
+                            <!-- Success State: Green Dot -->
+                            <Ellipse x:Name="SuccessDot" Visibility="Collapsed"
+                                     Width="8" Height="8" 
+                                     Fill="#2ecc71"
+                                     VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Grid>
+                        
+                        <!-- Status Text -->
+                        <TextBlock x:Name="RefreshStatusText" Grid.Column="1" 
+                                   Text="Refresh" 
+                                   VerticalAlignment="Center"/>
+                        
+                        <!-- Keyboard Shortcut -->
+                        <TextBlock Grid.Column="2" Text="Ctrl+R" FontSize="12" 
+                                   Foreground="{StaticResource TextSecondary}"/>
                     </Grid>
                 </Button>
 

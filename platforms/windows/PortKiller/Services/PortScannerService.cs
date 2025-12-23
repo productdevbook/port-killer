@@ -65,7 +65,37 @@ public class PortScannerService
         public MIB_TCPROW_OWNER_PID[] table;
     }
 
-    private const int AF_INET = 2; // IPv4
+    // IPv6 structures
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MIB_TCP6ROW_OWNER_PID
+    {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+        public byte[] localAddr;
+        public uint localScopeId;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public byte[] localPort;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+        public byte[] remoteAddr;
+        public uint remoteScopeId;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public byte[] remotePort;
+        public uint state;
+        public int owningPid;
+
+        public ushort LocalPort => BitConverter.ToUInt16(new byte[2] { localPort[1], localPort[0] }, 0);
+        public string LocalAddress => new System.Net.IPAddress(localAddr).ToString();
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MIB_TCP6TABLE_OWNER_PID
+    {
+        public uint dwNumEntries;
+        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct, SizeConst = 1)]
+        public MIB_TCP6ROW_OWNER_PID[] table;
+    }
+
+    private const int AF_INET = 2;  // IPv4
+    private const int AF_INET6 = 23; // IPv6
     private const uint MIB_TCP_STATE_LISTEN = 2;
 
     /// <summary>
@@ -78,11 +108,12 @@ public class PortScannerService
         {
             try
             {
-                var tcpRows = GetAllTcpConnections();
-                var listeningRows = tcpRows.Where(row => row.state == MIB_TCP_STATE_LISTEN).ToList();
-                
                 var ports = new List<PortInfo>();
                 var processCache = new Dictionary<int, (string name, string command, string user)>();
+
+                // Scan IPv4 ports
+                var tcpRows = GetAllTcpConnections();
+                var listeningRows = tcpRows.Where(row => row.state == MIB_TCP_STATE_LISTEN).ToList();
 
                 foreach (var row in listeningRows)
                 {
@@ -108,6 +139,45 @@ public class PortScannerService
                             command: processInfo.command);
                         
                         // Explicitly set IsKilling to false when creating new Active ports
+                        portInfo.IsKilling = false;
+                        portInfo.IsConfirmingKill = false;
+
+                        ports.Add(portInfo);
+                    }
+                    catch
+                    {
+                        // Skip ports we can't get info for
+                        continue;
+                    }
+                }
+
+                // Scan IPv6 ports
+                var tcp6Rows = GetAllTcp6Connections();
+                var listening6Rows = tcp6Rows.Where(row => row.state == MIB_TCP_STATE_LISTEN).ToList();
+
+                foreach (var row in listening6Rows)
+                {
+                    try
+                    {
+                        var pid = row.owningPid;
+                        var port = row.LocalPort;
+                        var address = row.LocalAddress;
+
+                        // Get process info (with caching)
+                        if (!processCache.TryGetValue(pid, out var processInfo))
+                        {
+                            processInfo = GetProcessInfo(pid);
+                            processCache[pid] = processInfo;
+                        }
+
+                        var portInfo = PortInfo.Active(
+                            port: port,
+                            pid: pid,
+                            processName: processInfo.name,
+                            address: address,
+                            user: processInfo.user,
+                            command: processInfo.command);
+                        
                         portInfo.IsKilling = false;
                         portInfo.IsConfirmingKill = false;
 
@@ -176,6 +246,60 @@ public class PortScannerService
                 var row = Marshal.PtrToStructure<MIB_TCPROW_OWNER_PID>(rowPtr);
                 tcpRows.Add(row);
                 rowPtr = (IntPtr)((long)rowPtr + Marshal.SizeOf<MIB_TCPROW_OWNER_PID>());
+            }
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(tcpTablePtr);
+        }
+
+        return tcpRows;
+    }
+
+    /// <summary>
+    /// Gets all IPv6 TCP connections using Win32 API
+    /// </summary>
+    private List<MIB_TCP6ROW_OWNER_PID> GetAllTcp6Connections()
+    {
+        var tcpRows = new List<MIB_TCP6ROW_OWNER_PID>();
+        int bufferSize = 0;
+
+        // First call to get buffer size
+        uint result = GetExtendedTcpTable(
+            IntPtr.Zero,
+            ref bufferSize,
+            true,
+            AF_INET6,
+            TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL,
+            0);
+
+        if (bufferSize == 0)
+            return tcpRows;
+
+        IntPtr tcpTablePtr = Marshal.AllocHGlobal(bufferSize);
+
+        try
+        {
+            // Second call to get actual data
+            result = GetExtendedTcpTable(
+                tcpTablePtr,
+                ref bufferSize,
+                true,
+                AF_INET6,
+                TCP_TABLE_CLASS.TCP_TABLE_OWNER_PID_ALL,
+                0);
+
+            if (result != 0)
+                return tcpRows;
+
+            var numEntries = Marshal.ReadInt32(tcpTablePtr);
+            var rowPtr = (IntPtr)((long)tcpTablePtr + sizeof(int));
+
+            for (int i = 0; i < numEntries; i++)
+            {
+                var row = Marshal.PtrToStructure<MIB_TCP6ROW_OWNER_PID>(rowPtr);
+                tcpRows.Add(row);
+                rowPtr = (IntPtr)((long)rowPtr + Marshal.SizeOf<MIB_TCP6ROW_OWNER_PID>());
             }
         }
         finally

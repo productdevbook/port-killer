@@ -6,9 +6,10 @@ public partial class ConfirmDialog : Window
 {
     public bool Result { get; private set; }
 
-    public ConfirmDialog(string message, string details)
+    public ConfirmDialog(string message, string details, string title = "Confirm Action")
     {
         InitializeComponent();
+        TitleText.Text = title;
         MessageText.Text = message;
         DetailsText.Text = details;
     }

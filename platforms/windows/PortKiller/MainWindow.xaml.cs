@@ -13,13 +13,16 @@ namespace PortKiller;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
+    private readonly TunnelViewModel _tunnelViewModel;
     private Hardcodet.Wpf.TaskbarNotification.TaskbarIcon? _trayIcon;
+    private bool _isShuttingDown = false;
 
     public MainWindow()
     {
         InitializeComponent();
 
         _viewModel = App.Services.GetRequiredService<MainViewModel>();
+        _tunnelViewModel = App.Services.GetRequiredService<TunnelViewModel>();
         InitializeAsync();
         
         // Setup keyboard shortcuts
@@ -27,6 +30,14 @@ public partial class MainWindow : Window
         
         // Initialize system tray icon
         InitializeTrayIcon();
+        
+        // Ensure window is visible and activated on startup
+        Loaded += (s, e) =>
+        {
+            Show();
+            Activate();
+            WindowState = WindowState.Normal;
+        };
     }
 
     private void InitializeTrayIcon()
@@ -177,6 +188,20 @@ public partial class MainWindow : Window
                 _viewModel.SelectedSidebarItem = sidebarItem;
                 HeaderText.Text = sidebarItem.GetTitle();
                 
+                // Toggle between ports view and tunnels view
+                if (sidebarItem == SidebarItem.CloudflareTunnels)
+                {
+                    PortsPanel.Visibility = Visibility.Collapsed;
+                    DetailPanel.Visibility = Visibility.Collapsed;
+                    TunnelsPanel.Visibility = Visibility.Visible;
+                    UpdateTunnelsUI();
+                }
+                else
+                {
+                    TunnelsPanel.Visibility = Visibility.Collapsed;
+                    PortsPanel.Visibility = Visibility.Visible;
+                }
+                
                 // Highlight selected button (optional enhancement)
                 foreach (var child in ((button.Parent as Panel)?.Children ?? new UIElementCollection(null, null)))
                 {
@@ -225,16 +250,17 @@ public partial class MainWindow : Window
     {
         if (sender is Button button && button.Tag is PortInfo port)
         {
-            var result = MessageBox.Show(
-                $"Are you sure you want to kill the process on port {port.Port}?\n\n" +
-                $"Process: {port.ProcessName}\n" +
-                $"PID: {port.Pid}\n\n" +
-                "This action cannot be undone.",
-                "Kill Process",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
+            var dialog = new ConfirmDialog(
+                $"Are you sure you want to kill the process on port {port.Port}?",
+                $"Process: {port.ProcessName}\nPID: {port.Pid}\n\nThis action cannot be undone.",
+                "Kill Process")
+            {
+                Owner = this
+            };
+            
+            dialog.ShowDialog();
 
-            if (result == MessageBoxResult.Yes)
+            if (dialog.Result)
             {
                 await _viewModel.KillProcessCommand.ExecuteAsync(port);
             }
@@ -267,6 +293,27 @@ public partial class MainWindow : Window
 
             ShowPortDetails(_viewModel.SelectedPort);
         }
+    }
+
+    private async void ShareTunnelButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.SelectedPort == null)
+            return;
+
+        var port = _viewModel.SelectedPort.Port;
+
+        // Navigate to Cloudflare Tunnels panel in sidebar
+        _viewModel.SelectedSidebarItem = SidebarItem.CloudflareTunnels;
+        HeaderText.Text = SidebarItem.CloudflareTunnels.GetTitle();
+        
+        // Toggle to tunnels view
+        PortsPanel.Visibility = Visibility.Collapsed;
+        DetailPanel.Visibility = Visibility.Collapsed;
+        TunnelsPanel.Visibility = Visibility.Visible;
+        UpdateTunnelsUI();
+
+        // Start tunnel for the selected port
+        await _tunnelViewModel.StartTunnelAsync(port);
     }
 
     // Window loaded event - enable blur for sidebar only
@@ -312,14 +359,17 @@ public partial class MainWindow : Window
 
     private async void TrayKillAll_Click(object sender, RoutedEventArgs e)
     {
-        var result = MessageBox.Show(
-            "Are you sure you want to kill ALL processes on listening ports?\n\n" +
-            "This action cannot be undone.",
-            "Kill All Processes",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+        var dialog = new ConfirmDialog(
+            "Are you sure you want to kill ALL processes on listening ports?",
+            $"This will terminate {_viewModel.Ports.Count} process(es).\n\nThis action cannot be undone.",
+            "Kill All Processes")
+        {
+            Owner = this
+        };
+        
+        dialog.ShowDialog();
 
-        if (result == MessageBoxResult.Yes)
+        if (dialog.Result)
         {
             foreach (var port in _viewModel.Ports.ToList())
             {
@@ -332,6 +382,105 @@ public partial class MainWindow : Window
                     System.Diagnostics.Debug.WriteLine($"Failed to kill process on port {port.Port}: {ex.Message}");
                 }
             }
+        }
+    }
+
+    // Cloudflare Tunnels Methods
+    private void UpdateTunnelsUI()
+    {
+        // Bind tunnels list to view model
+        TunnelsListView.ItemsSource = _tunnelViewModel.Tunnels;
+        
+        // Update empty state
+        TunnelsEmptyState.Visibility = _tunnelViewModel.Tunnels.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        
+        // Update status bar
+        var count = _tunnelViewModel.ActiveTunnelCount;
+        TunnelStatusText.Text = $"{count} active tunnel(s)";
+        TunnelStatusDot.Fill = count > 0 
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 204, 113))
+            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(128, 128, 128));
+        
+        // Update Stop All button visibility
+        StopAllTunnelsButton.Visibility = _tunnelViewModel.Tunnels.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        
+        // Update cloudflared installed indicator
+        CloudflaredWarning.Visibility = _tunnelViewModel.IsCloudflaredInstalled ? Visibility.Collapsed : Visibility.Visible;
+        CloudflaredInstalledIndicator.Visibility = _tunnelViewModel.IsCloudflaredInstalled ? Visibility.Visible : Visibility.Collapsed;
+        
+        // Subscribe to collection changes if not already
+        _tunnelViewModel.Tunnels.CollectionChanged -= OnTunnelsCollectionChanged;
+        _tunnelViewModel.Tunnels.CollectionChanged += OnTunnelsCollectionChanged;
+    }
+
+    private void OnTunnelsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            TunnelsEmptyState.Visibility = _tunnelViewModel.Tunnels.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            
+            var count = _tunnelViewModel.ActiveTunnelCount;
+            TunnelStatusText.Text = $"{count} active tunnel(s)";
+            TunnelStatusDot.Fill = count > 0 
+                ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 204, 113))
+                : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(128, 128, 128));
+            
+            StopAllTunnelsButton.Visibility = _tunnelViewModel.Tunnels.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        });
+    }
+
+    private void RefreshTunnels_Click(object sender, RoutedEventArgs e)
+    {
+        _tunnelViewModel.RecheckInstallation();
+        UpdateTunnelsUI();
+    }
+
+    private async void StopAllTunnels_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ConfirmDialog(
+            $"Are you sure you want to stop all {_tunnelViewModel.Tunnels.Count} tunnel(s)?",
+            "All public URLs will be terminated immediately.\n\nThis action cannot be undone.",
+            "Stop All Tunnels")
+        {
+            Owner = this
+        };
+        
+        dialog.ShowDialog();
+
+        if (dialog.Result)
+        {
+            await _tunnelViewModel.StopAllTunnelsAsync();
+            UpdateTunnelsUI();
+        }
+    }
+
+    private async void TunnelStop_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: CloudflareTunnel tunnel })
+            return;
+
+        await _tunnelViewModel.StopTunnelAsync(tunnel);
+    }
+
+    private void TunnelCopy_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: CloudflareTunnel tunnel })
+            return;
+
+        if (!string.IsNullOrEmpty(tunnel.TunnelUrl))
+        {
+            _tunnelViewModel.CopyUrlToClipboard(tunnel.TunnelUrl);
+        }
+    }
+
+    private void TunnelOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: CloudflareTunnel tunnel })
+            return;
+
+        if (!string.IsNullOrEmpty(tunnel.TunnelUrl))
+        {
+            _tunnelViewModel.OpenUrlInBrowser(tunnel.TunnelUrl);
         }
     }
 
@@ -353,14 +502,18 @@ public partial class MainWindow : Window
 
     private void TrayQuit_Click(object sender, RoutedEventArgs e)
     {
+        _isShuttingDown = true;
         Application.Current.Shutdown();
     }
 
     // Override close button to minimize to tray instead
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        e.Cancel = true;
-        Hide();
+        if (!_isShuttingDown)
+        {
+            e.Cancel = true;
+            Hide();
+        }
         base.OnClosing(e);
     }
 
@@ -423,13 +576,17 @@ public partial class MainWindow : Window
                         var menuItem = s as MenuItem;
                         if (menuItem?.Tag is PortInfo portInfo)
                         {
-                            var result = MessageBox.Show(
-                                $"Kill process on port {portInfo.Port}?\n\nProcess: {portInfo.ProcessName}\nPID: {portInfo.Pid}",
-                                "Kill Process",
-                                MessageBoxButton.YesNo,
-                                MessageBoxImage.Question);
+                            var dialog = new ConfirmDialog(
+                                $"Kill process on port {portInfo.Port}?",
+                                $"Process: {portInfo.ProcessName}\nPID: {portInfo.Pid}",
+                                "Kill Process")
+                            {
+                                Owner = this
+                            };
+                            
+                            dialog.ShowDialog();
 
-                            if (result == MessageBoxResult.Yes)
+                            if (dialog.Result)
                             {
                                 await _viewModel.KillProcessCommand.ExecuteAsync(portInfo);
                             }

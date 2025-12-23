@@ -12,31 +12,75 @@
         AllowsTransparency="True"
         WindowStyle="None"
         ResizeMode="CanResize"
+        ShowInTaskbar="True"
+        Visibility="Visible"
         Loaded="Window_Loaded">
 
     <Window.Resources>
         <!-- Boolean to Visibility Converter -->
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
-        <!-- Solid Grey Card Style -->
+        <!-- Modern Card Style -->
         <Style x:Key="Card" TargetType="Border">
-            <Setter Property="Background" Value="#2A2A2A"/>
-            <Setter Property="BorderBrush" Value="#3A3A3A"/>
+            <Setter Property="Background" Value="#2B2B2B"/>
+            <Setter Property="BorderBrush" Value="#1FFFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Padding" Value="14"/>
-        </Style>
-
-        <!-- Dark Glass Button Style -->
-        <Style x:Key="ModernButton" TargetType="Button">
-            <Setter Property="Background">
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="Effect">
                 <Setter.Value>
-                    <SolidColorBrush Color="#30FFFFFF" Opacity="0.1"/>
+                    <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="4" Opacity="0.15"/>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#323232"/>
+                    <Setter Property="BorderBrush" Value="#3FFFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Window Control Button Style -->
+        <Style x:Key="WindowControlButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#A0A0A0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1FFFFFFF"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Close Button Style -->
+        <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E81123"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#E0E0E0"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Padding" Value="8,6"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -53,11 +97,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background">
-                        <Setter.Value>
-                            <SolidColorBrush Color="#50FFFFFF" Opacity="0.15"/>
-                        </Setter.Value>
-                    </Setter>
+                    <Setter Property="Background" Value="#20FFFFFF"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -65,9 +105,9 @@
         <!-- Dark Sidebar Button Style -->
         <Style x:Key="SidebarButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="#B0B0B0"/>
+            <Setter Property="Foreground" Value="#909090"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Padding" Value="16,10"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -77,7 +117,7 @@
                         <Border Background="{TemplateBinding Background}" 
                                 CornerRadius="8"
                                 Padding="{TemplateBinding Padding}"
-                                Margin="4,2">
+                                Margin="8,2">
                             <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -85,12 +125,8 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background">
-                        <Setter.Value>
-                            <SolidColorBrush Color="#40FFFFFF" Opacity="0.1"/>
-                        </Setter.Value>
-                    </Setter>
-                    <Setter Property="Foreground" Value="#E0E0E0"/>
+                    <Setter Property="Background" Value="#15FFFFFF"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -98,10 +134,10 @@
         <!-- Outline Button Style -->
         <Style x:Key="OutlineButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="#50FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#30FFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Foreground" Value="#E0E0E0"/>
-            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Padding" Value="16,10"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -111,7 +147,7 @@
                         <Border Background="{TemplateBinding Background}" 
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
+                                CornerRadius="8"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -120,29 +156,21 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#20FFFFFF"/>
-                    <Setter Property="BorderBrush" Value="#80FFFFFF"/>
+                    <Setter Property="Background" Value="#10FFFFFF"/>
+                    <Setter Property="BorderBrush" Value="#50FFFFFF"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Dark TextBox Style -->
+        <!-- Modern Search TextBox Style -->
         <Style x:Key="ModernTextBox" TargetType="TextBox">
-            <Setter Property="Background">
-                <Setter.Value>
-                    <SolidColorBrush Color="#30FFFFFF" Opacity="0.08"/>
-                </Setter.Value>
-            </Setter>
-            <Setter Property="BorderBrush">
-                <Setter.Value>
-                    <SolidColorBrush Color="#40FFFFFF" Opacity="0.2"/>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Background" Value="#15FFFFFF"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Padding" Value="12,8"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
-            <Setter Property="CaretBrush" Value="#E0E0E0"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="CaretBrush" Value="#FFFFFF"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -152,6 +180,15 @@
                                 CornerRadius="8">
                             <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="Background" Value="#20FFFFFF"/>
+                                <Setter Property="BorderBrush" Value="#30FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#20FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -237,6 +274,15 @@
                                 <Button Content="🖥  System" Click="SidebarButton_Click" Tag="System" Style="{StaticResource SidebarButton}"/>
                                 <Button Content="📦  Other" Click="SidebarButton_Click" Tag="Other" Style="{StaticResource SidebarButton}"/>
 
+                                <!-- Cloudflare Tunnels Section -->
+                                <TextBlock Text="SERVICES" FontSize="11" FontWeight="Bold" Foreground="#707070" Margin="12,24,0,8"/>
+                                <Button Click="SidebarButton_Click" Tag="CloudflareTunnels" Style="{StaticResource SidebarButton}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="☁" Foreground="#F4AB3A" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Cloudflare Tunnels"/>
+                                    </StackPanel>
+                                </Button>
+
                                 <!-- Settings Section -->
                                 <TextBlock Text="SETTINGS" FontSize="11" FontWeight="Bold" Foreground="#707070" Margin="12,24,0,8"/>
                                 <Button Content="⚙  Settings" Click="SidebarButton_Click" Tag="Settings" Style="{StaticResource SidebarButton}"/>
@@ -310,7 +356,7 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Port List with Solid Grey Background -->
-                        <Grid Grid.Column="0" Background="#1E1E1E">
+                        <Grid Grid.Column="0" x:Name="PortsPanel" Background="#1E1E1E">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
@@ -481,6 +527,17 @@
 
                                     <!-- Action Buttons - Clean Minimal Outline Style -->
                                     <StackPanel Margin="0,10,0,0">
+                                        <Button x:Name="ShareTunnelButton" 
+                                                Click="ShareTunnelButton_Click"
+                                                Style="{StaticResource OutlineButton}"
+                                                Margin="0,0,0,10"
+                                                HorizontalAlignment="Stretch">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="☁" Foreground="#F4AB3A" Margin="0,0,6,0"/>
+                                                <TextBlock Text="Share via Tunnel"/>
+                                            </StackPanel>
+                                        </Button>
+
                                         <Button x:Name="FavoriteButton" 
                                                 Content="⭐  Add to Favorites" 
                                                 Click="FavoriteButton_Click"
@@ -496,6 +553,236 @@
                                     </StackPanel>
                                 </StackPanel>
                             </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+                    <!-- Cloudflare Tunnels Panel (Hidden by Default) -->
+                    <Grid Grid.Column="0" Grid.ColumnSpan="2" x:Name="TunnelsPanel" Background="#1E1E1E" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Tunnels Header -->
+                        <Border Grid.Row="0" BorderThickness="0,0,0,1" Padding="24,16" Background="#252525" BorderBrush="#353535">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="☁" FontSize="20" Margin="0,0,10,0" Foreground="#F4AB3A"/>
+                                    <TextBlock Text="Cloudflare Tunnels" FontSize="20" FontWeight="SemiBold" Foreground="#E0E0E0"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button x:Name="StopAllTunnelsButton" 
+                                            Content="Stop All" 
+                                            Click="StopAllTunnels_Click"
+                                            Visibility="Collapsed"
+                                            Margin="0,0,8,0">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="#e74c3c"/>
+                                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="Padding" Value="12,6"/>
+                                                <Setter Property="FontSize" Value="12"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#c0392b"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="↻ Refresh" Click="RefreshTunnels_Click" Style="{StaticResource ModernButton}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Cloudflared Not Installed Warning -->
+                        <Border Grid.Row="1" 
+                                x:Name="CloudflaredWarning"
+                                Background="#3d2918" 
+                                BorderBrush="#8B4513" 
+                                BorderThickness="1" 
+                                CornerRadius="8" 
+                                Padding="16"
+                                Margin="24,16"
+                                VerticalAlignment="Top"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="⚠" FontSize="20" Margin="0,0,12,0" Foreground="#f39c12"/>
+                                    <TextBlock Text="cloudflared Not Installed" FontSize="16" FontWeight="Bold" Foreground="#f39c12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock TextWrapping="Wrap" Foreground="#E0E0E0" Margin="32,0,0,8">
+                                    To use Cloudflare Tunnels, you need to install cloudflared:
+                                </TextBlock>
+                                <TextBlock TextWrapping="Wrap" Foreground="#B0B0B0" Margin="32,0,0,0" FontFamily="Consolas" FontSize="11">
+                                    • Download from: https://github.com/cloudflare/cloudflared/releases
+                                    • Or use Chocolatey: choco install cloudflared
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Tunnels List -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" Padding="16">
+                            <ItemsControl x:Name="TunnelsListView">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" Cursor="Hand">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Status Indicator -->
+                                                <StackPanel Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center">
+                                                    <Ellipse Width="12" Height="12" 
+                                                             Fill="{Binding StatusColor}"
+                                                             HorizontalAlignment="Center"
+                                                             Margin="0,0,0,4"/>
+                                                    <TextBlock Text="{Binding StatusText}" 
+                                                               FontSize="10" 
+                                                               Foreground="#A0A0A0"
+                                                               HorizontalAlignment="Center"/>
+                                                </StackPanel>
+
+                                                <!-- Port and URL Info -->
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock FontSize="18" FontWeight="Bold" Foreground="#E0E0E0" Margin="0,0,0,4">
+                                                        <Run Text="Port"/>
+                                                        <Run Text="{Binding Port}" Foreground="#3498db"/>
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding DisplayUrl}" 
+                                                               FontSize="13" 
+                                                               Foreground="#2ecc71"
+                                                               FontFamily="Consolas"
+                                                               Margin="0,2,0,0"/>
+                                                    <TextBlock Text="{Binding LastError}" 
+                                                               FontSize="11" 
+                                                               Foreground="#e74c3c"
+                                                               TextWrapping="Wrap"
+                                                               Margin="0,4,0,0"/>
+                                                </StackPanel>
+
+                                                <!-- Actions -->
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <!-- Uptime -->
+                                                    <Border Background="#3A3A3A" 
+                                                            CornerRadius="6" 
+                                                            Padding="10,6" 
+                                                            Margin="0,0,8,0"
+                                                            VerticalAlignment="Center"
+                                                            Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="⏱" FontSize="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding Uptime}" FontSize="14" Foreground="#E0E0E0" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Copy Button -->
+                                                    <Button ToolTip="Copy URL"
+                                                            Click="TunnelCopy_Click"
+                                                            Tag="{Binding}"
+                                                            Style="{StaticResource ModernButton}"
+                                                            Width="36" Height="36"
+                                                            Padding="6"
+                                                            Margin="0,0,4,0">
+                                                        <TextBlock Text="📋" FontSize="16"/>
+                                                    </Button>
+
+                                                    <!-- Open in Browser Button -->
+                                                    <Button ToolTip="Open in Browser"
+                                                            Click="TunnelOpen_Click"
+                                                            Tag="{Binding}"
+                                                            Style="{StaticResource ModernButton}"
+                                                            Width="36" Height="36"
+                                                            Padding="6"
+                                                            Margin="0,0,4,0">
+                                                        <TextBlock Text="🌐" FontSize="16"/>
+                                                    </Button>
+
+                                                    <!-- Stop Button -->
+                                                    <Button ToolTip="Stop Tunnel"
+                                                            Click="TunnelStop_Click"
+                                                            Tag="{Binding}"
+                                                            Width="36" Height="36"
+                                                            Padding="6">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Background" Value="#e74c3c"/>
+                                                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                                                <Setter Property="BorderThickness" Value="0"/>
+                                                                <Setter Property="Cursor" Value="Hand"/>
+                                                                <Setter Property="Template">
+                                                                    <Setter.Value>
+                                                                        <ControlTemplate TargetType="Button">
+                                                                            <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="6">
+                                                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                            </Border>
+                                                                        </ControlTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                                <Style.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter Property="Background" Value="#c0392b"/>
+                                                                    </Trigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                        <TextBlock Text="✕" FontSize="14"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <!-- Tunnels Empty State -->
+                        <StackPanel Grid.Row="1" x:Name="TunnelsEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Visible">
+                            <TextBlock Text="☁" FontSize="64" HorizontalAlignment="Center" Margin="0,0,0,16" Opacity="0.3" Foreground="#F4AB3A"/>
+                            <TextBlock Text="No Active Tunnels" FontSize="20" Foreground="#A0A0A0" HorizontalAlignment="Center" FontWeight="SemiBold"/>
+                            <TextBlock Text="Start a tunnel from the port list to create a public URL" 
+                                       FontSize="13" 
+                                       Foreground="#808080" 
+                                       HorizontalAlignment="Center" 
+                                       Margin="0,8,0,16"
+                                       TextAlignment="Center"/>
+                            <TextBlock TextWrapping="Wrap" 
+                                       FontSize="12" 
+                                       Foreground="#606060" 
+                                       HorizontalAlignment="Center" 
+                                       TextAlignment="Center"
+                                       MaxWidth="400">
+                                💡 Tip: Cloudflare Tunnels make your localhost ports accessible from anywhere on the internet with automatic HTTPS
+                            </TextBlock>
+                        </StackPanel>
+
+                        <!-- Tunnels Status Bar -->
+                        <Border Grid.Row="2" BorderThickness="0,1,0,0" Padding="24,10" Background="#252525" BorderBrush="#353535" CornerRadius="0,0,16,0">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse x:Name="TunnelStatusDot" Width="6" Height="6" Fill="#808080" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="TunnelStatusText" Text="0 active tunnel(s)" FontSize="11" Foreground="#808080" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <StackPanel x:Name="CloudflaredInstalledIndicator" Orientation="Horizontal" HorizontalAlignment="Right" Visibility="Collapsed">
+                                    <TextBlock Text="✓" FontSize="14" Foreground="#2ecc71" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="cloudflared installed" FontSize="11" Foreground="#808080" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
                 </Grid>
