@@ -69,3 +69,35 @@ jobs:
             Write-Error "arm64 build missing!"
             exit 1
           }
+
+      - name: Create test packages
+        run: |
+          # Create directories for artifacts
+          New-Item -ItemType Directory -Force -Path artifacts/win-x64
+          New-Item -ItemType Directory -Force -Path artifacts/win-arm64
+
+          # Copy x64 build
+          $x64Publish = Get-ChildItem -Path platforms/windows/PortKiller -Recurse -Directory | Where-Object { $_.FullName -like "*win-x64*publish*" } | Select-Object -First 1
+          if ($x64Publish) {
+            Copy-Item -Path "$($x64Publish.FullName)/*" -Destination artifacts/win-x64 -Recurse
+          }
+
+          # Copy arm64 build
+          $arm64Publish = Get-ChildItem -Path platforms/windows/PortKiller -Recurse -Directory | Where-Object { $_.FullName -like "*win-arm64*publish*" } | Select-Object -First 1
+          if ($arm64Publish) {
+            Copy-Item -Path "$($arm64Publish.FullName)/*" -Destination artifacts/win-arm64 -Recurse
+          }
+
+      - name: Upload x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PortKiller-windows-x64
+          path: artifacts/win-x64
+          retention-days: 7
+
+      - name: Upload arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PortKiller-windows-arm64
+          path: artifacts/win-arm64
+          retention-days: 7
