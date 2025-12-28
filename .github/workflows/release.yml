@@ -9,9 +9,29 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build and Release
-    runs-on: macos-latest  # Apple Silicon runner
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Create GitHub Release with Changelog
+        run: npx changelogithub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    name: Build macOS
+    needs: create-release
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
@@ -206,17 +226,6 @@ jobs:
           SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"$//')
           echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
-      - name: Create GitHub Release with Changelog
-        run: |
-          npx changelogithub
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload DMG to Release
         run: |
           gh release upload ${{ github.ref_name }} "$DMG_NAME" --clobber
@@ -317,3 +326,54 @@ jobs:
           git add Casks/portkiller.rb
           git commit -m "Update portkiller to ${VERSION}"
           git push
+
+  build-windows:
+    name: Build Windows
+    needs: create-release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore platforms/windows/PortKiller/PortKiller.csproj
+
+      - name: Build and publish x64
+        run: |
+          dotnet publish platforms/windows/PortKiller/PortKiller.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained false `
+            -o publish/win-x64
+
+      - name: Build and publish arm64
+        run: |
+          dotnet publish platforms/windows/PortKiller/PortKiller.csproj `
+            -c Release `
+            -r win-arm64 `
+            --self-contained false `
+            -o publish/win-arm64
+
+      - name: Create ZIP archives
+        run: |
+          $version = "${{ github.ref_name }}"
+
+          # Create x64 ZIP
+          Compress-Archive -Path publish/win-x64/* -DestinationPath "PortKiller-${version}-windows-x64.zip"
+
+          # Create arm64 ZIP
+          Compress-Archive -Path publish/win-arm64/* -DestinationPath "PortKiller-${version}-windows-arm64.zip"
+
+      - name: Upload to Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ github.ref_name }}"
+          gh release upload $version "PortKiller-${version}-windows-x64.zip" --clobber
+          gh release upload $version "PortKiller-${version}-windows-arm64.zip" --clobber

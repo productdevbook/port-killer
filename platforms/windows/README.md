@@ -17,12 +17,21 @@ A native Windows app for finding and killing processes on open ports. Perfect fo
 
 - Windows 10 version 1809 (build 17763) or later
 - Windows 11 (recommended)
-- .NET 8.0 Runtime
+- .NET 9.0 Runtime
 - Administrator privileges (required to kill processes)
 
 ## Installation
 
-### Option 1: Build from Source
+### Option 1: Download from GitHub Releases (Recommended)
+
+1. Go to [GitHub Releases](https://github.com/productdevbook/port-killer/releases)
+2. Download the latest `PortKiller-vX.X.X-windows-x64.zip` (or `arm64` for ARM devices)
+3. Extract the ZIP to a folder of your choice
+4. Run `PortKiller.exe`
+
+> **Note:** Requires [.NET 9 Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) to be installed.
+
+### Option 2: Build from Source
 
 1. Clone the repository:
 ```bash
@@ -42,13 +51,13 @@ dotnet build
 dotnet run
 ```
 
-### Option 2: Visual Studio
+### Option 3: Visual Studio
 
 1. Open `PortKiller.csproj` in Visual Studio 2022
 2. Build the solution (Ctrl+Shift+B)
 3. Run (F5) or Debug
 
-### Option 3: Package as MSIX
+### Option 4: Package for Distribution
 
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained
