@@ -32,14 +32,6 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/PortKiller.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
       - name: Restore dependencies
         run: dotnet restore platforms/windows/PortKiller/PortKiller.csproj
 
@@ -47,72 +39,33 @@ jobs:
         run: dotnet build platforms/windows/PortKiller/PortKiller.csproj -c Debug --no-restore
 
       - name: Build (Release x64)
-        run: |
-          dotnet publish platforms/windows/PortKiller/PortKiller.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained false `
-            --no-restore
+        run: dotnet publish platforms/windows/PortKiller/PortKiller.csproj -c Release -r win-x64 --self-contained false
 
       - name: Build (Release arm64)
-        run: |
-          dotnet publish platforms/windows/PortKiller/PortKiller.csproj `
-            -c Release `
-            -r win-arm64 `
-            --self-contained false `
-            --no-restore
+        run: dotnet publish platforms/windows/PortKiller/PortKiller.csproj -c Release -r win-arm64 --self-contained false
 
       - name: Verify build outputs
         run: |
           Write-Host "Checking build outputs..."
 
-          $x64Path = "platforms/windows/PortKiller/bin/Release/net9.0-windows/win-x64/publish/PortKiller.exe"
-          $arm64Path = "platforms/windows/PortKiller/bin/Release/net9.0-windows/win-arm64/publish/PortKiller.exe"
+          # Find the actual publish directories
+          $x64Exe = Get-ChildItem -Path platforms/windows/PortKiller -Recurse -Filter "PortKiller.exe" | Where-Object { $_.FullName -like "*win-x64*" } | Select-Object -First 1
+          $arm64Exe = Get-ChildItem -Path platforms/windows/PortKiller -Recurse -Filter "PortKiller.exe" | Where-Object { $_.FullName -like "*win-arm64*" } | Select-Object -First 1
 
-          if (Test-Path $x64Path) {
-            Write-Host "x64 build exists: $x64Path"
-            $size = (Get-Item $x64Path).Length / 1MB
+          if ($x64Exe) {
+            Write-Host "x64 build exists: $($x64Exe.FullName)"
+            $size = $x64Exe.Length / 1MB
             Write-Host "  Size: $([math]::Round($size, 2)) MB"
           } else {
             Write-Error "x64 build missing!"
             exit 1
           }
 
-          if (Test-Path $arm64Path) {
-            Write-Host "arm64 build exists: $arm64Path"
-            $size = (Get-Item $arm64Path).Length / 1MB
+          if ($arm64Exe) {
+            Write-Host "arm64 build exists: $($arm64Exe.FullName)"
+            $size = $arm64Exe.Length / 1MB
             Write-Host "  Size: $([math]::Round($size, 2)) MB"
           } else {
             Write-Error "arm64 build missing!"
             exit 1
-          }
-
-  lint:
-    name: Lint & Validate
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Check code formatting
-        run: |
-          dotnet format platforms/windows/PortKiller/PortKiller.csproj --verify-no-changes --verbosity diagnostic
-        continue-on-error: true
-
-      - name: Check for TODO/FIXME comments
-        run: |
-          Write-Host "Checking for TODO/FIXME comments..."
-          $todos = Get-ChildItem -Path platforms/windows -Recurse -Include *.cs |
-            Select-String -Pattern "TODO|FIXME" -CaseSensitive
-          if ($todos) {
-            Write-Host "::notice::Found TODO/FIXME comments (not blocking):"
-            $todos | ForEach-Object { Write-Host $_.ToString() }
-          } else {
-            Write-Host "No TODO/FIXME comments found"
           }

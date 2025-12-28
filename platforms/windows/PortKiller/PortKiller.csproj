@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <UseWPF>true</UseWPF>
     <RootNamespace>PortKiller</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
