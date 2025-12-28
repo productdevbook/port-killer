@@ -18,6 +18,7 @@ public partial class MiniPortKillerWindow : Window
     private System.Windows.Threading.DispatcherTimer? _successTimer;
     private double _spinnerAngle = 0;
     private bool _isManualRefresh = false; // Track manual refresh vs auto-refresh
+    private bool _isClosing = false; // Track if window is closing to prevent UI updates
 
     public MiniPortKillerWindow()
     {
@@ -93,6 +94,9 @@ public partial class MiniPortKillerWindow : Window
 
     private void UpdatePortList()
     {
+        // Don't update UI if window is closing
+        if (_isClosing) return;
+        
         // Safety check if controls aren't initialized yet
         if (SearchBox == null || PortsList == null || PortCountText == null || EmptyStateText == null) return;
 
@@ -123,6 +127,9 @@ public partial class MiniPortKillerWindow : Window
 
     private void UpdateTunnelsList()
     {
+        // Don't update UI if window is closing
+        if (_isClosing) return;
+        
         // Safety check if controls aren't initialized yet
         var tunnelsList = this.FindName("TunnelsList") as ItemsControl;
         var tunnelsSection = this.FindName("TunnelsSection") as StackPanel;
@@ -250,17 +257,47 @@ public partial class MiniPortKillerWindow : Window
 
     private void Quit_Click(object sender, RoutedEventArgs e)
     {
+        _isClosing = true;
         Application.Current.Shutdown();
     }
 
     private void Window_Deactivated(object sender, EventArgs e)
     {
+        // Don't close if already closing
+        if (_isClosing)
+            return;
+            
         // Don't close if we're showing a MessageBox or processing an action
         if (_isProcessingAction)
             return;
             
         // Close when clicking outside, behaving like a popup menu
         Close();
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        // Set closing flag to prevent UI updates
+        _isClosing = true;
+        
+        // Stop and cleanup all timers
+        try
+        {
+            _tunnelUpdateTimer?.Stop();
+            _tunnelUpdateTimer = null;
+            
+            _spinnerTimer?.Stop();
+            _spinnerTimer = null;
+            
+            _successTimer?.Stop();
+            _successTimer = null;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[MiniPortKiller] Error cleaning up timers: {ex.Message}");
+        }
+        
+        base.OnClosing(e);
     }
 
     public void ShowNearTray()
@@ -328,6 +365,9 @@ public partial class MiniPortKillerWindow : Window
     // Refresh Status State Management (Raycast-style)
     private void ShowRefreshingState()
     {
+        // Don't update UI if window is closing
+        if (_isClosing) return;
+        
         var refreshIcon = this.FindName("RefreshIcon") as System.Windows.Controls.TextBlock;
         var loadingSpinner = this.FindName("LoadingSpinner") as System.Windows.Controls.Border;
         var successDot = this.FindName("SuccessDot") as System.Windows.Shapes.Ellipse;
@@ -353,6 +393,9 @@ public partial class MiniPortKillerWindow : Window
 
     private void ShowRefreshedState()
     {
+        // Don't update UI if window is closing
+        if (_isClosing) return;
+        
         var refreshIcon = this.FindName("RefreshIcon") as System.Windows.Controls.TextBlock;
         var loadingSpinner = this.FindName("LoadingSpinner") as System.Windows.Controls.Border;
         var successDot = this.FindName("SuccessDot") as System.Windows.Shapes.Ellipse;
@@ -387,6 +430,9 @@ public partial class MiniPortKillerWindow : Window
 
     private void ShowIdleState()
     {
+        // Don't update UI if window is closing
+        if (_isClosing) return;
+        
         var refreshIcon = this.FindName("RefreshIcon") as System.Windows.Controls.TextBlock;
         var loadingSpinner = this.FindName("LoadingSpinner") as System.Windows.Controls.Border;
         var successDot = this.FindName("SuccessDot") as System.Windows.Shapes.Ellipse;
