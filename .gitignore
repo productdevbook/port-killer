@@ -52,3 +52,12 @@ docs
 # Node.js / Bun
 node_modules/
 bun.lockb
+
+# .NET / Windows
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userprefs
+.vs/
+*.DotSettings.user
