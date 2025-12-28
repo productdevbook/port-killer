@@ -10,6 +10,7 @@ extension Defaults.Keys {
     static let favorites = Key<Set<Int>>("favorites", default: [])
     static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
     static let useTreeView = Key<Bool>("useTreeView", default: false)
+    static let hideSystemProcesses = Key<Bool>("hideSystemProcesses", default: false)
     static let refreshInterval = Key<Int>("refreshInterval", default: 5)
 
     // Sponsor-related keys
@@ -101,6 +102,10 @@ final class AppState {
 
         if filter.isActive {
             result = result.filter { filter.matches($0, favorites: favorites, watched: watchedPorts) }
+        }
+
+        if Defaults[.hideSystemProcesses] {
+            result = result.filter { $0.processType != .system }
         }
 
         return result
