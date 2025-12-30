@@ -74,7 +74,7 @@ struct SponsorsPageView: View {
                         if !sponsorManager.contributors.isEmpty {
                             contributorSection(
                                 title: "Contributors",
-                                icon: "person.2.fill",
+                                icon: "hammer.fill",
                                 color: .blue,
 								contributors: sponsorManager.contributors
                             )
