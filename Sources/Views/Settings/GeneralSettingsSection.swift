@@ -7,8 +7,11 @@
 
 import SwiftUI
 import LaunchAtLogin
+import Defaults
 
 struct GeneralSettingsSection: View {
+    @Default(.hideSystemProcesses) private var hideSystemProcesses
+    
     var body: some View {
         SettingsGroup("General", icon: "gearshape.fill") {
             SettingsRowContainer {
@@ -23,6 +26,12 @@ struct GeneralSettingsSection: View {
                 }
                 .toggleStyle(.switch)
             }
+			
+			SettingsToggleRow(
+				title: "Hide System processes",
+				subtitle: "Hide macOS processes from the process list",
+				isOn: $hideSystemProcesses
+			)
         }
     }
 }

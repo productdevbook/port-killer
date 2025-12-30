@@ -17,7 +17,8 @@ struct MenuBarView: View {
     @State private var confirmingKillPort: UUID?
     @State private var hoveredPort: UUID?
     @State private var expandedProcesses: Set<Int> = []
-    @State private var useTreeView = UserDefaults.standard.bool(forKey: "useTreeView")
+    @Default(.useTreeView) private var useTreeView
+    @Default(.hideSystemProcesses) private var hideSystemProcesses
     @State private var cachedGroups: [ProcessGroup] = []
 
     private var groupedByProcess: [ProcessGroup] { cachedGroups }
@@ -53,9 +54,14 @@ struct MenuBarView: View {
 
     /// Filters ports based on search text and sorts by favorites
     private var filteredPorts: [PortInfo] {
-        let filtered = searchText.isEmpty ? state.ports : state.ports.filter {
+        var filtered = searchText.isEmpty ? state.ports : state.ports.filter {
             String($0.port).contains(searchText) || $0.processName.localizedCaseInsensitiveContains(searchText)
         }
+
+        if hideSystemProcesses {
+            filtered = filtered.filter { $0.processType != .system }
+        }
+
         return filtered.sorted { a, b in
             let aFav = state.isFavorite(a.port)
             let bFav = state.isFavorite(b.port)
@@ -105,5 +111,6 @@ struct MenuBarView: View {
         .onAppear { updateGroupedByProcess() }
         .onChange(of: state.ports) { _, _ in updateGroupedByProcess() }
         .onChange(of: searchText) { _, _ in updateGroupedByProcess() }
+        .onChange(of: hideSystemProcesses) { _, _ in updateGroupedByProcess() }
     }
 }
