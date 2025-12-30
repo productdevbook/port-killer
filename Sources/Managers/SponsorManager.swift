@@ -7,6 +7,7 @@ import Defaults
 final class SponsorManager {
     // MARK: - State
     var sponsors: [Sponsor] = []
+    var contributors: [Contributor] = []
     var isLoading = false
     var error: Error?
     var shouldShowWindow = false
@@ -73,14 +74,26 @@ final class SponsorManager {
         error = nil
 
         do {
-            let fetchedSponsors = try await service.fetchSponsors()
-            sponsors = fetchedSponsors
+            async let fetchedSponsors = service.fetchSponsors()
+            async let fetchedContributors = service.fetchContributors()
+            
+            let (sponsors, contributors) = try await (fetchedSponsors, fetchedContributors)
+            
+            // Filter out bots
+            let validContributors = contributors.filter { !$0.login.lowercased().contains("[bot]") }
+            
+            print("Fetched \(sponsors.count) sponsors and \(validContributors.count) contributors")
+            
+            self.sponsors = sponsors
+            self.contributors = validContributors
 
             Defaults[.sponsorCache] = SponsorCache(
-                sponsors: fetchedSponsors,
+                sponsors: sponsors,
+                contributors: validContributors,
                 fetchedAt: Date()
             )
         } catch {
+            print("Failed to fetch sponsors/contributors: \(error)")
             self.error = error
         }
 
@@ -92,6 +105,8 @@ final class SponsorManager {
     private func loadCachedSponsors() {
         if let cache = Defaults[.sponsorCache] {
             sponsors = cache.sponsors
+            // Filter cached contributors too, just in case
+            contributors = cache.contributors.filter { !$0.login.lowercased().contains("[bot]") }
         }
     }
 }

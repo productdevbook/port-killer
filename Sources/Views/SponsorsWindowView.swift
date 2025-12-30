@@ -69,17 +69,29 @@ struct SponsorsPageView: View {
                                 sponsors: activeSponsors
                             )
                         }
-
-                        // Past Sponsors
-                        if !pastSponsors.isEmpty {
-                            sponsorSection(
-                                title: "Past Sponsors",
-                                icon: "heart.fill",
-                                color: .secondary,
-                                sponsors: pastSponsors,
-                                dimmed: true
+                        
+                        // Contributors
+                        if !sponsorManager.contributors.isEmpty {
+                            contributorSection(
+                                title: "Contributors",
+                                icon: "person.2.fill",
+                                color: .blue,
+								contributors: sponsorManager.contributors
                             )
+                        } else {
+                            Text("No contributors found")
                         }
+						
+						// Past Sponsors
+						if !pastSponsors.isEmpty {
+							sponsorSection(
+								title: "Past Sponsors",
+								icon: "heart.fill",
+								color: .secondary,
+								sponsors: pastSponsors,
+								dimmed: true
+							)
+						}
                     }
                 }
 
@@ -111,6 +123,28 @@ struct SponsorsPageView: View {
             LazyVGrid(columns: columns, spacing: 16) {
                 ForEach(sponsors) { sponsor in
                     SponsorCard(sponsor: sponsor, dimmed: dimmed)
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+    
+    private func contributorSection(title: String, icon: String, color: Color, contributors: [Contributor]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                Text(title)
+                    .font(.headline)
+                Text("(\(contributors.count))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(contributors) { contributor in
+                    ContributorCard(contributor: contributor)
                 }
             }
             .padding(.horizontal, 24)
@@ -161,6 +195,7 @@ struct SponsorCard: View {
     let sponsor: Sponsor
     var dimmed: Bool = false
     @State private var isHovered = false
+    @State private var hasSponsorPage = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -196,6 +231,30 @@ struct SponsorCard: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .foregroundStyle(dimmed ? .secondary : .primary)
+            
+            Button {
+                if hasSponsorPage {
+                    if let url = URL(string: "https://github.com/sponsors/\(sponsor.login)") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } else {
+                    if let url = sponsor.profileUrl {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            } label: {
+                HStack(spacing: 2) {
+                    Image(systemName: hasSponsorPage ? "heart.fill" : "person.fill")
+                        .font(.system(size: 8))
+                    Text(hasSponsorPage ? "Sponsor" : "Visit")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(hasSponsorPage ? .pink : .blue)
+            .controlSize(.mini)
         }
         .frame(width: 80)
         .padding(10)
@@ -211,5 +270,152 @@ struct SponsorCard: View {
             }
         }
         .help("@\(sponsor.login)")
+        .task {
+            await checkSponsorPage()
+        }
+    }
+    
+    private func checkSponsorPage() async {
+        guard let url = URL(string: "https://github.com/sponsors/\(sponsor.login)") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                // GitHub returns 200 even for non-existent sponsor pages (redirects to profile)
+                // We need to check if we got redirected
+                if let url = httpResponse.url, url.absoluteString.contains("/sponsors/") {
+                    hasSponsorPage = true
+                } else {
+                    hasSponsorPage = false
+                }
+            }
+        } catch {
+            // Ignore error, assume no sponsor page
+        }
     }
 }
+
+// MARK: - Contributor Card
+
+struct ContributorCard: View {
+    let contributor: Contributor
+    @State private var isHovered = false
+    @State private var hasSponsorPage = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ZStack(alignment: .bottomTrailing) {
+                AsyncImage(url: URL(string: contributor.avatarUrl)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure:
+                        Image(systemName: "person.circle.fill")
+                            .resizable()
+                            .foregroundStyle(.secondary)
+                    case .empty:
+                        ProgressView()
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+                .frame(width: 48, height: 48)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                )
+                
+                // Contributions badge
+                if contributor.contributions > 0 {
+                    Text("\(contributor.contributions)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.blue)
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 2)
+                        )
+                        .offset(x: 4, y: 4)
+                }
+            }
+            .scaleEffect(isHovered ? 1.08 : 1.0)
+
+            Text(contributor.login)
+                .font(.caption)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                
+            Button {
+                if hasSponsorPage {
+                    if let url = URL(string: "https://github.com/sponsors/\(contributor.login)") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } else {
+                    if let url = URL(string: contributor.htmlUrl) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            } label: {
+                HStack(spacing: 2) {
+                    Image(systemName: hasSponsorPage ? "heart.fill" : "person.fill")
+                        .font(.system(size: 8))
+                    Text(hasSponsorPage ? "Sponsor" : "Visit")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(hasSponsorPage ? .pink : .blue)
+            .controlSize(.mini)
+        }
+        .frame(width: 80)
+        .padding(10)
+        .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
+        .cornerRadius(8)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .onTapGesture {
+            if let url = URL(string: contributor.htmlUrl) {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        .help("@\(contributor.login)")
+        .task {
+            await checkSponsorPage()
+        }
+    }
+    
+    private func checkSponsorPage() async {
+        guard let url = URL(string: "https://github.com/sponsors/\(contributor.login)") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                // GitHub returns 200 even for non-existent sponsor pages (redirects to profile)
+                // We need to check if we got redirected
+                if let url = httpResponse.url, url.absoluteString.contains("/sponsors/") {
+                    hasSponsorPage = true
+                } else {
+                    hasSponsorPage = false
+                }
+            }
+        } catch {
+            // Ignore error, assume no sponsor page
+        }
+    }
+}
+

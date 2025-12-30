@@ -3,26 +3,48 @@ import Defaults
 
 /// Represents a sponsor from static JSON
 struct Sponsor: Identifiable, Codable, Sendable, Hashable {
-    let name: String
+    let name: String?
     let login: String
-    let avatar: String
+    let avatar: String?
     let amount: Int
-    let link: String
-    let org: Bool
+    let link: String?
+    let org: Bool?
 
     var id: String { login }
 
     var displayName: String {
-        name.isEmpty ? login : name
+        guard let name, !name.isEmpty else { return login }
+        return name
     }
 
-    var avatarUrl: String { avatar }
-    var profileUrl: URL? { URL(string: link) }
+    var avatarUrl: String { avatar ?? "" }
+    var profileUrl: URL? {
+        guard let link else { return nil }
+        return URL(string: link)
+    }
+}
+
+struct Contributor: Identifiable, Codable, Sendable, Hashable {
+	let login: String
+	let avatarUrl: String
+	let htmlUrl: String
+	let contributions: Int
+	
+	// Calculated property for ID
+	var id: String { login }
+	
+	enum CodingKeys: String, CodingKey {
+		case login
+		case avatarUrl = "avatar_url"
+		case htmlUrl = "html_url"
+		case contributions
+	}
 }
 
 /// Cached sponsor data with timestamp
 struct SponsorCache: Codable, Defaults.Serializable {
     let sponsors: [Sponsor]
+    let contributors: [Contributor]
     let fetchedAt: Date
 
     var isStale: Bool {
