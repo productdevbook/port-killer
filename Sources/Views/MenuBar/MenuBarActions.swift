@@ -67,15 +67,6 @@ struct MenuBarActions: View {
                 }
             }
 
-            MenuItemButton(title: "Sponsors", icon: "heart.fill") {
-                state.selectedSidebarItem = .sponsors
-                openWindow(id: "main")
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(100))
-                    bringMainWindowToFront()
-                }
-            }
-
             MenuItemButton(title: "Settings...", icon: "gear", shortcut: ",") {
                 state.selectedSidebarItem = .settings
                 openWindow(id: "main")
