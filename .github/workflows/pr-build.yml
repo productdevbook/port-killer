@@ -145,3 +145,4 @@ jobs:
               issue_number: context.issue.number,
               body: `✅ **Build completed!**\n\n📦 DMG: \`${process.env.DMG_NAME}\`\n🔗 [Download artifacts](${runUrl}#artifacts)\n\n_Artifact expires in 7 days_`
             });
+# PR Build Test v2
