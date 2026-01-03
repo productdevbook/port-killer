@@ -16,19 +16,38 @@ on:
         required: false
         default: 'v0.0.0-test'
         type: string
+  workflow_call:
+    inputs:
+      is_pr_build:
+        description: 'Is this a PR build?'
+        type: boolean
+        default: false
+      pr_number:
+        description: 'PR number for artifact naming'
+        type: string
+        default: ''
+      version_override:
+        description: 'Version override (e.g., 0.0.0-pr123)'
+        type: string
+        default: ''
+      ref:
+        description: 'Git ref to checkout (branch name)'
+        type: string
+        default: ''
 
 permissions:
   contents: write
 
 env:
   # Use input version for workflow_dispatch, otherwise use tag
-  RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+  RELEASE_VERSION: ${{ inputs.version_override || inputs.version || github.ref_name }}
 
 jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    if: ${{ !inputs.dry_run }}
+    # Skip for PR builds and dry runs
+    if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,6 +74,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.ref || '' }}
           fetch-depth: 0
 
       - name: Setup Xcode
@@ -97,6 +117,7 @@ jobs:
         run: |
           # Build the PortKiller macOS app in Release configuration
           swift build --configuration release --product PortKiller
+
       - name: Sign app with Developer ID
         env:
           DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
@@ -175,7 +196,13 @@ jobs:
         run: |
           APP_NAME="PortKiller"
           VERSION="${RELEASE_VERSION}"
-          DMG_NAME="${APP_NAME}-${VERSION}-macos.dmg"
+
+          # Use different naming for PR builds
+          if [ "${{ inputs.is_pr_build }}" = "true" ]; then
+            DMG_NAME="${APP_NAME}-pr${{ inputs.pr_number }}-macos.dmg"
+          else
+            DMG_NAME="${APP_NAME}-${VERSION}-macos.dmg"
+          fi
 
           # Create temporary directory for DMG contents
           mkdir -p dmg_contents
@@ -214,7 +241,7 @@ jobs:
             --password "$APPLE_ID_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
             --wait 2>&1) || true
-          
+
           echo "Notarization Output: $SUBMIT_OUTPUT"
 
           if echo "$SUBMIT_OUTPUT" | grep -q "Accepted"; then
@@ -222,6 +249,7 @@ jobs:
           fi
 
       - name: Generate Sparkle EdDSA signature
+        if: ${{ !inputs.is_pr_build }}
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
@@ -231,23 +259,31 @@ jobs:
           tar -xf sparkle.tar.xz -C sparkle_tools
 
           echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_private_key
-          
+
           # Generate signature
           SIGN_OUTPUT=$(sparkle_tools/bin/sign_update "$DMG_NAME" -f /tmp/sparkle_private_key)
           SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"$//')
           echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
-          
+
           rm /tmp/sparkle_private_key
 
       - name: Upload DMG to Release
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
         run: |
           gh release upload ${{ env.RELEASE_VERSION }} "$DMG_NAME" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upload artifact (PR build)
+        if: ${{ inputs.is_pr_build }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: PortKiller-PR${{ inputs.pr_number }}
+          path: ${{ env.DMG_NAME }}
+          retention-days: 7
+
       - name: Dry run summary
-        if: ${{ inputs.dry_run }}
+        if: ${{ inputs.dry_run && !inputs.is_pr_build }}
         run: |
           echo "🧪 DRY RUN - Build completed successfully!"
           echo "📦 DMG created: $DMG_NAME"
@@ -258,7 +294,7 @@ jobs:
           echo "  https://github.com/productdevbook/port-killer/releases/download/${RELEASE_VERSION}/${DMG_NAME}"
 
       - name: Update appcast.xml
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
         run: |
           VERSION="${RELEASE_VERSION#v}"  # Remove 'v' prefix (v1.2.7 -> 1.2.7)
           BUILD_NUMBER=$(git rev-list --count HEAD)  # Same as CFBundleVersion in app
@@ -301,7 +337,7 @@ jobs:
           sed -i '' "s|SIGPLACEHOLDER|${SPARKLE_SIGNATURE}|g" appcast.xml
 
       - name: Commit appcast.xml
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -311,12 +347,12 @@ jobs:
           git push origin main
 
       - name: Update Homebrew Tap
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${RELEASE_VERSION#v}"
-          
+
           # Get SHA256 of the Universal DMG
           SHA256=$(shasum -a 256 "$DMG_NAME" | cut -d' ' -f1)
 
@@ -329,7 +365,7 @@ jobs:
           cask "portkiller" do
             version "${VERSION}"
             sha256 "${SHA256}"
-            
+
             url "https://github.com/productdevbook/port-killer/releases/download/v#{version}/PortKiller-v#{version}-macos.dmg"
 
             name "PortKiller"
@@ -357,7 +393,8 @@ jobs:
   build-windows:
     name: Build Windows
     needs: create-release
-    if: ${{ always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
+    # Skip for PR builds (macOS only)
+    if: ${{ always() && !inputs.is_pr_build && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
     runs-on: windows-latest
 
     steps:

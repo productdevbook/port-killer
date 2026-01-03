@@ -1,4 +1,4 @@
-# Test PR build workflow with /test-build command
+# PR build workflow - calls release.yml as reusable workflow
 name: PR Build Test
 
 on:
@@ -10,13 +10,17 @@ permissions:
   pull-requests: write
 
 jobs:
-  build-test:
-    name: Build & Upload Artifacts
+  # Setup job: React to comment and get PR info
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
     # Only run on PR comments with /test-build command
     if: |
       github.event.issue.pull_request &&
       contains(github.event.comment.body, '/test-build')
-    runs-on: macos-latest
+    outputs:
+      ref: ${{ steps.pr.outputs.ref }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
 
     steps:
       - name: React to comment
@@ -41,108 +45,45 @@ jobs:
               pull_number: context.issue.number
             });
             core.setOutput('ref', pr.data.head.ref);
-            core.setOutput('sha', pr.data.head.sha);
+            core.setOutput('pr_number', context.issue.number);
 
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.pr.outputs.ref }}
-          fetch-depth: 0
+  # Build job: Call release.yml as reusable workflow
+  build:
+    name: Build
+    needs: setup
+    uses: ./.github/workflows/release.yml
+    with:
+      is_pr_build: true
+      pr_number: ${{ needs.setup.outputs.pr_number }}
+      version_override: '0.0.0-pr${{ needs.setup.outputs.pr_number }}'
+      ref: ${{ needs.setup.outputs.ref }}
+    secrets: inherit
 
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+  # Comment job: Post download link on PR
+  comment:
+    name: Comment on PR
+    needs: [setup, build]
+    runs-on: ubuntu-latest
 
-      - name: Import Code Signing Certificate
-        env:
-          CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ github.run_id }}
-        run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
-          echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-      - name: Set version
-        run: |
-          VERSION="0.0.0-pr${{ github.event.issue.number }}"
-          BUILD_NUMBER=$(git rev-list --count HEAD)
-
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" Resources/Info.plist
-
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-
-      - name: Build app bundle
-        run: ./scripts/build-app.sh
-
-      - name: Sign app
-        env:
-          DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
-        run: |
-          APP_PATH=".build/apple/Products/Release/PortKiller.app"
-          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
-          SPARKLE="$FRAMEWORKS_PATH/Sparkle.framework/Versions/B"
-
-          if [ -d "$FRAMEWORKS_PATH/Sparkle.framework" ]; then
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" "$SPARKLE/Autoupdate"
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" "$SPARKLE/Updater.app"
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" "$FRAMEWORKS_PATH/Sparkle.framework"
-          fi
-
-          codesign --force --options runtime --timestamp \
-            --sign "$DEVELOPER_ID_NAME" "$APP_PATH"
-
-      - name: Create DMG
-        run: |
-          APP_NAME="PortKiller"
-          DMG_NAME="${APP_NAME}-pr${{ github.event.issue.number }}-macos.dmg"
-
-          mkdir -p dmg_contents
-          ditto .build/apple/Products/Release/PortKiller.app dmg_contents/PortKiller.app
-          ln -s /Applications dmg_contents/Applications
-
-          hdiutil create -volname "$APP_NAME" \
-            -srcfolder dmg_contents \
-            -ov -format UDZO \
-            "$DMG_NAME"
-
-          rm -rf dmg_contents
-          echo "DMG_NAME=$DMG_NAME" >> $GITHUB_ENV
-
-      - name: Sign DMG
-        env:
-          DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
-        run: codesign --force --sign "$DEVELOPER_ID_NAME" --timestamp "$DMG_NAME"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PortKiller-PR${{ github.event.issue.number }}
-          path: ${{ env.DMG_NAME }}
-          retention-days: 7
-
+    steps:
       - name: Comment on PR
         uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
         with:
           script: |
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const prNumber = process.env.PR_NUMBER;
+            const dmgName = `PortKiller-pr${prNumber}-macos.dmg`;
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `✅ **Build completed!**\n\n📦 DMG: \`${process.env.DMG_NAME}\`\n🔗 [Download artifacts](${runUrl}#artifacts)\n\n_Artifact expires in 7 days_`
+              issue_number: parseInt(prNumber),
+              body: `## Build completed!
+
+**DMG:** \`${dmgName}\`
+**Download:** [View artifacts](${runUrl}#artifacts)
+
+_Fully signed and notarized. Artifact expires in 7 days._`
             });
-# PR Build Test v2
