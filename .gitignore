@@ -61,3 +61,13 @@ bun.lockb
 *.userprefs
 .vs/
 *.DotSettings.user
+
+# Rust
+portkiller-core/target/
+portkiller-ffi/target/
+Cargo.lock
+*.rlib
+*.rmeta
+
+# Xcode config (generated)
+PortKiller.xcconfig

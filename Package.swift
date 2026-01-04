@@ -27,6 +27,11 @@ let package = Package(
             path: "Sources",
             resources: [
                 .process("Resources")
+            ],
+            linkerSettings: [
+                // Link Rust backend library
+                // Build with: ./scripts/build-rust.sh
+                .unsafeFlags(["-L.build/rust/lib", "-lportkiller"])
             ]
         ),
         .testTarget(
