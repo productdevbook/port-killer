@@ -66,7 +66,7 @@ struct MainWindowView: View {
     private var contentView: some View {
         switch appState.selectedSidebarItem {
         case .settings:
-            SettingsView(state: appState, updateManager: appState.updateManager)
+            SettingsView(state: appState)
                 .id("settings")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationSplitViewColumnWidth(min: 400, ideal: 600, max: .infinity)

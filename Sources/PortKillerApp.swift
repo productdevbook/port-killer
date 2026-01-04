@@ -104,13 +104,6 @@ struct PortKillerApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {} // Disable Cmd+N
 
-            CommandGroup(after: .appInfo) {
-				Button("Check for Updates...", systemImage: "arrow.triangle.2.circlepath") {
-					state.updateManager.checkForUpdates()
-				}
-				.disabled(!state.updateManager.canCheckForUpdates)
-            }
-
             CommandGroup(after: .newItem) {
                 Button("Open Port Forwarder Window") {
                     NSApp.activate(ignoringOtherApps: true)

@@ -1,43 +1,29 @@
 import Foundation
-import Darwin
+
+// FFI declarations for Rust backend
+private typealias PortKillerHandle = OpaquePointer
+
+@_silgen_name("portkiller_new")
+private func portkiller_new() -> PortKillerHandle?
+
+@_silgen_name("portkiller_free")
+private func portkiller_free(_ handle: PortKillerHandle)
+
+@_silgen_name("portkiller_kill_processes_on_port")
+private func portkiller_kill_processes_on_port(_ handle: PortKillerHandle, _ port: UInt16) -> Int32
 
 extension PortForwardProcessManager {
     /// Kills any process using the specified port.
+    ///
+    /// Uses the Rust backend which:
+    /// 1. Finds all PIDs on the port (via lsof)
+    /// 2. Sends SIGTERM to each
+    /// 3. Waits 300ms
+    /// 4. Sends SIGKILL to any still running
     func killProcessOnPort(_ port: Int) async {
-        let lsof = Process()
-        lsof.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        lsof.arguments = ["-ti", "tcp:\(port)"]
+        guard let handle = portkiller_new() else { return }
+        defer { portkiller_free(handle) }
 
-        let pipe = Pipe()
-        lsof.standardOutput = pipe
-        lsof.standardError = FileHandle.nullDevice
-
-        do {
-            try lsof.run()
-            lsof.waitUntilExit()
-
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !output.isEmpty {
-                let pids = output.components(separatedBy: .newlines)
-                for pidStr in pids {
-                    if let pid = Int32(pidStr.trimmingCharacters(in: .whitespaces)) {
-                        kill(pid, SIGTERM)
-                    }
-                }
-
-                try? await Task.sleep(for: .milliseconds(300))
-
-                for pidStr in pids {
-                    if let pid = Int32(pidStr.trimmingCharacters(in: .whitespaces)) {
-                        if kill(pid, 0) == 0 {
-                            kill(pid, SIGKILL)
-                        }
-                    }
-                }
-            }
-        } catch {
-            // Ignore errors
-        }
+        _ = portkiller_kill_processes_on_port(handle, UInt16(port))
     }
 }

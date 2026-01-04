@@ -121,29 +121,6 @@ jobs:
           DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
         run: |
           APP_PATH=".build/apple/Products/Release/PortKiller.app"
-          FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
-          SPARKLE="$FRAMEWORKS_PATH/Sparkle.framework/Versions/B"
-
-          # Sign Sparkle framework components (inside out, bottom-up)
-          # Note: XPC services removed in build-app.sh for non-sandboxed apps
-          if [ -d "$FRAMEWORKS_PATH/Sparkle.framework" ]; then
-            echo "Signing Sparkle framework components..."
-
-            # Autoupdate binary
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" \
-              "$SPARKLE/Autoupdate"
-
-            # Updater app
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" \
-              "$SPARKLE/Updater.app"
-
-            # Main framework
-            codesign --force --options runtime --timestamp \
-              --sign "$DEVELOPER_ID_NAME" \
-              "$FRAMEWORKS_PATH/Sparkle.framework"
-          fi
 
           # Sign main app
           codesign --force --options runtime --timestamp \
@@ -246,25 +223,6 @@ jobs:
             xcrun stapler staple "$DMG_NAME" || echo "Stapling failed but continuing..."
           fi
 
-      - name: Generate Sparkle EdDSA signature
-        if: ${{ !inputs.is_pr_build }}
-        env:
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        run: |
-          # Download Sparkle tools
-          curl -L -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.8.1/Sparkle-2.8.1.tar.xz"
-          mkdir -p sparkle_tools
-          tar -xf sparkle.tar.xz -C sparkle_tools
-
-          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_private_key
-
-          # Generate signature
-          SIGN_OUTPUT=$(sparkle_tools/bin/sign_update "$DMG_NAME" -f /tmp/sparkle_private_key)
-          SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"$//')
-          echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
-
-          rm /tmp/sparkle_private_key
-
       - name: Upload DMG to Release
         if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
         run: |
@@ -286,63 +244,9 @@ jobs:
           echo "🧪 DRY RUN - Build completed successfully!"
           echo "📦 DMG created: $DMG_NAME"
           echo "📏 DMG size: $(stat -f%z "$DMG_NAME") bytes"
-          echo "🔏 Sparkle signature: $SPARKLE_SIGNATURE"
           echo ""
           echo "In a real release, this DMG would be uploaded to:"
           echo "  https://github.com/productdevbook/port-killer/releases/download/${RELEASE_VERSION}/${DMG_NAME}"
-
-      - name: Update appcast.xml
-        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
-        run: |
-          VERSION="${RELEASE_VERSION#v}"  # Remove 'v' prefix (v1.2.7 -> 1.2.7)
-          BUILD_NUMBER=$(git rev-list --count HEAD)  # Same as CFBundleVersion in app
-          DMG_SIZE=$(stat -f%z "$DMG_NAME")
-          DMG_URL="https://github.com/productdevbook/port-killer/releases/download/${RELEASE_VERSION}/${DMG_NAME}"
-
-          echo "Version: $VERSION, Build: $BUILD_NUMBER"
-
-          # Create or update appcast.xml
-          cat > appcast.xml << 'APPCAST_EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-            <channel>
-              <title>PortKiller Updates</title>
-              <link>https://github.com/productdevbook/port-killer</link>
-              <description>Most recent updates to PortKiller</description>
-              <language>en</language>
-              <item>
-                <title>Version VERSIONPLACEHOLDER</title>
-                <pubDate>DATEPLACEHOLDER</pubDate>
-                <sparkle:version>BUILDPLACEHOLDER</sparkle:version>
-                <sparkle:shortVersionString>VERSIONPLACEHOLDER</sparkle:shortVersionString>
-                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-                <enclosure
-                  url="URLPLACEHOLDER"
-                  length="SIZEPLACEHOLDER"
-                  type="application/octet-stream"
-                  sparkle:edSignature="SIGPLACEHOLDER" />
-              </item>
-            </channel>
-          </rss>
-          APPCAST_EOF
-
-          # Replace placeholders
-          sed -i '' "s|BUILDPLACEHOLDER|${BUILD_NUMBER}|g" appcast.xml
-          sed -i '' "s|VERSIONPLACEHOLDER|${VERSION}|g" appcast.xml
-          sed -i '' "s|DATEPLACEHOLDER|$(date -R)|g" appcast.xml
-          sed -i '' "s|URLPLACEHOLDER|${DMG_URL}|g" appcast.xml
-          sed -i '' "s|SIZEPLACEHOLDER|${DMG_SIZE}|g" appcast.xml
-          sed -i '' "s|SIGPLACEHOLDER|${SPARKLE_SIGNATURE}|g" appcast.xml
-
-      - name: Commit appcast.xml
-        if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout main
-          git add appcast.xml
-          git commit -m "chore: update appcast.xml for ${RELEASE_VERSION}" || echo "No changes to commit"
-          git push origin main
 
       - name: Update Homebrew Tap
         if: ${{ !inputs.dry_run && !inputs.is_pr_build }}

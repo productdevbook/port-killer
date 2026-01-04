@@ -4,7 +4,6 @@
 /// - General preferences (launch at login)
 /// - Keyboard shortcuts (global hotkeys)
 /// - Permissions (accessibility, notifications)
-/// - Software updates (Sparkle integration)
 /// - Sponsors configuration
 /// - About information
 ///
@@ -14,13 +13,11 @@
 import SwiftUI
 import ApplicationServices
 @preconcurrency import UserNotifications
-import Sparkle
 import LaunchAtLogin
 import Defaults
 
 struct SettingsView: View {
     @Bindable var state: AppState
-    var updateManager: UpdateManager
     @Environment(SponsorManager.self) var sponsorManager
     @Environment(\.openWindow) private var openWindow
     @State private var hasAccessibility = AXIsProcessTrusted()
@@ -47,58 +44,6 @@ struct SettingsView: View {
                     onRequestNotification: requestNotificationPermission,
                     onOpenNotificationSettings: openNotificationSettings
                 )
-
-                // MARK: - Updates
-                SettingsGroup("Software Update", icon: "arrow.triangle.2.circlepath") {
-                    VStack(spacing: 0) {
-                        SettingsRowContainer {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("PortKiller \(AppInfo.versionString)")
-                                        .fontWeight(.medium)
-                                    if let lastCheck = updateManager.lastUpdateCheckDate {
-                                        Text("Last checked \(lastCheck.formatted(.relative(presentation: .named)))")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    } else {
-                                        Text("Never checked for updates")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                Spacer()
-
-                                Button("Check Now") {
-                                    updateManager.checkForUpdates()
-                                }
-                                .disabled(!updateManager.canCheckForUpdates)
-                            }
-                        }
-
-                        SettingsDivider()
-
-                        SettingsToggleRow(
-                            title: "Check automatically",
-                            subtitle: "Look for updates in the background",
-                            isOn: Binding(
-                                get: { updateManager.automaticallyChecksForUpdates },
-                                set: { updateManager.automaticallyChecksForUpdates = $0 }
-                            )
-                        )
-
-                        SettingsDivider()
-
-                        SettingsToggleRow(
-                            title: "Download automatically",
-                            subtitle: "Download updates when available",
-                            isOn: Binding(
-                                get: { updateManager.automaticallyDownloadsUpdates },
-                                set: { updateManager.automaticallyDownloadsUpdates = $0 }
-                            )
-                        )
-                    }
-                }
 
                 // MARK: - Sponsors
                 SettingsGroup("Sponsors", icon: "heart.fill") {

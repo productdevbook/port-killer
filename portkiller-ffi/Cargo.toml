@@ -1,0 +1,16 @@
+[package]
+name = "portkiller-ffi"
+version = "0.1.0"
+edition = "2021"
+authors = ["PortKiller Team"]
+description = "C FFI bindings for PortKiller core library"
+license = "MIT"
+
+[lib]
+name = "portkiller"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+portkiller-core = { path = "../portkiller-core" }
+tokio = { version = "1.0", features = ["rt-multi-thread"] }
+libc = "0.2"
