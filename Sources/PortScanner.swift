@@ -111,46 +111,49 @@ actor PortScanner {
             return []
         }
 
-        // Allocate on heap to avoid Swift/Rust struct layout issues
-        let arrayPtr = UnsafeMutablePointer<CPortInfoArray>.allocate(capacity: 1)
-        arrayPtr.initialize(to: CPortInfoArray(data: nil, len: 0, capacity: 0))
-        defer {
-            portkiller_free_port_array(arrayPtr)
-            arrayPtr.deallocate()
+        // Use autoreleasepool to ensure timely cleanup of temporary objects
+        return autoreleasepool {
+            // Allocate on heap to avoid Swift/Rust struct layout issues
+            let arrayPtr = UnsafeMutablePointer<CPortInfoArray>.allocate(capacity: 1)
+            arrayPtr.initialize(to: CPortInfoArray(data: nil, len: 0, capacity: 0))
+            defer {
+                portkiller_free_port_array(arrayPtr)
+                arrayPtr.deallocate()
+            }
+
+            let result = portkiller_scan_ports(handle, arrayPtr)
+            guard result == 1 else { return [] }
+
+            let cArray = arrayPtr.pointee
+            guard let data = cArray.data, cArray.len > 0 else { return [] }
+
+            // Convert C array to Swift array
+            var ports: [PortInfo] = []
+            ports.reserveCapacity(cArray.len)
+
+            for i in 0..<cArray.len {
+                let cPort = data[i]
+
+                let processName = cPort.process_name.map { String(cString: $0) } ?? "Unknown"
+                let command = cPort.command.map { String(cString: $0) } ?? processName
+                let address = cPort.address.map { String(cString: $0) } ?? "*"
+
+                // Create PortInfo using the active factory method
+                let port = PortInfo.active(
+                    port: Int(cPort.port),
+                    pid: Int(cPort.pid),
+                    processName: processName,
+                    address: address,
+                    user: "",  // Rust backend doesn't provide user info
+                    command: command,
+                    fd: ""     // Rust backend doesn't provide fd info
+                )
+
+                ports.append(port)
+            }
+
+            return ports
         }
-
-        let result = portkiller_scan_ports(handle, arrayPtr)
-        guard result == 1 else { return [] }
-
-        let cArray = arrayPtr.pointee
-        guard let data = cArray.data, cArray.len > 0 else { return [] }
-
-        // Convert C array to Swift array
-        var ports: [PortInfo] = []
-        ports.reserveCapacity(cArray.len)
-
-        for i in 0..<cArray.len {
-            let cPort = data[i]
-
-            let processName = cPort.process_name.map { String(cString: $0) } ?? "Unknown"
-            let command = cPort.command.map { String(cString: $0) } ?? processName
-            let address = cPort.address.map { String(cString: $0) } ?? "*"
-
-            // Create PortInfo using the active factory method
-            let port = PortInfo.active(
-                port: Int(cPort.port),
-                pid: Int(cPort.pid),
-                processName: processName,
-                address: address,
-                user: "",  // Rust backend doesn't provide user info
-                command: command,
-                fd: ""     // Rust backend doesn't provide fd info
-            )
-
-            ports.append(port)
-        }
-
-        return ports
     }
 
     /**
