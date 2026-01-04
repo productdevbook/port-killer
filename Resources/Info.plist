@@ -30,18 +30,5 @@
     <string>alert</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2025 PortKiller Contributors</string>
-    <!-- Sparkle Configuration -->
-    <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/productdevbook/port-killer/main/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string>F/FTbv7ZnucHLHqUmAF0w3peyir2Jxsf1k3J5TU85U0=</string>
-    <key>SUEnableAutomaticChecks</key>
-    <true/>
-    <key>SUAllowsAutomaticUpdates</key>
-    <true/>
-    <key>SUScheduledCheckInterval</key>
-    <integer>86400</integer>
-    <key>SUShowReleaseNotes</key>
-    <true/>
 </dict>
 </plist>

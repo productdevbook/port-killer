@@ -182,27 +182,7 @@ for bundle in "$BUILD_DIR"/*.bundle; do
     fi
 done
 
-# Download and copy Sparkle framework from official release (preserves symlinks)
-SPARKLE_VERSION="2.8.1"
-SPARKLE_CACHE="/tmp/Sparkle-${SPARKLE_VERSION}"
-
-if [ ! -d "$SPARKLE_CACHE/Sparkle.framework" ]; then
-    echo "📥 Downloading Sparkle ${SPARKLE_VERSION}..."
-    curl -L -o /tmp/Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
-    mkdir -p "$SPARKLE_CACHE"
-    tar -xf /tmp/Sparkle.tar.xz -C "$SPARKLE_CACHE"
-    rm /tmp/Sparkle.tar.xz
-fi
-
-echo "📦 Copying Sparkle.framework..."
-ditto "$SPARKLE_CACHE/Sparkle.framework" "$CONTENTS_DIR/Frameworks/Sparkle.framework"
-
-# Remove XPC services (not needed for non-sandboxed apps, saves ~500KB)
-echo "🗑️ Removing unnecessary XPC services..."
-rm -rf "$CONTENTS_DIR/Frameworks/Sparkle.framework/Versions/B/XPCServices"
-rm -f "$CONTENTS_DIR/Frameworks/Sparkle.framework/XPCServices"
-
-# Add rpath so executable can find the framework
+# Add rpath so executable can find any frameworks
 echo "🔗 Setting up framework path..."
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$MACOS_DIR/$APP_NAME" 2>/dev/null || true
 

@@ -2,7 +2,6 @@ import Foundation
 import SwiftUI
 import Defaults
 import KeyboardShortcuts
-import Sparkle
 
 // MARK: - Defaults Keys
 
@@ -138,9 +137,6 @@ final class AppState {
     }
 
     // MARK: - Managers
-
-    /// Manages Sparkle auto-update functionality
-    let updateManager = UpdateManager()
 
     /// Manages Kubernetes port-forward connections
     let portForwardManager = PortForwardManager()

@@ -39,10 +39,7 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Sparkle tools (downloaded for signing)
-sparkle_tools/
-sparkle.tar.xz
-sparkle_private_key
+# Signing certificates
 *.p12
 *.cer
 *.certSigningRequest

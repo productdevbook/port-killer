@@ -73,8 +73,7 @@ jobs:
           APP=".build/apple/Products/Release/PortKiller.app"
           [ -f "$APP/Contents/MacOS/PortKiller" ] || { echo "Missing executable"; exit 1; }
           [ -f "$APP/Contents/Info.plist" ] || { echo "Missing Info.plist"; exit 1; }
-          [ -d "$APP/Contents/Frameworks/Sparkle.framework" ] || { echo "Missing Sparkle framework"; exit 1; }
-          
+
           # Verify SPM resource bundles in Contents/Resources
           [ -d "$APP/Contents/Resources/KeyboardShortcuts_KeyboardShortcuts.bundle" ] || { echo "Missing KeyboardShortcuts bundle"; exit 1; }
           [ -d "$APP/Contents/Resources/Defaults_Defaults.bundle" ] || { echo "Missing Defaults bundle"; exit 1; }
