@@ -30,8 +30,27 @@ open Package.swift
 ```bash
 swift build              # Debug
 swift build -c release   # Release
-./scripts/build-app.sh   # App bundle
+./scripts/build-app.sh   # App bundle (release)
+./scripts/build-debug.sh # App bundle (debug, for profiling)
 ```
+
+## Profiling with Instruments
+
+To profile the app with Instruments (memory, CPU, etc.):
+
+```bash
+# Build debug version with get-task-allow entitlement
+./scripts/build-debug.sh
+```
+
+Then in Instruments:
+1. Open **Instruments** (Xcode → Open Developer Tool → Instruments)
+2. Select **Allocations** or **Leaks** template
+3. **Target → Launch → Choose Target...**
+4. Select: `.build/debug/PortKiller.app`
+5. Click **Record**
+
+> Note: Release builds cannot be profiled due to macOS security (SIP). Always use the debug build script for profiling.
 
 ## Pull Requests
 
