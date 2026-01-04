@@ -17,6 +17,36 @@ impl MacOsScanner {
         Self
     }
 
+    /// Get PIDs of processes using a specific port
+    ///
+    /// Executes: `lsof -ti tcp:<port>`
+    ///
+    /// Flags:
+    /// - -t: Terse output (PIDs only)
+    /// - -i tcp:<port>: Filter by TCP port
+    ///
+    /// Returns a list of PIDs using the specified port.
+    pub async fn get_pids_on_port(&self, port: u16) -> Result<Vec<u32>, ScanError> {
+        let output = Command::new("/usr/sbin/lsof")
+            .args(["-ti", &format!("tcp:{}", port)])
+            .output()
+            .await?;
+
+        // lsof returns exit code 1 when no processes found, which is not an error
+        if !output.status.success() && !output.stdout.is_empty() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ScanError::CommandError(format!("lsof failed: {}", stderr)));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let pids: Vec<u32> = stdout
+            .lines()
+            .filter_map(|line| line.trim().parse().ok())
+            .collect();
+
+        Ok(pids)
+    }
+
     /// Get full command line information for all processes using `ps`
     ///
     /// Executes: `ps -axo pid,command`

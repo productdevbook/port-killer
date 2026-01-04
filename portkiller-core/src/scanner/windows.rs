@@ -19,6 +19,24 @@ impl WindowsScanner {
         Self
     }
 
+    /// Get PIDs of processes using a specific port
+    ///
+    /// Uses `netstat -ano` to find processes listening on the specified port.
+    ///
+    /// Returns a list of PIDs using the specified port.
+    pub async fn get_pids_on_port(&self, port: u16) -> Result<Vec<u32>, ScanError> {
+        let output = Self::run_netstat().await?;
+        let all_ports = Self::parse_netstat_output(&output);
+
+        let pids: Vec<u32> = all_ports
+            .into_iter()
+            .filter(|(p, _, _)| *p == port)
+            .map(|(_, pid, _)| pid)
+            .collect();
+
+        Ok(pids)
+    }
+
     /// Parse the output of `netstat -ano` to extract listening TCP ports
     ///
     /// Example output:

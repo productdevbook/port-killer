@@ -32,6 +32,13 @@ impl PlatformScanner {
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+impl PlatformScanner {
+    pub async fn get_pids_on_port(&self, _port: u16) -> Result<Vec<u32>, ScanError> {
+        Err(ScanError::PlatformNotSupported)
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 impl PortScanner for PlatformScanner {
     async fn scan_ports(&self) -> Result<Vec<PortInfo>, ScanError> {
         Err(ScanError::PlatformNotSupported)

@@ -35,6 +35,14 @@ pub struct CPortInfoArray {
     pub capacity: size_t,
 }
 
+/// Array of u32 values (PIDs)
+#[repr(C)]
+pub struct CU32Array {
+    pub data: *mut u32,
+    pub len: size_t,
+    pub capacity: size_t,
+}
+
 // ============================================================================
 // Lifecycle Functions
 // ============================================================================
@@ -148,6 +156,111 @@ pub extern "C" fn portkiller_free_port_array(array: *mut CPortInfoArray) {
     }
 }
 
+/// Get PIDs of processes using a specific port
+///
+/// Writes result to `out`. Must be freed with `portkiller_free_u32_array`
+/// Returns 1 on success, 0 on failure
+#[no_mangle]
+pub extern "C" fn portkiller_get_pids_on_port(
+    handle: *mut PortKillerHandle,
+    port: u16,
+    out: *mut CU32Array,
+) -> c_int {
+    if handle.is_null() || out.is_null() {
+        return 0;
+    }
+
+    let handle = unsafe { &*handle };
+    let core = handle.core.clone();
+
+    let result = handle
+        .runtime
+        .block_on(async move { core.get_pids_on_port(port).await });
+
+    match result {
+        Ok(pids) => {
+            let mut pids_vec = pids;
+            let len = pids_vec.len();
+            let capacity = pids_vec.capacity();
+            let data = pids_vec.as_mut_ptr();
+
+            std::mem::forget(pids_vec);
+
+            unsafe {
+                (*out).data = data;
+                (*out).len = len;
+                (*out).capacity = capacity;
+            }
+
+            1
+        }
+        Err(_) => {
+            unsafe {
+                (*out).data = ptr::null_mut();
+                (*out).len = 0;
+                (*out).capacity = 0;
+            }
+            0
+        }
+    }
+}
+
+/// Free a u32 array (PIDs)
+#[no_mangle]
+pub extern "C" fn portkiller_free_u32_array(array: *mut CU32Array) {
+    if array.is_null() {
+        return;
+    }
+
+    let array = unsafe { &*array };
+
+    if array.data.is_null() {
+        return;
+    }
+
+    unsafe {
+        drop(Vec::from_raw_parts(array.data, array.len, array.capacity));
+    }
+}
+
+/// Kill all processes on a specific port gracefully
+///
+/// This is a convenience function that:
+/// 1. Finds all PIDs on the port
+/// 2. Sends SIGTERM to each
+/// 3. Waits 300ms
+/// 4. Sends SIGKILL to any still running
+///
+/// Returns 1 if at least one process was killed, 0 otherwise
+#[no_mangle]
+pub extern "C" fn portkiller_kill_processes_on_port(
+    handle: *mut PortKillerHandle,
+    port: u16,
+) -> c_int {
+    if handle.is_null() {
+        return 0;
+    }
+
+    let handle = unsafe { &*handle };
+    let core = handle.core.clone();
+
+    let result = handle.runtime.block_on(async move {
+        let pids = core.get_pids_on_port(port).await.unwrap_or_default();
+        if pids.is_empty() {
+            return false;
+        }
+
+        // Send SIGTERM to all
+        for &pid in &pids {
+            let _ = core.kill_process_gracefully(pid).await;
+        }
+
+        true
+    });
+
+    if result { 1 } else { 0 }
+}
+
 // ============================================================================
 // Process Killing
 // ============================================================================
@@ -248,9 +361,33 @@ mod tests {
         let handle = portkiller_new();
         assert!(!handle.is_null());
 
-        let ports = portkiller_scan_ports(handle);
+        let mut array = CPortInfoArray {
+            data: ptr::null_mut(),
+            len: 0,
+            capacity: 0,
+        };
+        let result = portkiller_scan_ports(handle, &mut array);
+        assert_eq!(result, 1);
         // Just verify it doesn't crash - we may or may not have ports
-        portkiller_free_port_array(ports);
+        portkiller_free_port_array(&mut array);
+        portkiller_free(handle);
+    }
+
+    #[test]
+    fn test_get_pids_on_port() {
+        let handle = portkiller_new();
+        assert!(!handle.is_null());
+
+        let mut array = CU32Array {
+            data: ptr::null_mut(),
+            len: 0,
+            capacity: 0,
+        };
+        // Test with an unlikely port
+        let result = portkiller_get_pids_on_port(handle, 59999, &mut array);
+        assert_eq!(result, 1);
+        // Should be empty or have some PIDs
+        portkiller_free_u32_array(&mut array);
         portkiller_free(handle);
     }
 

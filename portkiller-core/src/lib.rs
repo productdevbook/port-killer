@@ -47,6 +47,11 @@ impl PortKillerCore {
     pub async fn kill_process_force(&self, pid: u32) -> Result<bool, process::KillError> {
         self.process_manager.kill_force(pid).await
     }
+
+    /// Get PIDs of processes using a specific port
+    pub async fn get_pids_on_port(&self, port: u16) -> Result<Vec<u32>, scanner::ScanError> {
+        self.scanner.get_pids_on_port(port).await
+    }
 }
 
 impl Default for PortKillerCore {

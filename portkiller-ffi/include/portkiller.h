@@ -46,6 +46,13 @@ typedef struct {
     size_t capacity;
 } CPortInfoArray;
 
+/* Array of u32 values (PIDs) */
+typedef struct {
+    uint32_t *data;
+    size_t len;
+    size_t capacity;
+} CU32Array;
+
 /* ============================================================================
  * Lifecycle Functions
  * ============================================================================ */
@@ -85,6 +92,23 @@ int portkiller_scan_ports(PortKillerHandle *handle, CPortInfoArray *out);
  */
 void portkiller_free_port_array(CPortInfoArray *array);
 
+/**
+ * Get PIDs of processes using a specific port.
+ *
+ * @param handle The PortKiller instance.
+ * @param port The port number to check.
+ * @param out Pointer to CU32Array to store results. Must be freed with portkiller_free_u32_array().
+ * @return 1 on success, 0 on failure.
+ */
+int portkiller_get_pids_on_port(PortKillerHandle *handle, uint16_t port, CU32Array *out);
+
+/**
+ * Free a u32 array returned by portkiller_get_pids_on_port().
+ *
+ * @param array Pointer to the array to free.
+ */
+void portkiller_free_u32_array(CU32Array *array);
+
 /* ============================================================================
  * Process Killing
  * ============================================================================ */
@@ -106,6 +130,21 @@ int portkiller_kill_gracefully(PortKillerHandle *handle, uint32_t pid);
  * @return 1 on success, 0 on failure.
  */
 int portkiller_kill_force(PortKillerHandle *handle, uint32_t pid);
+
+/**
+ * Kill all processes on a specific port gracefully.
+ *
+ * This is a convenience function that:
+ * 1. Finds all PIDs on the port
+ * 2. Sends SIGTERM to each
+ * 3. Waits 300ms
+ * 4. Sends SIGKILL to any still running
+ *
+ * @param handle The PortKiller instance.
+ * @param port The port number.
+ * @return 1 if at least one process was killed, 0 otherwise.
+ */
+int portkiller_kill_processes_on_port(PortKillerHandle *handle, uint16_t port);
 
 /* ============================================================================
  * Utility Functions

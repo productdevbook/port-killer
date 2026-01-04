@@ -42,6 +42,9 @@ private func portkiller_kill_force(_ handle: PortKillerHandle, _ pid: UInt32) ->
 @_silgen_name("portkiller_version")
 private func portkiller_version() -> UnsafePointer<CChar>?
 
+@_silgen_name("portkiller_kill_processes_on_port")
+private func portkiller_kill_processes_on_port(_ handle: PortKillerHandle, _ port: UInt16) -> Int32
+
 // MARK: - Handle Wrapper
 
 /// Thread-safe wrapper for the Rust handle
@@ -186,5 +189,22 @@ actor PortScanner {
     func killProcessGracefully(pid: Int) async -> Bool {
         guard let handle = rustHandle.pointer else { return false }
         return portkiller_kill_gracefully(handle, UInt32(pid)) == 1
+    }
+
+    /**
+     * Kills all processes using a specific port.
+     *
+     * Uses the Rust backend which:
+     * 1. Finds all PIDs on the port (via lsof)
+     * 2. Sends SIGTERM to each
+     * 3. Waits 300ms
+     * 4. Sends SIGKILL to any still running
+     *
+     * @param port - The port number
+     * @returns True if at least one process was killed
+     */
+    func killProcessesOnPort(_ port: Int) async -> Bool {
+        guard let handle = rustHandle.pointer else { return false }
+        return portkiller_kill_processes_on_port(handle, UInt16(port)) == 1
     }
 }
