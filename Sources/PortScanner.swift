@@ -62,7 +62,6 @@ actor PortScanner {
      * Executes: `ps -axo pid,command`
      *
      * This provides more detailed command information than lsof alone.
-     * Commands longer than 200 characters are truncated with "...".
      *
      * @returns Dictionary mapping PID to full command string
      */
@@ -102,7 +101,7 @@ actor PortScanner {
                       let pid = Int(parts[0]) else { continue }
 
                 let fullCommand = String(parts[1])
-                commands[pid] = fullCommand.count > 200 ? String(fullCommand.prefix(200)) + "..." : fullCommand
+                commands[pid] = fullCommand
             }
 
             return commands

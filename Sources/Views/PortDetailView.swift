@@ -145,7 +145,9 @@ struct PortDetailView: View {
                 .controlSize(.small)
             }
 
-            Text(port.command)
+            Text(port.command.count > AppConstants.maxCommandLength
+                ? String(port.command.prefix(AppConstants.maxCommandLength)) + "..."
+                : port.command)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
