@@ -6,6 +6,10 @@ struct NamespaceListView: View {
     let state: KubernetesDiscoveryState
     let onSelect: (KubernetesNamespace) -> Void
     let onRefresh: () -> Void
+    let onAddCustom: ([String]) -> Void
+    let onRemoveCustom: (KubernetesNamespace) -> Void
+
+    @State private var showingAddSheet = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -15,6 +19,14 @@ struct NamespaceListView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button {
+                    showingAddSheet = true
+                } label: {
+                    Image(systemName: "plus.circle")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .help("Add custom namespace")
+                Button {
                     onRefresh()
                 } label: {
                     Image(systemName: "arrow.clockwise")
@@ -22,6 +34,7 @@ struct NamespaceListView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(state == .loading)
+                .help("Refresh namespaces")
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -52,11 +65,19 @@ struct NamespaceListView: View {
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
-                        Button("Retry") {
-                            onRefresh()
+                        HStack(spacing: 8) {
+                            Button("Retry") {
+                                onRefresh()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            Button("Add Custom") {
+                                showingAddSheet = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                         Spacer()
                     }
 
@@ -76,7 +97,10 @@ struct NamespaceListView: View {
                                     NamespaceRow(
                                         namespace: namespace,
                                         isSelected: selectedNamespace?.id == namespace.id,
-                                        onSelect: onSelect
+                                        onSelect: onSelect,
+                                        onDelete: namespace.isCustom ? {
+                                            onRemoveCustom(namespace)
+                                        } : nil
                                     )
                                 }
                             }
@@ -87,6 +111,9 @@ struct NamespaceListView: View {
             }
         }
         .background(Color.primary.opacity(0.02))
+        .sheet(isPresented: $showingAddSheet) {
+            AddCustomNamespaceSheet(onAdd: onAddCustom)
+        }
     }
 }
 
@@ -94,13 +121,14 @@ struct NamespaceRow: View {
     let namespace: KubernetesNamespace
     let isSelected: Bool
     let onSelect: (KubernetesNamespace) -> Void
+    let onDelete: (() -> Void)?
 
     var body: some View {
         Button {
             onSelect(namespace)
         } label: {
             HStack {
-                Image(systemName: "folder")
+                Image(systemName: namespace.isCustom ? "pencil.and.list.clipboard" : "folder")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(namespace.name)
@@ -114,5 +142,12 @@ struct NamespaceRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if onDelete != nil {
+                Button("Remove", role: .destructive) {
+                    onDelete?()
+                }
+            }
+        }
     }
 }

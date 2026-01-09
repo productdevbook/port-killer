@@ -4,8 +4,14 @@ import Foundation
 
 struct KubernetesNamespace: Identifiable, Codable, Sendable, Hashable {
     let name: String
+    let isCustom: Bool
 
     var id: String { name }
+
+    init(name: String, isCustom: Bool = false) {
+        self.name = name
+        self.isCustom = isCustom
+    }
 }
 
 // MARK: - Service
