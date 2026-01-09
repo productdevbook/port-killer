@@ -65,6 +65,12 @@ struct ServiceBrowserEmbedded: View {
                     },
                     onRefresh: {
                         Task { await discoveryManager.loadNamespaces() }
+                    },
+                    onAddCustom: { namespaceNames in
+                        discoveryManager.addCustomNamespaces(namespaceNames)
+                    },
+                    onRemoveCustom: { namespace in
+                        discoveryManager.removeCustomNamespace(namespace)
                     }
                 )
                 .frame(width: 200)

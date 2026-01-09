@@ -1,4 +1,5 @@
 import SwiftUI
+import Defaults
 
 struct ConnectionEditSection: View {
     @Environment(AppState.self) private var appState
@@ -145,13 +146,31 @@ struct ConnectionEditSection: View {
         isLoadingNamespaces = true
         Task {
             do {
-                let result = try await appState.portForwardManager.processManager.fetchNamespaces()
+                let fetchedNamespaces = try await appState.portForwardManager.processManager.fetchNamespaces()
                 await MainActor.run {
-                    namespaces = result
+                    // Merge with manual namespaces
+                    let customNamespaceNames = Defaults[.customNamespaces]
+                    let customNamespaces = customNamespaceNames.map { KubernetesNamespace(name: $0, isCustom: true) }
+
+                    // Combine and remove duplicates (prefer auto-fetched over manual)
+                    var combinedNamespaces = fetchedNamespaces
+                    for customNS in customNamespaces {
+                        if !combinedNamespaces.contains(where: { $0.name == customNS.name }) {
+                            combinedNamespaces.append(customNS)
+                        }
+                    }
+
+                    namespaces = combinedNamespaces.sorted { $0.name < $1.name }
                     isLoadingNamespaces = false
                 }
             } catch {
                 await MainActor.run {
+                    // On error, fall back to manual namespaces only
+                    let customNamespaceNames = Defaults[.customNamespaces]
+                    if !customNamespaceNames.isEmpty {
+                        namespaces = customNamespaceNames.map { KubernetesNamespace(name: $0, isCustom: true) }
+                            .sorted { $0.name < $1.name }
+                    }
                     isLoadingNamespaces = false
                 }
             }
