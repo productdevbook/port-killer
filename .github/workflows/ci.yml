@@ -4,23 +4,23 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Sources/**'
-      - 'Tests/**'
-      - 'Package.swift'
+      - 'platforms/macos/**'
       - '.github/workflows/ci.yml'
     tags-ignore:
       - 'v*'
   pull_request:
     branches: [main]
     paths:
-      - 'Sources/**'
-      - 'Tests/**'
-      - 'Package.swift'
+      - 'platforms/macos/**'
       - '.github/workflows/ci.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: platforms/macos
 
 jobs:
   build:
@@ -40,9 +40,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .build
+            platforms/macos/.build
             ~/Library/Caches/org.swift.swiftpm
-          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          key: ${{ runner.os }}-spm-${{ hashFiles('platforms/macos/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-
 
@@ -74,7 +74,7 @@ jobs:
           [ -f "$APP/Contents/MacOS/PortKiller" ] || { echo "Missing executable"; exit 1; }
           [ -f "$APP/Contents/Info.plist" ] || { echo "Missing Info.plist"; exit 1; }
           [ -d "$APP/Contents/Frameworks/Sparkle.framework" ] || { echo "Missing Sparkle framework"; exit 1; }
-          
+
           # Verify SPM resource bundles in Contents/Resources
           [ -d "$APP/Contents/Resources/KeyboardShortcuts_KeyboardShortcuts.bundle" ] || { echo "Missing KeyboardShortcuts bundle"; exit 1; }
           [ -d "$APP/Contents/Resources/Defaults_Defaults.bundle" ] || { echo "Missing Defaults bundle"; exit 1; }
@@ -101,17 +101,20 @@ jobs:
           xcode-version: latest-stable
 
       - name: Validate Package.swift
+        working-directory: platforms/macos
         run: |
           echo "Validating Package.swift..."
           swift package describe > /dev/null
           echo "✓ Package structure is valid"
 
       - name: Check dependencies
+        working-directory: platforms/macos
         run: |
           echo "Dependencies:"
           swift package show-dependencies --format flatlist
 
       - name: Check for TODO/FIXME comments
+        working-directory: platforms/macos
         run: |
           echo "Checking for TODO/FIXME comments..."
           TODOS=$(grep -rn "TODO\|FIXME" Sources/ --include="*.swift" || true)
@@ -123,6 +126,7 @@ jobs:
           fi
 
       - name: Check file line counts
+        working-directory: platforms/macos
         run: |
           echo "Checking for files over 300 lines..."
           FOUND=0
@@ -139,6 +143,7 @@ jobs:
           fi
 
       - name: Verify documentation headers
+        working-directory: platforms/macos
         run: |
           echo "Checking for documentation headers..."
           MISSING=""
@@ -157,6 +162,7 @@ jobs:
           fi
 
       - name: Check for print statements
+        working-directory: platforms/macos
         run: |
           echo "Checking for debug print statements..."
           PRINTS=$(grep -rn "print(" Sources/ --include="*.swift" | grep -v "// DEBUG" || true)

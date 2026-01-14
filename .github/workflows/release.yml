@@ -70,6 +70,10 @@ jobs:
     if: ${{ always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
     runs-on: macos-latest
 
+    defaults:
+      run:
+        working-directory: platforms/macos
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -106,8 +110,7 @@ jobs:
           VERSION="${RELEASE_VERSION#v}"  # Remove 'v' prefix (v1.2.4 -> 1.2.4)
           BUILD_NUMBER=$(git rev-list --count HEAD)
 
-          # Update CFBundleShortVersionString
-          sed -i '' "s/<string>.*<\/string><!--VERSION-->/<string>${VERSION}<\/string><!--VERSION-->/" Resources/Info.plist
+          # Update version strings using PlistBuddy
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" Resources/Info.plist
 
@@ -267,6 +270,7 @@ jobs:
 
       - name: Upload DMG to Release
         if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
+        working-directory: platforms/macos
         run: |
           gh release upload ${{ env.RELEASE_VERSION }} "$DMG_NAME" --clobber
         env:
@@ -277,7 +281,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PortKiller-PR${{ inputs.pr_number }}
-          path: ${{ env.DMG_NAME }}
+          path: platforms/macos/${{ env.DMG_NAME }}
           retention-days: 7
 
       - name: Dry run summary
@@ -336,10 +340,13 @@ jobs:
 
       - name: Commit appcast.xml
         if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
+        working-directory: ${{ github.workspace }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout main
+          # Move appcast.xml to root level (SUFeedURL points to main/appcast.xml)
+          mv platforms/macos/appcast.xml appcast.xml
           git add appcast.xml
           git commit -m "chore: update appcast.xml for ${RELEASE_VERSION}" || echo "No changes to commit"
           git push origin main
