@@ -110,8 +110,7 @@ jobs:
           VERSION="${RELEASE_VERSION#v}"  # Remove 'v' prefix (v1.2.4 -> 1.2.4)
           BUILD_NUMBER=$(git rev-list --count HEAD)
 
-          # Update CFBundleShortVersionString
-          sed -i '' "s/<string>.*<\/string><!--VERSION-->/<string>${VERSION}<\/string><!--VERSION-->/" Resources/Info.plist
+          # Update version strings using PlistBuddy
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" Resources/Info.plist
 
@@ -346,7 +345,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout main
-          git add platforms/macos/appcast.xml
+          # Move appcast.xml to root level (SUFeedURL points to main/appcast.xml)
+          mv platforms/macos/appcast.xml appcast.xml
+          git add appcast.xml
           git commit -m "chore: update appcast.xml for ${RELEASE_VERSION}" || echo "No changes to commit"
           git push origin main
 

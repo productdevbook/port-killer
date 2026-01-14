@@ -2,8 +2,9 @@
 
 ## Requirements
 
-- **macOS 15.0+** - This is a macOS-only menu bar app
-- **Xcode 16+** with Swift 6.0
+- **macOS 15.0+** / **Windows 10+**
+- **Xcode 16+** with Swift 6.0 (for macOS)
+- **.NET 9 SDK** (for Windows)
 
 ## Setup
 
@@ -14,23 +15,45 @@ cd port-killer
 
 ## Running the App
 
+### macOS
+
 ```bash
+cd platforms/macos
+
 # Option 1: Xcode (recommended)
 open Package.swift
 # Press ▶️ to run
 
 # Option 2: Build script
-./scripts/build-app.sh && open .build/release/PortKiller.app
+./scripts/build-app.sh && open .build/apple/Products/Release/PortKiller.app
 ```
 
 > ⚠️ `swift run` doesn't work for menu bar apps - use Xcode or the build script.
 
-## Building
+### Windows
 
 ```bash
+cd platforms/windows/PortKiller
+dotnet run
+```
+
+## Building
+
+### macOS
+
+```bash
+cd platforms/macos
 swift build              # Debug
 swift build -c release   # Release
 ./scripts/build-app.sh   # App bundle
+```
+
+### Windows
+
+```bash
+cd platforms/windows/PortKiller
+dotnet build             # Debug
+dotnet publish -c Release -r win-x64  # Release
 ```
 
 ## Pull Requests
@@ -43,17 +66,28 @@ swift build -c release   # Release
 
 ## Code Style
 
+### macOS
 - Swift 6.0 with strict concurrency
 - SwiftUI for UI
 - `@Observable` for state management
 - Keep files under 300 lines
 
+### Windows
+- C# with WPF
+- MVVM pattern
+
 ## Project Structure
 
 ```
-Sources/
-├── PortKillerApp.swift    # Entry point
-├── Managers/              # State & scanning
-├── Models/                # Data models
-└── Views/                 # SwiftUI views
+platforms/
+├── macos/
+│   ├── Sources/
+│   │   ├── PortKillerApp.swift    # Entry point
+│   │   ├── Managers/              # State & scanning
+│   │   ├── Models/                # Data models
+│   │   └── Views/                 # SwiftUI views
+│   ├── Resources/                 # Assets, Info.plist
+│   └── scripts/                   # Build scripts
+└── windows/
+    └── PortKiller/                # .NET WPF project
 ```
