@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:tb="http://www.hardcodet.net/taskbar"
+        xmlns:helpers="clr-namespace:PortKiller.Helpers"
         mc:Ignorable="d"
         Title="PortKiller" 
         Height="700" Width="1200"
@@ -19,6 +20,7 @@
     <Window.Resources>
         <!-- Boolean to Visibility Converter -->
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <helpers:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
 
         <!-- Modern Card Style -->
         <Style x:Key="Card" TargetType="Border">
@@ -403,16 +405,55 @@
                                                         </TextBlock>
                                                     </StackPanel>
 
-                                                    <!-- Actions (Minimal Kill Button) -->
+                                                    <!-- Actions (Kill Button and Spinner) -->
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <Button Content="✕" 
-                                                                Click="KillButton_Click" 
+                                                        <!-- Loading Spinner (visible when killing) -->
+                                                        <Border Padding="10,6"
+                                                                Visibility="{Binding IsKilling, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <Grid Width="16" Height="16" RenderTransformOrigin="0.5,0.5">
+                                                                <Grid.RenderTransform>
+                                                                    <RotateTransform/>
+                                                                </Grid.RenderTransform>
+                                                                <Ellipse Width="14" Height="14"
+                                                                         Stroke="#e74c3c"
+                                                                         StrokeThickness="2"
+                                                                         Opacity="0.3"/>
+                                                                <Path Data="M 7,0 A 7,7 0 0 1 14,7"
+                                                                      Stroke="#e74c3c"
+                                                                      StrokeThickness="2"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      Margin="1"/>
+                                                                <Grid.Style>
+                                                                    <Style TargetType="Grid">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsKilling}" Value="True">
+                                                                                <DataTrigger.EnterActions>
+                                                                                    <BeginStoryboard>
+                                                                                        <Storyboard RepeatBehavior="Forever">
+                                                                                            <DoubleAnimation
+                                                                                                Storyboard.TargetProperty="(Grid.RenderTransform).(RotateTransform.Angle)"
+                                                                                                From="0" To="360" Duration="0:0:0.8"/>
+                                                                                        </Storyboard>
+                                                                                    </BeginStoryboard>
+                                                                                </DataTrigger.EnterActions>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Grid.Style>
+                                                            </Grid>
+                                                        </Border>
+
+                                                        <!-- Kill Button (hidden when killing) -->
+                                                        <Button Content="✕"
+                                                                Click="KillButton_Click"
                                                                 Tag="{Binding}"
                                                                 Padding="10,6"
                                                                 FontSize="16"
                                                                 FontWeight="Normal"
                                                                 Cursor="Hand"
-                                                                ToolTip="Kill Process">
+                                                                ToolTip="Kill Process"
+                                                                Visibility="{Binding IsKilling, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                                                             <Button.Style>
                                                                 <Style TargetType="Button">
                                                                     <Setter Property="Background" Value="Transparent"/>
@@ -421,7 +462,7 @@
                                                                     <Setter Property="Template">
                                                                         <Setter.Value>
                                                                             <ControlTemplate TargetType="Button">
-                                                                                <Border Background="{TemplateBinding Background}" 
+                                                                                <Border Background="{TemplateBinding Background}"
                                                                                         CornerRadius="6"
                                                                                         Padding="{TemplateBinding Padding}">
                                                                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
