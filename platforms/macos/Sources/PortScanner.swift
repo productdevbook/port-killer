@@ -32,36 +32,39 @@ actor PortScanner: PortScannerProtocol {
      * @returns Array of PortInfo objects representing all listening ports
      */
     func scanPorts() async -> [PortInfo] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        process.arguments = ["-iTCP", "-sTCP:LISTEN", "-P", "-n", "+c", "0"]
+        // Wrap entire Process/Pipe lifecycle in autoreleasepool to release Obj-C bridged
+        // objects (Process, Pipe, FileHandle, URL, Data) immediately after each scan.
+        // Without this, these objects accumulate across the long-lived scanning Task,
+        // causing ~35KB per scan × 47,520 scans over 66 hours = ~1.7GB leak.
+        let output: String = autoreleasepool {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+            process.arguments = ["-iTCP", "-sTCP:LISTEN", "-P", "-n", "+c", "0"]
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+            do {
+                try process.run()
 
-            // Use autoreleasepool to immediately release Obj-C bridged Data objects
-            // Without this, FileHandle.readDataToEndOfFile() causes memory accumulation
-            var output: String = ""
-            autoreleasepool {
+                // CRITICAL: Read data BEFORE waitUntilExit to avoid deadlock.
+                // If lsof output exceeds the pipe buffer (~64KB), lsof blocks waiting
+                // to write. If we waitUntilExit first, we deadlock.
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                output = String(data: data, encoding: .utf8) ?? ""
-            }
+                process.waitUntilExit()
 
-            guard !output.isEmpty else {
-                return []
+                return String(data: data, encoding: .utf8) ?? ""
+            } catch {
+                print("[PortScanner] Failed to scan ports: \(error.localizedDescription)")
+                return ""
             }
-
-            let commands = await getProcessCommands()
-            return parseLsofOutput(output, commands: commands)
-        } catch {
-            print("[PortScanner] Failed to scan ports: \(error.localizedDescription)")
-            return []
         }
+
+        guard !output.isEmpty else { return [] }
+
+        let commands = await getProcessCommands()
+        return parseLsofOutput(output, commands: commands)
     }
 
     /**
@@ -74,57 +77,52 @@ actor PortScanner: PortScannerProtocol {
      * @returns Dictionary mapping PID to full command string
      */
     private func getProcessCommands() async -> [Int: String] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/ps")
-        process.arguments = ["-axo", "pid,command"]
+        // Wrap Process/Pipe lifecycle in autoreleasepool; parsing stays outside
+        let output: String = autoreleasepool {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/ps")
+            process.arguments = ["-axo", "pid,command"]
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
 
-        do {
-            try process.run()
+            do {
+                try process.run()
 
-            // CRITICAL: Read data BEFORE waitUntilExit to avoid deadlock
-            // Explanation: If the pipe buffer fills up (common with large process lists),
-            // ps will block waiting to write more data. If we call waitUntilExit first,
-            // we'll wait forever for ps to finish, but ps is waiting for us to read the pipe.
-            // Reading first prevents this deadlock.
-
-            // Use autoreleasepool to immediately release Obj-C bridged Data objects
-            var output: String = ""
-            autoreleasepool {
+                // CRITICAL: Read data BEFORE waitUntilExit to avoid deadlock.
+                // If the pipe buffer fills up (common with large process lists),
+                // ps blocks waiting to write. waitUntilExit first = deadlock.
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                output = String(data: data, encoding: .utf8) ?? ""
+                process.waitUntilExit()
+
+                return String(data: data, encoding: .utf8) ?? ""
+            } catch {
+                print("[PortScanner] Failed to get process commands: \(error.localizedDescription)")
+                return ""
             }
-            process.waitUntilExit()
-
-            guard !output.isEmpty else {
-                return [:]
-            }
-
-            var commands: [Int: String] = [:]
-            // Use split for zero-copy Substring iteration
-            let lines = output.split(separator: "\n", omittingEmptySubsequences: false)
-
-            for line in lines.dropFirst() {
-                // Trim whitespace using Substring operations
-                let trimmed = line.drop(while: { $0.isWhitespace })
-                guard !trimmed.isEmpty else { continue }
-
-                let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
-                guard parts.count >= 2,
-                      let pid = Int(parts[0]) else { continue }
-
-                let fullCommand = String(parts[1])
-                commands[pid] = fullCommand
-            }
-
-            return commands
-        } catch {
-            print("[PortScanner] Failed to get process commands: \(error.localizedDescription)")
-            return [:]
         }
+
+        guard !output.isEmpty else { return [:] }
+
+        var commands: [Int: String] = [:]
+        // Use split for zero-copy Substring iteration
+        let lines = output.split(separator: "\n", omittingEmptySubsequences: false)
+
+        for line in lines.dropFirst() {
+            // Trim whitespace using Substring operations
+            let trimmed = line.drop(while: { $0.isWhitespace })
+            guard !trimmed.isEmpty else { continue }
+
+            let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            guard parts.count >= 2,
+                  let pid = Int(parts[0]) else { continue }
+
+            let fullCommand = String(parts[1])
+            commands[pid] = fullCommand
+        }
+
+        return commands
     }
 
     /**
@@ -272,16 +270,18 @@ actor PortScanner: PortScannerProtocol {
      * @returns True if the kill command executed successfully (exit code 0)
      */
     func killProcess(pid: Int, force: Bool = false) async -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/kill")
-        process.arguments = [force ? "-9" : "-15", String(pid)]
+        autoreleasepool {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/kill")
+            process.arguments = [force ? "-9" : "-15", String(pid)]
 
-        do {
-            try process.run()
-            process.waitUntilExit()
-            return process.terminationStatus == 0
-        } catch {
-            return false
+            do {
+                try process.run()
+                process.waitUntilExit()
+                return process.terminationStatus == 0
+            } catch {
+                return false
+            }
         }
     }
 

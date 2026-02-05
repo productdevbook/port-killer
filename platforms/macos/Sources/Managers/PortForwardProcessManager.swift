@@ -105,6 +105,7 @@ actor PortForwardProcessManager {
             }
         }
         processes[id] = nil
+        connectionErrors.removeValue(forKey: id)
 
         let scriptPath = "/tmp/pf-wrapper-\(id.uuidString).sh"
         try? FileManager.default.removeItem(atPath: scriptPath)
@@ -138,5 +139,8 @@ actor PortForwardProcessManager {
             for (_, task) in tasks { task.cancel() }
         }
         outputTasks.removeAll()
+        connectionErrors.removeAll()
+        logHandlers.removeAll()
+        portConflictHandlers.removeAll()
     }
 }
