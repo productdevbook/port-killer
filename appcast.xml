@@ -6,16 +6,16 @@
     <description>Most recent updates to PortKiller</description>
     <language>en</language>
     <item>
-      <title>Version 3.2.0</title>
-      <pubDate>Mon, 12 Jan 2026 06:52:23 +0000</pubDate>
-      <sparkle:version>174</sparkle:version>
-      <sparkle:shortVersionString>3.2.0</sparkle:shortVersionString>
+      <title>Version 3.3.0</title>
+      <pubDate>Sun, 15 Feb 2026 05:35:25 +0000</pubDate>
+      <sparkle:version>190</sparkle:version>
+      <sparkle:shortVersionString>3.3.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
       <enclosure
-        url="https://github.com/productdevbook/port-killer/releases/download/v3.2.0/PortKiller-v3.2.0-macos.dmg"
-        length="5487298"
+        url="https://github.com/productdevbook/port-killer/releases/download/v3.3.0/PortKiller-v3.3.0-macos.dmg"
+        length="5532801"
         type="application/octet-stream"
-        sparkle:edSignature="WnOCxdVpdbNCkAFF5ALxqfhKVKYsCp7O4dlGqUQhczGgWEZk9irHgMBbgtC8UH8Sc7T7+GuQuRqDerF47DZXCg==" />
+        sparkle:edSignature="P3if0ajhPxU27qeBqIjIvmJoEM2dlhZwEmpEhqaAnLRjMTAFPq3Ram2m7LrcDY0N/ZgRtoQEHqpQ1y28rLf6CQ==" />
     </item>
   </channel>
 </rss>
