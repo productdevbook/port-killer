@@ -15,7 +15,7 @@ struct MenuBarPortList: View {
     let groupedByProcess: [ProcessGroup]
     let useTreeView: Bool
     @Binding var expandedProcesses: Set<Int>
-    @Binding var confirmingKillPort: UUID?
+    @Binding var confirmingKillPort: String?
     @Bindable var state: AppState
 
     var body: some View {

@@ -77,7 +77,7 @@ final class TunnelManager {
     // MARK: - Tunnel Operations
 
     /// Start a tunnel for the specified port
-    func startTunnel(for port: Int, portInfoId: UUID? = nil) {
+    func startTunnel(for port: Int, portInfoId: String? = nil) {
         Task {
             await cleanupTask?.value
             await _startTunnelImpl(for: port, portInfoId: portInfoId)
@@ -85,13 +85,17 @@ final class TunnelManager {
     }
 
     /// Internal implementation of startTunnel after cleanup is complete
-    private func _startTunnelImpl(for port: Int, portInfoId: UUID? = nil) async {
+    private func _startTunnelImpl(for port: Int, portInfoId: String? = nil) async {
         // Check if tunnel already exists for this port
-        if let existing = state.tunnel(for: port), existing.status != .error {
-            if let url = existing.tunnelURL {
-                ClipboardService.copy(url)
+        if let existing = state.tunnel(for: port) {
+            if existing.status != .error {
+                if let url = existing.tunnelURL {
+                    ClipboardService.copy(url)
+                }
+                return
             }
-            return
+            // Prevent accumulating stale error entries for repeated retries.
+            state.removeTunnel(id: existing.id)
         }
 
         let tunnelState = CloudflareTunnelState(port: port, portInfoId: portInfoId)

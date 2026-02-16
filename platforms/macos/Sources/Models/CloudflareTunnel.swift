@@ -29,13 +29,13 @@ enum CloudflareTunnelStatus: String, Sendable {
 final class CloudflareTunnelState: Identifiable, Sendable {
     let id: UUID
     let port: Int
-    let portInfoId: UUID?
+    let portInfoId: String?
     var status: CloudflareTunnelStatus = .idle
     var tunnelURL: String?
     var lastError: String?
     var startTime: Date?
 
-    init(id: UUID = UUID(), port: Int, portInfoId: UUID? = nil) {
+    init(id: UUID = UUID(), port: Int, portInfoId: String? = nil) {
         self.id = id
         self.port = port
         self.portInfoId = portInfoId

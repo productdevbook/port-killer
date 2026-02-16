@@ -14,8 +14,9 @@ import Foundation
 /// PortInfo encapsulates all details about a listening network port, including
 /// the process that owns it, the address it's bound to, and whether it's currently active.
 struct PortInfo: Identifiable, Hashable, Sendable {
-    /// Unique identifier for this port info instance
-    let id = UUID()
+    /// Stable identifier for diffing in SwiftUI.
+    /// Using a deterministic key prevents rebuilding every row when scans refresh.
+    var id: String { "\(port):\(pid):\(fd):\(isActive)" }
 
     /// The port number (e.g., 3000, 8080)
     let port: Int

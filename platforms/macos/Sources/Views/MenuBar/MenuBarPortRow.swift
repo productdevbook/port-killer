@@ -8,7 +8,7 @@ import SwiftUI
 struct MenuBarPortRow: View {
     let port: PortInfo
     @Bindable var state: AppState
-    @Binding var confirmingKill: UUID?
+    @Binding var confirmingKill: String?
 
     var body: some View {
         PortRowView(

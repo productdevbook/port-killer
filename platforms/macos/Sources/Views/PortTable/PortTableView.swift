@@ -51,6 +51,10 @@ struct PortTableView: View {
                 .help(useTreeView ? "Switch to List View" : "Switch to Tree View")
             }
         }
+        .onChange(of: appState.ports) { _, _ in
+            let visibleProcessIDs = Set(groupedPorts.map(\.id))
+            expandedProcesses = expandedProcesses.intersection(visibleProcessIDs)
+        }
     }
 
     // MARK: - Header Row

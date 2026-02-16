@@ -2,21 +2,37 @@ import Foundation
 
 extension AppState {
     /// Refreshes the port list by scanning for active ports.
-    func refresh() async {
-        guard !isScanning else { return }
-        isScanning = true
-        defer { isScanning = false }
+    @discardableResult
+    func refresh() async -> Bool {
+        if isScanning {
+            hasPendingRefreshRequest = true
+            return false
+        }
 
-        let scanned = await scanner.scanPorts()
-        updatePorts(scanned)
-        checkWatchedPorts()
+        var didChangeAny = false
+
+        repeat {
+            hasPendingRefreshRequest = false
+            isScanning = true
+
+            let scanned = await scanner.scanPorts()
+            let didChange = updatePorts(scanned)
+            didChangeAny = didChangeAny || didChange
+
+            // Always update watcher state to keep transition baseline accurate.
+            checkWatchedPorts()
+            isScanning = false
+        } while hasPendingRefreshRequest
+
+        return didChangeAny
     }
 
     /// Updates the internal port list only if there are changes.
-    func updatePorts(_ newPorts: [PortInfo]) {
+    @discardableResult
+    func updatePorts(_ newPorts: [PortInfo]) -> Bool {
         let newSet = Set(newPorts.map { "\($0.port)-\($0.pid)" })
         let oldSet = Set(ports.map { "\($0.port)-\($0.pid)" })
-        guard newSet != oldSet else { return }
+        guard newSet != oldSet else { return false }
 
         ports = newPorts.sorted { a, b in
             let aFav = favorites.contains(a.port)
@@ -24,6 +40,7 @@ extension AppState {
             if aFav != bFav { return aFav }
             return a.port < b.port
         }
+        return true
     }
 
     /// Kills the process using the specified port.

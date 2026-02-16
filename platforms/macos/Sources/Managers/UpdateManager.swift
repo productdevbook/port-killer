@@ -8,7 +8,7 @@ import Combine
  * UpdateManager handles automatic updates using the Sparkle framework.
  *
  * Key features:
- * - Lazy initialization (2 second delay to reduce launch memory)
+ * - Demand-driven initialization (does not preload on launch)
  * - Only initializes when running from .app bundle (not during development)
  * - Activates app before showing update UI (important for menu bar apps)
  * - Tracks update availability and last check date
@@ -22,7 +22,8 @@ final class UpdateManager {
     // MARK: - Public Properties
 
     /// Whether the updater is ready to check for updates
-    var canCheckForUpdates = false
+    /// Default to true in app bundles so menu command stays enabled before initialization.
+    var canCheckForUpdates = Bundle.main.bundlePath.hasSuffix(".app")
 
     /// Timestamp of the last update check
     var lastUpdateCheckDate: Date?
@@ -68,16 +69,9 @@ final class UpdateManager {
 
     // MARK: - Initialization
 
-    /**
-     * Initializes the update manager.
-     * Sparkle initialization is delayed by 2 seconds to reduce launch memory footprint.
-     */
-    init() {
-        // Delay Sparkle initialization to reduce launch memory
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            self?.ensureInitialized()
-        }
-    }
+    /// Initializes the update manager in a cold state.
+    /// Sparkle is initialized only when an update API is actually used.
+    init() {}
 
     // MARK: - Private Methods
 
@@ -100,6 +94,8 @@ final class UpdateManager {
             userDriverDelegate: nil
         )
         updaterController = controller
+        canCheckForUpdates = controller.updater.canCheckForUpdates
+        lastUpdateCheckDate = controller.updater.lastUpdateCheckDate
 
         // Observe Sparkle properties and update our @Observable properties
         controller.updater.publisher(for: \.canCheckForUpdates)

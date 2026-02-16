@@ -14,8 +14,8 @@ struct MenuBarView: View {
     @Bindable var state: AppState
     @State private var searchText = ""
     @State private var confirmingKillAll = false
-    @State private var confirmingKillPort: UUID?
-    @State private var hoveredPort: UUID?
+    @State private var confirmingKillPort: String?
+    @State private var hoveredPort: String?
     @State private var expandedProcesses: Set<Int> = []
     @Default(.useTreeView) private var useTreeView
     @Default(.hideSystemProcesses) private var hideSystemProcesses
@@ -92,6 +92,10 @@ struct MenuBarView: View {
                 return a.processName.localizedCaseInsensitiveCompare(b.processName) == .orderedAscending
             }
         }
+
+        // Keep expansion state bounded to currently visible process IDs.
+        let visibleProcessIDs = Set(cachedGroups.map(\.id))
+        expandedProcesses = expandedProcesses.intersection(visibleProcessIDs)
     }
 
     /// Cached filtered ports (no allocation on access)

@@ -25,7 +25,7 @@ enum KillConfirmationMode {
     /// No confirmation, kill immediately
     case immediate
     /// Show inline confirmation UI
-    case inline(confirmingKill: Binding<UUID?>)
+    case inline(confirmingKill: Binding<String?>)
 }
 
 /// Unified port row view supporting multiple display styles
@@ -211,7 +211,7 @@ struct PortRowView: View {
     }
 
     @ViewBuilder
-    private func menuBarConfirmContent(confirmingKill: Binding<UUID?>) -> some View {
+    private func menuBarConfirmContent(confirmingKill: Binding<String?>) -> some View {
         Text("Kill \(port.processName)?")
             .font(.callout)
             .lineLimit(1)

@@ -61,7 +61,7 @@ final class AppState {
     var selectedSidebarItem: SidebarItem = .allPorts
 
     /// ID of the currently selected port in the detail view
-    var selectedPortID: UUID? = nil
+    var selectedPortID: String? = nil
 
     /// The currently selected port, if any
     var selectedPort: PortInfo? {
@@ -204,6 +204,8 @@ final class AppState {
 
     /// Background task for auto-refresh
     @ObservationIgnored var refreshTask: Task<Void, Never>?
+    /// Coalesces concurrent refresh requests into a single follow-up scan.
+    @ObservationIgnored var hasPendingRefreshRequest = false
 
     // MARK: - Initialization
 
