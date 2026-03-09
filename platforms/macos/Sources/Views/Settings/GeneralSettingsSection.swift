@@ -11,7 +11,8 @@ import Defaults
 
 struct GeneralSettingsSection: View {
     @Default(.hideSystemProcesses) private var hideSystemProcesses
-    
+    @Default(.skipKillConfirmation) private var skipKillConfirmation
+
     var body: some View {
         SettingsGroup("General", icon: "gearshape.fill") {
             SettingsRowContainer {
@@ -26,12 +27,20 @@ struct GeneralSettingsSection: View {
                 }
                 .toggleStyle(.switch)
             }
-			
+
 			SettingsToggleRow(
 				title: "Hide System processes",
 				subtitle: "Hide macOS processes from the process list",
 				isOn: $hideSystemProcesses
 			)
+
+            SettingsDivider()
+
+            SettingsToggleRow(
+                title: "Skip kill confirmation",
+                subtitle: "Kill processes immediately without confirmation prompt",
+                isOn: $skipKillConfirmation
+            )
         }
     }
 }

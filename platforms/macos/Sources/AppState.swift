@@ -11,6 +11,7 @@ extension Defaults.Keys {
     static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
     static let useTreeView = Key<Bool>("useTreeView", default: false)
     static let hideSystemProcesses = Key<Bool>("hideSystemProcesses", default: false)
+    static let skipKillConfirmation = Key<Bool>("skipKillConfirmation", default: false)
     static let refreshInterval = Key<Int>("refreshInterval", default: 5)
     static let cloudflaredProtocol = Key<CloudflaredProtocol>("cloudflaredProtocol", default: .http2)
 
