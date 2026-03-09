@@ -7,6 +7,7 @@
  */
 
 import SwiftUI
+import Defaults
 
 /// Style configuration for PortRowView
 enum PortRowStyle {
@@ -284,7 +285,12 @@ struct PortRowView: View {
                     .foregroundStyle(.orange)
             } else if case .inline(let confirmingKill) = killMode {
                 Button {
-                    confirmingKill.wrappedValue = port.id
+                    if Defaults[.skipKillConfirmation] {
+                        isKilling = true
+                        Task { await appState.killPort(port) }
+                    } else {
+                        confirmingKill.wrappedValue = port.id
+                    }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.red)
