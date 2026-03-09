@@ -9,6 +9,7 @@ extension Defaults.Keys {
     static let portForwardShowNotifications = Key<Bool>("portForwardShowNotifications", default: true)
     static let customKubectlPath = Key<String?>("customKubectlPath", default: nil)
     static let customSocatPath = Key<String?>("customSocatPath", default: nil)
+    static let customCloudflaredPath = Key<String?>("customCloudflaredPath", default: nil)
 }
 
 // MARK: - Port Forward Manager

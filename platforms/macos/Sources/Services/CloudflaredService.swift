@@ -14,6 +14,12 @@ actor CloudflaredService {
     // MARK: - Dependency Check
 
     nonisolated var cloudflaredPath: String? {
+        // Check custom path first
+        if let custom = Defaults[.customCloudflaredPath],
+           !custom.isEmpty,
+           FileManager.default.fileExists(atPath: custom) {
+            return custom
+        }
         let paths = [
             "/opt/homebrew/bin/cloudflared",
             "/usr/local/bin/cloudflared"
@@ -23,6 +29,23 @@ actor CloudflaredService {
 
     nonisolated var isInstalled: Bool {
         cloudflaredPath != nil
+    }
+
+    nonisolated var isUsingCustomPath: Bool {
+        if let custom = Defaults[.customCloudflaredPath],
+           !custom.isEmpty,
+           FileManager.default.fileExists(atPath: custom) {
+            return true
+        }
+        return false
+    }
+
+    nonisolated var autoDetectedPath: String? {
+        let paths = [
+            "/opt/homebrew/bin/cloudflared",
+            "/usr/local/bin/cloudflared"
+        ]
+        return paths.first { FileManager.default.fileExists(atPath: $0) }
     }
 
     // MARK: - Handler Management
