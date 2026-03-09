@@ -14,12 +14,15 @@ import Foundation
 /// their owning process. This provides a hierarchical view where users can
 /// expand/collapse processes to see all their associated ports.
 struct ProcessGroup: Identifiable, Sendable {
-    /// Process ID (PID) - used as stable identifier
-    let id: Int
+    /// Process name - used as stable identifier for grouping
+    let id: String
 
     /// Name of the process owning these ports
     let processName: String
 
-    /// All ports owned by this process
+    /// All PIDs in this group
+    let pids: [Int]
+
+    /// All ports owned by this process (across all PIDs)
     let ports: [PortInfo]
 }

@@ -33,11 +33,12 @@ actor PortGroupingService {
     /// // groups[0] might contain: ProcessGroup(id: 1234, processName: "node", ports: [3000, 3001])
     /// ```
     func groupByProcess(_ ports: [PortInfo]) -> [ProcessGroup] {
-        let grouped = Dictionary(grouping: ports) { $0.pid }
-        return grouped.map { pid, ports in
+        let grouped = Dictionary(grouping: ports) { $0.processName }
+        return grouped.map { name, ports in
             ProcessGroup(
-                id: pid,
-                processName: ports.first?.processName ?? "Unknown",
+                id: name,
+                processName: name,
+                pids: Array(Set(ports.map(\.pid))).sorted(),
                 ports: ports.sorted { $0.port < $1.port }
             )
         }.sorted { $0.processName.localizedCaseInsensitiveCompare($1.processName) == .orderedAscending }
@@ -54,11 +55,12 @@ actor PortGroupingService {
     ///   - watched: Set of watched port numbers
     /// - Returns: Array of ProcessGroup instances, sorted by priority then name
     func groupByProcessWithPriority(_ ports: [PortInfo], favorites: Set<Int>, watched: Set<Int>) -> [ProcessGroup] {
-        let grouped = Dictionary(grouping: ports) { $0.pid }
-        return grouped.map { pid, ports in
+        let grouped = Dictionary(grouping: ports) { $0.processName }
+        return grouped.map { name, ports in
             ProcessGroup(
-                id: pid,
-                processName: ports.first?.processName ?? "Unknown",
+                id: name,
+                processName: name,
+                pids: Array(Set(ports.map(\.pid))).sorted(),
                 ports: ports.sorted { $0.port < $1.port }
             )
         }.sorted { a, b in

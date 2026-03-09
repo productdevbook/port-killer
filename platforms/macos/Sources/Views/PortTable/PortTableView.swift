@@ -17,7 +17,7 @@ struct PortTableView: View {
     @State private var sortOrder: SortOrder = .port
     @State private var sortAscending = true
     @Default(.useTreeView) private var useTreeView
-    @State private var expandedProcesses: Set<Int> = []
+    @State private var expandedProcesses: Set<String> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -206,11 +206,12 @@ struct PortTableView: View {
 
     /// Groups ports by process for tree view
     private var groupedPorts: [ProcessGroup] {
-        let grouped = Dictionary(grouping: appState.filteredPorts) { $0.pid }
-        return grouped.map { pid, ports in
+        let grouped = Dictionary(grouping: appState.filteredPorts) { $0.processName }
+        return grouped.map { name, ports in
             ProcessGroup(
-                id: pid,
-                processName: ports.first?.processName ?? "Unknown",
+                id: name,
+                processName: name,
+                pids: Array(Set(ports.map(\.pid))).sorted(),
                 ports: ports.sorted { $0.port < $1.port }
             )
         }.sorted { $0.processName.localizedCaseInsensitiveCompare($1.processName) == .orderedAscending }

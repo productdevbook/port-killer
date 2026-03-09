@@ -16,7 +16,7 @@ struct MenuBarView: View {
     @State private var confirmingKillAll = false
     @State private var confirmingKillPort: String?
     @State private var hoveredPort: String?
-    @State private var expandedProcesses: Set<Int> = []
+    @State private var expandedProcesses: Set<String> = []
     @Default(.useTreeView) private var useTreeView
     @Default(.hideSystemProcesses) private var hideSystemProcesses
 
@@ -70,11 +70,12 @@ struct MenuBarView: View {
         }
 
         // Compute groups from cached filtered ports
-        let grouped = Dictionary(grouping: cachedFilteredPorts) { $0.pid }
-        cachedGroups = grouped.map { pid, ports in
+        let grouped = Dictionary(grouping: cachedFilteredPorts) { $0.processName }
+        cachedGroups = grouped.map { name, ports in
             ProcessGroup(
-                id: pid,
-                processName: ports.first?.processName ?? "Unknown",
+                id: name,
+                processName: name,
+                pids: Array(Set(ports.map(\.pid))).sorted(),
                 ports: ports.sorted { $0.port < $1.port }
             )
         }.sorted { a, b in

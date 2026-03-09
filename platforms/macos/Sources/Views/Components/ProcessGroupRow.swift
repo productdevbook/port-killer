@@ -48,11 +48,12 @@ struct ProcessGroupListRow: View {
             }
             .frame(width: 150, alignment: .leading)
 
-            // PID (aligned with PID column of header)
-            Text("\(group.id)")
+            // PID(s) (aligned with PID column of header)
+            Text(group.pids.count == 1 ? "\(group.pids[0])" : "\(group.pids.count) PIDs")
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 70, alignment: .leading)
+                .help(group.pids.map(String.init).joined(separator: ", "))
 
             // Port Count Badge (aligned with Type column of header effectively)
             if !showConfirm {

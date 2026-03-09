@@ -14,7 +14,7 @@ struct MenuBarPortList: View {
     let filteredPortForwardConnections: [PortForwardConnectionState]
     let groupedByProcess: [ProcessGroup]
     let useTreeView: Bool
-    @Binding var expandedProcesses: Set<Int>
+    @Binding var expandedProcesses: Set<String>
     @Binding var confirmingKillPort: String?
     @Bindable var state: AppState
 
