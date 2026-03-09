@@ -118,56 +118,75 @@ struct CloudflareTunnelRow: View {
     @Environment(AppState.self) private var appState
     @State private var isHovered = false
     @State private var isCopied = false
+    @State private var showLogs = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Status indicator
-            statusIndicator
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Status indicator
+                statusIndicator
 
-            // Port info
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Port " + String(tunnel.port))
-                    .font(.headline)
+                // Port info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Port " + String(tunnel.port))
+                        .font(.headline)
 
-                if let url = tunnel.tunnelURL {
-                    Text(url)
-                        .font(.caption)
-                        .foregroundStyle(.blue)
-                        .lineLimit(1)
-                } else if tunnel.status == .starting {
-                    Text("Starting tunnel...")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else if let error = tunnel.lastError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(1)
+                    if let url = tunnel.tunnelURL {
+                        Text(url)
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                            .lineLimit(1)
+                    } else if tunnel.status == .starting {
+                        Text("Starting tunnel...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else if let error = tunnel.lastError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .lineLimit(1)
+                    }
                 }
-            }
 
-            Spacer()
+                Spacer()
 
-            // Actions
-            if tunnel.status == .active, tunnel.tunnelURL != nil {
-                actionButtons
-            } else if tunnel.status == .starting {
-                ProgressView()
-                    .controlSize(.small)
-            }
+                // Actions
+                if tunnel.status == .active, tunnel.tunnelURL != nil {
+                    actionButtons
+                } else if tunnel.status == .starting {
+                    ProgressView()
+                        .controlSize(.small)
+                }
 
-            // Stop button
-            Button {
-                appState.tunnelManager.stopTunnel(id: tunnel.id)
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.red)
+                // Log toggle
+                Button {
+                    showLogs.toggle()
+                } label: {
+                    Image(systemName: "doc.text")
+                        .foregroundColor(showLogs ? .accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(showLogs ? "Hide logs" : "Show logs")
+
+                // Stop button
+                Button {
+                    appState.tunnelManager.stopTunnel(id: tunnel.id)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+                .help("Stop tunnel")
             }
-            .buttonStyle(.plain)
-            .help("Stop tunnel")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            if showLogs {
+                Divider()
+                TunnelLogView(tunnel: tunnel)
+                    .frame(height: 200)
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
         .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
         .onHover { hovering in
             isHovered = hovering
@@ -190,6 +209,14 @@ struct CloudflareTunnelRow: View {
 
                 Divider()
             }
+
+            Button {
+                showLogs.toggle()
+            } label: {
+                Label(showLogs ? "Hide Logs" : "Show Logs", systemImage: "doc.text")
+            }
+
+            Divider()
 
             Button(role: .destructive) {
                 appState.tunnelManager.stopTunnel(id: tunnel.id)

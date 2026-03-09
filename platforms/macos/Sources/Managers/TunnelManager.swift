@@ -135,6 +135,16 @@ final class TunnelManager {
             }
             await self.cloudflaredService.setErrorHandler(for: tunnelState.id, handler: errorHandler)
 
+            // Set log handler to capture all output lines
+            let logHandler: @Sendable (String) -> Void = { [weak tunnelState] line in
+                guard let tunnelState = tunnelState else { return }
+                let entry = TunnelLogEntry.parse(line)
+                Task { @MainActor [weak tunnelState] in
+                    tunnelState?.addLogEntry(entry)
+                }
+            }
+            await self.cloudflaredService.setLogHandler(for: tunnelState.id, handler: logHandler)
+
             do {
                 let process = try await self.cloudflaredService.startTunnel(id: tunnelState.id, port: port)
                 try? await Task.sleep(for: .seconds(3))

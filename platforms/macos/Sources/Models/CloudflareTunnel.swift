@@ -34,6 +34,23 @@ final class CloudflareTunnelState: Identifiable, Sendable {
     var tunnelURL: String?
     var lastError: String?
     var startTime: Date?
+    var logs: [TunnelLogEntry] = []
+
+    /// Maximum number of log entries to keep per tunnel
+    private static let maxLogEntries = 500
+
+    /// Adds a log entry, keeping the buffer bounded
+    func addLogEntry(_ entry: TunnelLogEntry) {
+        logs.append(entry)
+        if logs.count > Self.maxLogEntries {
+            logs.removeFirst(logs.count - Self.maxLogEntries)
+        }
+    }
+
+    /// Clears all log entries
+    func clearLogs() {
+        logs.removeAll()
+    }
 
     init(id: UUID = UUID(), port: Int, portInfoId: String? = nil) {
         self.id = id

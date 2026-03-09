@@ -10,6 +10,7 @@ actor CloudflaredService {
     private var outputTasks: [UUID: Task<Void, Never>] = [:]
     private var urlHandlers: [UUID: @Sendable (String) -> Void] = [:]
     private var errorHandlers: [UUID: @Sendable (String) -> Void] = [:]
+    private var logHandlers: [UUID: @Sendable (String) -> Void] = [:]
 
     // MARK: - Dependency Check
 
@@ -58,9 +59,14 @@ actor CloudflaredService {
         errorHandlers[id] = handler
     }
 
+    func setLogHandler(for id: UUID, handler: @escaping @Sendable (String) -> Void) {
+        logHandlers[id] = handler
+    }
+
     func removeHandlers(for id: UUID) {
         urlHandlers.removeValue(forKey: id)
         errorHandlers.removeValue(forKey: id)
+        logHandlers.removeValue(forKey: id)
     }
 
     // MARK: - Tunnel Management
@@ -152,6 +158,9 @@ actor CloudflaredService {
     }
 
     private func parseLine(_ line: String, for id: UUID) {
+        // Forward all lines to log handler
+        logHandlers[id]?(line)
+
         // cloudflared outputs the URL like:
         // "Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):
         // https://something-random.trycloudflare.com"
