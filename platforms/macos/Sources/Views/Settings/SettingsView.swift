@@ -39,6 +39,9 @@ struct SettingsView: View {
                 // MARK: - Notifications
                 NotificationsSettingsSection()
 
+                // MARK: - Webhooks
+                WebhookSettingsSection()
+
                 // MARK: - Cloudflare Tunnels
                 CloudflaredSettingsSection()
 

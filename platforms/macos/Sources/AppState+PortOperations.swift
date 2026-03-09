@@ -23,6 +23,7 @@ extension AppState {
             // Check process type notifications for newly appeared ports
             if didChange {
                 checkProcessTypeNotifications(oldPorts: previousPorts, newPorts: scanned)
+                WebhookService.shared.checkPortChanges(oldPorts: previousPorts, newPorts: scanned)
             }
 
             // Always update watcher state to keep transition baseline accurate.
@@ -52,6 +53,7 @@ extension AppState {
     /// Kills the process using the specified port.
     func killPort(_ port: PortInfo) async {
         if await scanner.killProcessGracefully(pid: port.pid) {
+            WebhookService.shared.send(event: .portKilled, port: port)
             ports.removeAll { $0.id == port.id }
             await refresh()
         }
@@ -60,7 +62,10 @@ extension AppState {
     /// Kills the listening process and all processes with ESTABLISHED connections to the port.
     func killPortDeep(_ port: PortInfo) async {
         // 1. Kill the listener
-        _ = await scanner.killProcessGracefully(pid: port.pid)
+        let killed = await scanner.killProcessGracefully(pid: port.pid)
+        if killed {
+            WebhookService.shared.send(event: .portKilled, port: port)
+        }
 
         // 2. Find and kill ESTABLISHED connections
         let establishedPids = await scanner.findEstablishedPids(for: port.port)

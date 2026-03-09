@@ -23,6 +23,10 @@ extension Defaults.Keys {
     // Process type notification filters (rawValues of enabled types, empty = disabled)
     static let notifyProcessTypes = Key<Set<String>>("notifyProcessTypes", default: [])
 
+    // Webhook configuration
+    static let webhookURL = Key<String>("webhookURL", default: "")
+    static let webhookEvents = Key<Set<WebhookEvent>>("webhookEvents", default: Set(WebhookEvent.allCases))
+
     // Kubernetes-related keys
     static let customNamespaces = Key<[String]>("customNamespaces", default: [])
 
