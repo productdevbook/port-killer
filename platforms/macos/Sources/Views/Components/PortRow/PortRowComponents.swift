@@ -24,18 +24,30 @@ struct PortStatusIndicator: View {
 
 // MARK: - Port Number Display
 
-/// Displays port number in monospaced font
+/// Displays port number in monospaced font with optional custom label
 struct PortNumberDisplay: View {
     let port: Int
     let isActive: Bool
     var font: Font = .system(.body, design: .monospaced)
     var fontWeight: Font.Weight = .medium
+    var showLabel: Bool = true
+
+    @Environment(AppState.self) private var appState
 
     var body: some View {
-        Text(String(port))
-            .font(font)
-            .fontWeight(fontWeight)
-            .opacity(isActive ? 1 : 0.6)
+        HStack(spacing: 4) {
+            Text(String(port))
+                .font(font)
+                .fontWeight(fontWeight)
+                .opacity(isActive ? 1 : 0.6)
+
+            if showLabel, let label = appState.portLabel(for: port) {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .lineLimit(1)
+            }
+        }
     }
 }
 

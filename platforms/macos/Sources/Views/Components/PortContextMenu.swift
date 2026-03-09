@@ -105,6 +105,25 @@ struct PortContextMenu: View {
                 systemImage: appState.isWatching(port.port) ? "eye.slash" : "eye"
             )
         }
+
+        Divider()
+
+        Button {
+            appState.promptForPortLabel(port: port.port)
+        } label: {
+            Label(
+                appState.portLabel(for: port.port) != nil ? "Edit Label" : "Set Label",
+                systemImage: "pencil"
+            )
+        }
+
+        if appState.portLabel(for: port.port) != nil {
+            Button {
+                appState.removePortLabel(for: port.port)
+            } label: {
+                Label("Remove Label", systemImage: "pencil.slash")
+            }
+        }
     }
 
     @ViewBuilder

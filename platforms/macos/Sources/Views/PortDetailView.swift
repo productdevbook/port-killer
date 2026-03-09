@@ -66,9 +66,19 @@ struct PortDetailView: View {
                         .fontWeight(.semibold)
                         .lineLimit(1)
 
-                    Text("Port \(String(port.port))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text("Port \(String(port.port))")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        if let label = appState.portLabel(for: port.port) {
+                            Text("·")
+                                .foregroundStyle(.secondary)
+                            Text(label)
+                                .font(.subheadline)
+                                .foregroundStyle(.orange)
+                        }
+                    }
                 }
 
                 Spacer()
@@ -120,6 +130,7 @@ struct PortDetailView: View {
             GridItem(.flexible())
         ], alignment: .leading, spacing: 16) {
             DetailRow(title: "Port", value: String(port.port))
+            DetailRow(title: "Label", value: appState.portLabel(for: port.port) ?? "—")
             DetailRow(title: "PID", value: String(port.pid))
             DetailRow(title: "Address", value: port.address)
             DetailRow(title: "User", value: port.user)

@@ -256,11 +256,19 @@ struct PortRowView: View {
             .frame(width: 100, alignment: .leading)
             .opacity(isKilling ? 0.5 : 1)
 
-            // Process name
-            Text(port.processName)
-                .font(.callout)
-                .lineLimit(1)
-                .opacity(isKilling ? 0.5 : 1)
+            // Process name + label
+            HStack(spacing: 4) {
+                Text(port.processName)
+                    .font(.callout)
+                    .lineLimit(1)
+                if let label = appState.portLabel(for: port.port) {
+                    Text("(\(label))")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                }
+            }
+            .opacity(isKilling ? 0.5 : 1)
 
             Spacer()
 
