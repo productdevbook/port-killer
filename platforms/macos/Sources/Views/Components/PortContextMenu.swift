@@ -58,6 +58,12 @@ struct PortContextMenu: View {
                 copySection
             }
 
+            // Process Type Override
+            if port.isActive {
+                Divider()
+                processTypeSection
+            }
+
             // Kill Action
             if options.includeKillAction && port.isActive {
                 Divider()
@@ -98,6 +104,35 @@ struct PortContextMenu: View {
                 appState.isWatching(port.port) ? "Stop Watching" : "Watch Port",
                 systemImage: appState.isWatching(port.port) ? "eye.slash" : "eye"
             )
+        }
+    }
+
+    @ViewBuilder
+    private var processTypeSection: some View {
+        Menu {
+            ForEach(ProcessType.allCases) { type in
+                Button {
+                    appState.setProcessTypeOverride(processName: port.processName, type: type)
+                } label: {
+                    HStack {
+                        Label(type.rawValue, systemImage: type.icon)
+                        if port.processType == type {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+
+            if appState.processTypeOverride(for: port.processName) != nil {
+                Divider()
+                Button {
+                    appState.clearProcessTypeOverride(processName: port.processName)
+                } label: {
+                    Label("Reset to Auto", systemImage: "arrow.counterclockwise")
+                }
+            }
+        } label: {
+            Label("Set Process Type", systemImage: "tag")
         }
     }
 

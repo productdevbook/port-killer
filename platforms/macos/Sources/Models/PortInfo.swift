@@ -8,6 +8,7 @@
  */
 
 import Foundation
+import Defaults
 
 /// Information about a network port and its associated process
 ///
@@ -78,7 +79,16 @@ struct PortInfo: Identifiable, Hashable, Sendable {
     ///   - fd: File descriptor information
     /// - Returns: An active PortInfo instance
     static func active(port: Int, pid: Int, processName: String, address: String, user: String, command: String, fd: String) -> PortInfo {
-        PortInfo(
+        // Check for user-defined process type override first
+        let processType: ProcessType
+        if let overrideRaw = Defaults[.processTypeOverrides][processName],
+           let overrideType = ProcessType(rawValue: overrideRaw) {
+            processType = overrideType
+        } else {
+            processType = ProcessType.detect(from: processName)
+        }
+
+        return PortInfo(
             port: port,
             pid: pid,
             processName: processName,
@@ -87,7 +97,7 @@ struct PortInfo: Identifiable, Hashable, Sendable {
             command: command,
             fd: fd,
             isActive: true,
-            processType: ProcessType.detect(from: processName)
+            processType: processType
         )
     }
 }

@@ -14,6 +14,9 @@ extension Defaults.Keys {
     static let refreshInterval = Key<Int>("refreshInterval", default: 5)
     static let cloudflaredProtocol = Key<CloudflaredProtocol>("cloudflaredProtocol", default: .http2)
 
+    // Process type overrides (processName → ProcessType.rawValue)
+    static let processTypeOverrides = Key<[String: String]>("processTypeOverrides", default: [:])
+
     // Kubernetes-related keys
     static let customNamespaces = Key<[String]>("customNamespaces", default: [])
 
