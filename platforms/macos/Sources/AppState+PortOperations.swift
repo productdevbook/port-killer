@@ -27,6 +27,10 @@ extension AppState {
 
             // Always update watcher state to keep transition baseline accurate.
             checkWatchedPorts()
+
+            // Check auto-kill rules
+            checkAutoKillRules()
+
             isScanning = false
         } while hasPendingRefreshRequest
 

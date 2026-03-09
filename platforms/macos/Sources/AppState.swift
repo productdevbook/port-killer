@@ -23,6 +23,9 @@ extension Defaults.Keys {
     // Process type notification filters (rawValues of enabled types, empty = disabled)
     static let notifyProcessTypes = Key<Set<String>>("notifyProcessTypes", default: [])
 
+    // Auto-kill rules
+    static let autoKillRules = Key<[AutoKillRule]>("autoKillRules", default: [])
+
     // Kubernetes-related keys
     static let customNamespaces = Key<[String]>("customNamespaces", default: [])
 

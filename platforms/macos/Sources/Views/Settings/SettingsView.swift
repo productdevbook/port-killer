@@ -36,6 +36,9 @@ struct SettingsView: View {
                 // MARK: - Port Forwarding
                 PortForwardingSettingsSection()
 
+                // MARK: - Auto-Kill Rules
+                AutoKillSettingsSection()
+
                 // MARK: - Notifications
                 NotificationsSettingsSection()
 
