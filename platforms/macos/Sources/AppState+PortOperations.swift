@@ -16,8 +16,14 @@ extension AppState {
             isScanning = true
 
             let scanned = await scanner.scanPorts()
+            let previousPorts = ports
             let didChange = updatePorts(scanned)
             didChangeAny = didChangeAny || didChange
+
+            // Check process type notifications for newly appeared ports
+            if didChange {
+                checkProcessTypeNotifications(oldPorts: previousPorts, newPorts: scanned)
+            }
 
             // Always update watcher state to keep transition baseline accurate.
             checkWatchedPorts()
