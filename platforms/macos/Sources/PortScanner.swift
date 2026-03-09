@@ -194,12 +194,10 @@ actor PortScanner: PortScannerProtocol {
             let components = line.split(separator: " ", omittingEmptySubsequences: true)
             guard components.count >= 9 else { continue }
 
-            // Extract process name and handle escaped characters
-            // lsof escapes special characters: "Code Helper" → "Code\x20Helper"
-            var processName = String(components[0])
-            processName = processName
-                .replacingOccurrences(of: "\\x20", with: " ")  // Space
-                .replacingOccurrences(of: "\\x2f", with: "/")  // Slash
+            // Extract process name and decode all hex escape sequences from lsof
+            // lsof escapes special/non-ASCII characters as \xHH sequences
+            // e.g., "Code\x20Helper", "\xe4\xbc\x81\xe4\xb8\x9a" (企业)
+            let processName = Self.decodeLsofEscapes(String(components[0]))
 
             guard let pid = Int(components[1]) else { continue }
 
@@ -291,6 +289,50 @@ actor PortScanner: PortScannerProtocol {
             command: command,
             fd: fd
         )
+    }
+
+    /**
+     * Decodes lsof hex escape sequences (\xHH) into proper characters.
+     *
+     * lsof escapes non-ASCII bytes and some special characters as \xHH sequences.
+     * This method collects all escaped bytes and decodes them as UTF-8, which
+     * correctly handles multi-byte characters like Chinese (e.g., \xe4\xbc\x81 → 企).
+     */
+    nonisolated static func decodeLsofEscapes(_ input: String) -> String {
+        var result = ""
+        var pendingBytes: [UInt8] = []
+        var i = input.startIndex
+
+        while i < input.endIndex {
+            // Check for \xHH pattern
+            if input[i] == "\\" {
+                let next = input.index(after: i)
+                if next < input.endIndex, input[next] == "x" {
+                    let hexStart = input.index(after: next)
+                    let hexEnd = input.index(hexStart, offsetBy: 2, limitedBy: input.endIndex)
+                    if let hexEnd, let byte = UInt8(input[hexStart..<hexEnd], radix: 16) {
+                        pendingBytes.append(byte)
+                        i = hexEnd
+                        continue
+                    }
+                }
+            }
+
+            // Flush any pending bytes as UTF-8 before appending a literal character
+            if !pendingBytes.isEmpty {
+                result += String(decoding: pendingBytes, as: UTF8.self)
+                pendingBytes.removeAll()
+            }
+            result.append(input[i])
+            i = input.index(after: i)
+        }
+
+        // Flush remaining bytes
+        if !pendingBytes.isEmpty {
+            result += String(decoding: pendingBytes, as: UTF8.self)
+        }
+
+        return result
     }
 
     /**
