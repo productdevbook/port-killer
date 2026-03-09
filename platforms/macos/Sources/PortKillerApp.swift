@@ -64,6 +64,7 @@ struct PortKillerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var state = AppState()
     @State private var sponsorManager = SponsorManager()
+    @State private var showOnboarding = !Defaults[.hasCompletedOnboarding]
     @Environment(\.openWindow) private var openWindow
 
     init() {
@@ -77,6 +78,9 @@ struct PortKillerApp: App {
             MainWindowView()
                 .environment(state)
                 .environment(sponsorManager)
+                .sheet(isPresented: $showOnboarding) {
+                    OnboardingView()
+                }
                 .task {
                     // Pass state to AppDelegate for termination handling
                     appDelegate.appState = state

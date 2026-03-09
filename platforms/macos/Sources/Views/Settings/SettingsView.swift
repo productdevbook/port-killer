@@ -180,6 +180,15 @@ struct SettingsView: View {
                         SettingsLinkRow(title: "Report Issue", subtitle: "Found a bug?", icon: "ladybug.fill", url: AppInfo.githubIssues)
                         SettingsDivider()
                         SettingsLinkRow(title: "Twitter/X", subtitle: "@productdevbook", icon: "at", url: AppInfo.twitterURL)
+                        SettingsDivider()
+                        SettingsButtonRow(
+                            title: "Show Welcome Screen",
+                            subtitle: "Replay the onboarding wizard",
+                            icon: "hand.wave.fill",
+                            action: {
+                                Defaults[.hasCompletedOnboarding] = false
+                            }
+                        )
                     }
                 }
             }

@@ -26,6 +26,9 @@ extension Defaults.Keys {
     // Kubernetes-related keys
     static let customNamespaces = Key<[String]>("customNamespaces", default: [])
 
+    // Onboarding
+    static let hasCompletedOnboarding = Key<Bool>("hasCompletedOnboarding", default: false)
+
     // Sponsor-related keys
     static let sponsorCache = Key<SponsorCache?>("sponsorCache", default: nil)
     static let lastSponsorWindowShown = Key<Date?>("lastSponsorWindowShown", default: nil)
