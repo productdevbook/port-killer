@@ -25,4 +25,9 @@ protocol PortScannerProtocol: Sendable {
     /// - Parameter pid: Process ID to kill
     /// - Returns: True if the process was successfully killed
     func killProcessGracefully(pid: Int) async -> Bool
+
+    /// Finds PIDs of processes with ESTABLISHED connections to a port
+    /// - Parameter port: Port number to check
+    /// - Returns: Set of PIDs with established connections (excludes the listener)
+    func findEstablishedPids(for port: Int) async -> Set<Int>
 }

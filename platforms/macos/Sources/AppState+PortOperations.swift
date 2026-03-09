@@ -57,6 +57,21 @@ extension AppState {
         }
     }
 
+    /// Kills the listening process and all processes with ESTABLISHED connections to the port.
+    func killPortDeep(_ port: PortInfo) async {
+        // 1. Kill the listener
+        _ = await scanner.killProcessGracefully(pid: port.pid)
+
+        // 2. Find and kill ESTABLISHED connections
+        let establishedPids = await scanner.findEstablishedPids(for: port.port)
+        for pid in establishedPids where pid != port.pid {
+            _ = await scanner.killProcessGracefully(pid: pid)
+        }
+
+        ports.removeAll { $0.id == port.id }
+        await refresh()
+    }
+
     /// Kills all processes currently using ports.
     func killAll() async {
         for port in ports {

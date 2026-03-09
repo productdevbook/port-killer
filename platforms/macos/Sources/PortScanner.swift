@@ -377,4 +377,48 @@ actor PortScanner: PortScannerProtocol {
         // Force kill with SIGKILL (immediate termination)
         return await killProcess(pid: pid, force: true)
     }
+
+    /**
+     * Finds PIDs of processes with ESTABLISHED connections to a specific port.
+     *
+     * Executes: `lsof -iTCP:<port> -sTCP:ESTABLISHED -P -n +c 0`
+     *
+     * Used for "deep kill" to also terminate client connections that remain
+     * after the listening process is killed.
+     *
+     * @param port - The port number to check for established connections
+     * @returns Set of PIDs with established connections
+     */
+    func findEstablishedPids(for port: Int) async -> Set<Int> {
+        let output: String = autoreleasepool {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+            process.arguments = ["-iTCP:\(port)", "-sTCP:ESTABLISHED", "-P", "-n", "+c", "0"]
+
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
+
+            do {
+                try process.run()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                return String(data: data, encoding: .utf8) ?? ""
+            } catch {
+                return ""
+            }
+        }
+
+        guard !output.isEmpty else { return [] }
+
+        var pids = Set<Int>()
+        let lines = output.split(separator: "\n", omittingEmptySubsequences: false)
+        for line in lines.dropFirst() {
+            guard !line.isEmpty else { continue }
+            let components = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard components.count >= 2, let pid = Int(components[1]) else { continue }
+            pids.insert(pid)
+        }
+        return pids
+    }
 }

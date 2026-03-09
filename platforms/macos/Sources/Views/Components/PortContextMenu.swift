@@ -186,6 +186,14 @@ struct PortContextMenu: View {
             Label("Kill Process", systemImage: "xmark.circle")
         }
         .keyboardShortcut(.delete, modifiers: [])
+
+        Button(role: .destructive) {
+            Task {
+                await appState.killPortDeep(port)
+            }
+        } label: {
+            Label("Deep Kill (+ Connections)", systemImage: "xmark.circle.fill")
+        }
     }
 
     @ViewBuilder

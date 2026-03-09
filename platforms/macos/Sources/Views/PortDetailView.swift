@@ -42,6 +42,11 @@ struct PortDetailView: View {
                     await appState.killPort(port)
                 }
             }
+            Button("Deep Kill (+ Connections)", role: .destructive) {
+                Task {
+                    await appState.killPortDeep(port)
+                }
+            }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to kill \(port.processName) on port \(String(port.port))?")
