@@ -20,6 +20,9 @@ extension Defaults.Keys {
     // Port labels (port number string → custom name)
     static let portLabels = Key<[String: String]>("portLabels", default: [:])
 
+    // Process type notification filters (rawValues of enabled types, empty = disabled)
+    static let notifyProcessTypes = Key<Set<String>>("notifyProcessTypes", default: [])
+
     // Kubernetes-related keys
     static let customNamespaces = Key<[String]>("customNamespaces", default: [])
 

@@ -36,6 +36,9 @@ struct SettingsView: View {
                 // MARK: - Port Forwarding
                 PortForwardingSettingsSection()
 
+                // MARK: - Notifications
+                NotificationsSettingsSection()
+
                 // MARK: - Cloudflare Tunnels
                 CloudflaredSettingsSection()
 
