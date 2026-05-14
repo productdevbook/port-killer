@@ -18,19 +18,35 @@ struct MenuBarPortList: View {
     @Binding var confirmingKillPort: String?
     @Bindable var state: AppState
 
+    /// Named tunnels worth showing in the menu bar: currently running + any with
+    /// local ingress (the ones the user likely wants quick access to). Filters out
+    /// dashboard-managed prod tunnels to avoid clutter.
+    private var menuBarNamedTunnels: [NamedCloudflareTunnel] {
+        state.namedTunnelManager.tunnels.filter { tunnel in
+            tunnel.status == .running ||
+            tunnel.status == .starting ||
+            tunnel.runSafety == .safe
+        }
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // Active Cloudflare Tunnels
-                if !state.tunnelManager.tunnels.isEmpty {
-                    sectionHeader("Cloudflare Tunnels", icon: "cloud.fill", color: .orange)
+                // Local ports first — port killing is the app's primary job, so this
+                // is where the user's eye should land. Networking sections live below.
+                if filteredPorts.isEmpty && filteredPortForwardConnections.isEmpty && state.tunnelManager.tunnels.isEmpty && menuBarNamedTunnels.isEmpty {
+                    emptyState
+                } else if !filteredPorts.isEmpty {
+                    sectionHeader("Local Ports", icon: "network", color: .green)
 
-                    ForEach(state.tunnelManager.tunnels) { tunnel in
-                        MenuBarTunnelRow(tunnel: tunnel, state: state)
+                    if useTreeView {
+                        treeView
+                    } else {
+                        listView
                     }
                 }
 
-                // Port Forward connections grouped by namespace
+                // K8s Port Forward connections grouped by namespace
                 if !filteredPortForwardConnections.isEmpty {
                     sectionHeader("K8s Port Forward", icon: "point.3.connected.trianglepath.dotted", color: .blue)
 
@@ -42,16 +58,22 @@ struct MenuBarPortList: View {
                     }
                 }
 
-                // Normal ports
-                if filteredPorts.isEmpty && filteredPortForwardConnections.isEmpty && state.tunnelManager.tunnels.isEmpty {
-                    emptyState
-                } else if !filteredPorts.isEmpty {
-                    sectionHeader("Local Ports", icon: "network", color: .green)
+                // Active Quick Tunnels (port-derived)
+                if !state.tunnelManager.tunnels.isEmpty {
+                    sectionHeader("Quick Tunnels", icon: "bolt.fill", color: .yellow)
 
-                    if useTreeView {
-                        treeView
-                    } else {
-                        listView
+                    ForEach(state.tunnelManager.tunnels) { tunnel in
+                        MenuBarTunnelRow(tunnel: tunnel, state: state)
+                    }
+                }
+
+                // Named (persistent) Cloudflare Tunnels — at the bottom: a tunnel
+                // runner is the least-frequent quick action versus inspecting/killing ports.
+                if !menuBarNamedTunnels.isEmpty {
+                    sectionHeader("My Tunnels", icon: "cloud.fill", color: .orange)
+
+                    ForEach(menuBarNamedTunnels) { tunnel in
+                        MenuBarNamedTunnelRow(tunnel: tunnel, state: state)
                     }
                 }
             }

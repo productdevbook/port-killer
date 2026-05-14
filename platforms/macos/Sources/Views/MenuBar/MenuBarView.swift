@@ -140,7 +140,10 @@ struct MenuBarView: View {
             )
         }
         .frame(width: 340)
-        .onAppear { updateCachedData() }
+        .onAppear {
+            updateCachedData()
+            state.namedTunnelManager.discoverIfNeeded()
+        }
         .onChange(of: state.ports) { _, _ in updateCachedData() }
         .onChange(of: searchText) { _, _ in updateCachedData() }
         .onChange(of: hideSystemProcesses) { _, _ in updateCachedData() }

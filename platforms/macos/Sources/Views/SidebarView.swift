@@ -168,14 +168,15 @@ struct SidebarView: View {
                 Text("Cloudflare Tunnels")
                 Spacer()
 
-                // Status indicator
-                if appState.tunnelManager.activeTunnelCount > 0 {
+                let activeCount = appState.tunnelManager.activeTunnelCount + appState.namedTunnelManager.runningCount
+                if activeCount > 0 {
                     Circle()
                         .fill(Color.green)
                         .frame(width: 8, height: 8)
                 }
 
-                Text("\(appState.tunnelManager.tunnels.count)")
+                let totalCount = appState.tunnelManager.tunnels.count + appState.namedTunnelManager.tunnels.count
+                Text("\(totalCount)")
                     .foregroundStyle(.secondary)
                     .font(.caption)
                     .frame(minWidth: 20)
