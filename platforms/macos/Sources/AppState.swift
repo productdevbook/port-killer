@@ -88,6 +88,15 @@ final class AppState {
     /// ID of the currently selected port-forward connection
     var selectedPortForwardConnectionId: UUID? = nil
 
+    /// Tunnel UUID of the currently selected named tunnel (for the right-pane detail view).
+    var selectedNamedTunnelID: String? = nil
+
+    /// The currently selected named tunnel, if any.
+    var selectedNamedTunnel: NamedCloudflareTunnel? {
+        guard let id = selectedNamedTunnelID else { return nil }
+        return namedTunnelManager.tunnels.first { $0.tunnelID == id }
+    }
+
     /// The currently selected port-forward connection, if any
     var selectedPortForwardConnection: PortForwardConnectionState? {
         guard let id = selectedPortForwardConnectionId else { return nil }
@@ -210,8 +219,11 @@ final class AppState {
     /// Manages Kubernetes port-forward connections
     let portForwardManager = PortForwardManager()
 
-    /// Manages Cloudflare tunnel connections
-    let tunnelManager = TunnelManager()
+    /// Manages Cloudflare Quick Tunnel connections (ephemeral `*.trycloudflare.com`)
+    let tunnelManager: TunnelManager
+
+    /// Manages persistent (named) Cloudflare tunnels discovered from `~/.cloudflared/`
+    let namedTunnelManager: NamedTunnelManager
 
     // MARK: - Internal Properties (for extensions)
 
@@ -233,6 +245,10 @@ final class AppState {
         self.scanner = scanner
         self.favoritesState = favoritesState ?? FavoritesState()
         self.watchedPortsState = watchedPortsState ?? WatchedPortsState()
+
+        let cloudflared = CloudflaredService()
+        self.tunnelManager = TunnelManager(cloudflaredService: cloudflared)
+        self.namedTunnelManager = NamedTunnelManager(cloudflaredService: cloudflared)
 
         setupKeyboardShortcuts()
         startAutoRefresh()
