@@ -16,6 +16,12 @@ struct PortDetailView: View {
                 // Details Grid
                 detailsGrid
 
+                // Tunnel exposures (only shown when ≥1 named tunnel maps to this port)
+                if !exposures.isEmpty {
+                    Divider()
+                    exposuresSection
+                }
+
                 Divider()
 
                 // Command
@@ -141,6 +147,63 @@ struct PortDetailView: View {
             DetailRow(title: "User", value: port.user)
             DetailRow(title: "File Descriptor", value: port.fd)
             DetailRow(title: "Type", value: port.processType.rawValue)
+        }
+    }
+
+    private var exposures: [PortExposure] {
+        guard port.isActive else { return [] }
+        return appState.namedTunnelManager.exposures(for: port.port)
+    }
+
+    private var exposuresSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "globe").foregroundStyle(.orange)
+                Text("Exposed via Cloudflare Tunnel")
+                    .font(.headline)
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(exposures, id: \.publicURL) { exposure in
+                    HStack(spacing: 8) {
+                        Button {
+                            if let url = URL(string: exposure.publicURL) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(exposure.publicURL)
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundStyle(.blue)
+                                Image(systemName: "arrow.up.forward.app")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+
+                        Text(exposure.tunnelName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Button {
+                            ClipboardService.copy(exposure.publicURL)
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Copy URL")
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
         }
     }
 

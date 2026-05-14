@@ -78,9 +78,14 @@ struct PortRowView: View {
             PortStatusIndicator(isActive: port.isActive)
                 .padding(.trailing, 8)
 
-            // Port
-            PortNumberDisplay(port: port.port, isActive: port.isActive)
-                .frame(width: 70, alignment: .leading)
+            // Port + exposure indicator
+            HStack(spacing: 4) {
+                PortNumberDisplay(port: port.port, isActive: port.isActive)
+                if port.isActive {
+                    TunnelExposureBadge(port: port.port)
+                }
+            }
+            .frame(width: 90, alignment: .leading)
 
             // Process
             PortProcessInfo(
@@ -253,8 +258,9 @@ struct PortRowView: View {
                         .font(.caption2)
                         .foregroundStyle(.blue)
                 }
+                TunnelExposureBadge(port: port.port, compact: true)
             }
-            .frame(width: 100, alignment: .leading)
+            .frame(width: 110, alignment: .leading)
             .opacity(isKilling ? 0.5 : 1)
 
             // Process name + label
