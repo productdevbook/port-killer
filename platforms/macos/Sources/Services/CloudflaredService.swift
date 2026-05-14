@@ -93,6 +93,30 @@ actor CloudflaredService {
         return process
     }
 
+    /// Start `cloudflared tunnel run <name>` for a persistent named tunnel.
+    /// `--metrics 127.0.0.1:0` lets cloudflared pick a free port for its metrics
+    /// endpoint instead of contending with whatever the user already has on :20241.
+    func runNamedTunnel(id: UUID, tunnelName: String) throws -> Process {
+        guard let cloudflaredPath = cloudflaredPath else {
+            throw CloudflaredError.notInstalled
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: cloudflaredPath)
+        process.arguments = ["tunnel", "--metrics", "127.0.0.1:0", "run", tunnelName]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        try process.run()
+        processes[id] = process
+
+        startReadingOutput(pipe: pipe, id: id)
+
+        return process
+    }
+
     func stopTunnel(id: UUID) async {
         // Cancel output reading task
         outputTasks[id]?.cancel()
