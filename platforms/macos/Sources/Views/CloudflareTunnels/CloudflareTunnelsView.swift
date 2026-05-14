@@ -1,57 +1,90 @@
 import SwiftUI
 
+// MARK: - Cloudflare Tunnels View
+
+/// List pane for the Cloudflare Tunnels sidebar item.
+/// Composed of the named (persistent) tunnels list and, when present, a Quick
+/// Tunnels strip below. Detail for the selected tunnel renders in the right
+/// pane via `NamedTunnelDetailView` (wired in `MainWindowView`).
 struct CloudflareTunnelsView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             header
 
             Divider()
 
-            // Dependency warning banner
             if !appState.tunnelManager.isCloudflaredInstalled {
                 CloudflaredMissingBanner()
                 Divider()
             }
 
-            // Content
-            if appState.tunnelManager.tunnels.isEmpty {
-                emptyState
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                tunnelsList
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    NamedTunnelsSection()
+
+                    if !appState.tunnelManager.tunnels.isEmpty {
+                        quickTunnelsSection
+                    }
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Divider()
 
-            // Status bar
             statusBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            appState.namedTunnelManager.startRefreshing()
+        }
+        .onDisappear {
+            appState.namedTunnelManager.stopRefreshing()
+        }
     }
 
     // MARK: - Header
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 8) {
             Text("Cloudflare Tunnels")
                 .font(.headline)
 
             Spacer()
 
-            if appState.tunnelManager.tunnels.count > 0 {
-                Button {
-                    Task {
-                        await appState.tunnelManager.stopAllTunnels()
+            Button {
+                appState.namedTunnelManager.discover(force: true)
+            } label: {
+                if appState.namedTunnelManager.isDiscovering {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+            .buttonStyle(.borderless)
+            .help("Refresh tunnel list")
+            .disabled(appState.namedTunnelManager.isDiscovering)
+
+            if appState.namedTunnelManager.runningCount > 0 || appState.tunnelManager.activeTunnelCount > 0 {
+                Menu {
+                    if appState.namedTunnelManager.runningCount > 0 {
+                        Button(role: .destructive) {
+                            Task { await appState.namedTunnelManager.stopAll() }
+                        } label: { Label("Stop All My Tunnels", systemImage: "stop.fill") }
+                    }
+                    if appState.tunnelManager.activeTunnelCount > 0 {
+                        Button(role: .destructive) {
+                            Task { await appState.tunnelManager.stopAllTunnels() }
+                        } label: { Label("Stop All Quick Tunnels", systemImage: "stop.fill") }
                     }
                 } label: {
-                    Label("Stop All", systemImage: "stop.fill")
+                    Image(systemName: "ellipsis.circle")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("More actions")
             }
         }
         .padding(.horizontal, 12)
@@ -59,38 +92,22 @@ struct CloudflareTunnelsView: View {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    // MARK: - Empty State
-
-    private var emptyState: some View {
-        ContentUnavailableView {
-            Label("No Active Tunnels", systemImage: "cloud")
-        } description: {
-            Text("Share a port via tunnel from the port list to create a public URL")
-        }
-    }
-
-    // MARK: - Tunnels List
-
-    private var tunnelsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(appState.tunnelManager.tunnels) { tunnel in
-                    CloudflareTunnelRow(tunnel: tunnel)
-                    Divider()
-                }
-            }
-        }
+    private func statusSummary(running: Int, quick: Int) -> String {
+        var parts: [String] = []
+        if running > 0 { parts.append("\(running) running") }
+        if quick > 0 { parts.append("\(quick) quick") }
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - Status Bar
 
     private var statusBar: some View {
-        HStack {
-            if appState.tunnelManager.activeTunnelCount > 0 {
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 8, height: 8)
-                Text("\(appState.tunnelManager.activeTunnelCount) active tunnel(s)")
+        let running = appState.namedTunnelManager.runningCount
+        let quick = appState.tunnelManager.activeTunnelCount
+        return HStack(spacing: 12) {
+            if running > 0 || quick > 0 {
+                Circle().fill(Color.green).frame(width: 8, height: 8)
+                Text(statusSummary(running: running, quick: quick))
             } else {
                 Text("No active tunnels")
             }
@@ -109,9 +126,33 @@ struct CloudflareTunnelsView: View {
         .padding(.vertical, 8)
         .background(Color(nsColor: .windowBackgroundColor))
     }
+
+    // MARK: - Quick Tunnels Section
+
+    @ViewBuilder
+    private var quickTunnelsSection: some View {
+        HStack(spacing: 6) {
+            Text("Quick Tunnels")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            Text("\(appState.tunnelManager.tunnels.count)")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.tertiary)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
+
+        ForEach(appState.tunnelManager.tunnels) { tunnel in
+            CloudflareTunnelRow(tunnel: tunnel)
+            Divider().padding(.leading, 32)
+        }
+    }
 }
 
-// MARK: - Tunnel Row
+// MARK: - Quick Tunnel Row
 
 struct CloudflareTunnelRow: View {
     let tunnel: CloudflareTunnelState
@@ -188,48 +229,33 @@ struct CloudflareTunnelRow: View {
             }
         }
         .background(isHovered ? Color.primary.opacity(0.05) : Color.clear)
-        .onHover { hovering in
-            isHovered = hovering
-        }
+        .onHover { isHovered = $0 }
         .contextMenu {
             if tunnel.status == .active, let url = tunnel.tunnelURL {
                 Button {
                     ClipboardService.copy(url)
-                } label: {
-                    Label("Copy URL", systemImage: "doc.on.doc")
-                }
-
+                } label: { Label("Copy URL", systemImage: "doc.on.doc") }
                 Button {
                     if let tunnelURL = URL(string: url) {
                         NSWorkspace.shared.open(tunnelURL)
                     }
-                } label: {
-                    Label("Open in Browser", systemImage: "globe")
-                }
-
+                } label: { Label("Open in Browser", systemImage: "globe") }
                 Divider()
             }
-
             Button {
                 showLogs.toggle()
-            } label: {
-                Label(showLogs ? "Hide Logs" : "Show Logs", systemImage: "doc.text")
-            }
-
+            } label: { Label(showLogs ? "Hide Logs" : "Show Logs", systemImage: "doc.text") }
             Divider()
-
             Button(role: .destructive) {
                 appState.tunnelManager.stopTunnel(id: tunnel.id)
-            } label: {
-                Label("Stop Tunnel", systemImage: "stop.fill")
-            }
+            } label: { Label("Stop Tunnel", systemImage: "stop.fill") }
         }
     }
 
     private var statusIndicator: some View {
         Circle()
             .fill(statusColor)
-            .frame(width: 10, height: 10)
+            .frame(width: 8, height: 8)
     }
 
     private var statusColor: Color {
