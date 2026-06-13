@@ -75,8 +75,33 @@ final class NamedTunnelManager {
         discoveryService.isLoggedIn
     }
 
+    /// Local port → public exposures, across currently running tunnels.
+    ///
+    /// Built once and reused, so the per-port-row lookups in the All Ports list
+    /// (each calling `exposures(for:)`) don't each re-scan every tunnel's rules.
+    /// `@Observable` tracks the `tunnels` access, so SwiftUI still recomputes this
+    /// when tunnel state changes.
+    var exposuresByPort: [Int: [PortExposure]] {
+        var result: [Int: [PortExposure]] = [:]
+        for tunnel in tunnels where tunnel.status == .running {
+            for rule in tunnel.ingressRules {
+                guard let localPort = rule.localPort,
+                      let hostname = rule.hostname,
+                      let publicURL = rule.publicURL else { continue }
+                result[localPort, default: []].append(PortExposure(
+                    hostname: hostname,
+                    publicURL: publicURL,
+                    tunnelName: tunnel.name,
+                    tunnelID: tunnel.tunnelID
+                ))
+            }
+        }
+        return result
+    }
+
     /// All public hostnames exposed for a given local port across currently running tunnels.
     /// Returns an empty array if no running tunnel maps to that port.
+    /// For bulk lookups across many ports, prefer reading `exposuresByPort` once.
     func exposures(for localPort: Int) -> [PortExposure] {
         var result: [PortExposure] = []
         for tunnel in tunnels where tunnel.status == .running {
@@ -128,11 +153,18 @@ final class NamedTunnelManager {
             if let existing = existingByID[d.tunnelID] {
                 tunnel = existing
                 tunnel.credentialsPath = d.credentialsPath
-                tunnel.edgeConnections = d.edgeConnections
-                // Only overwrite ingress from config.yml if we haven't picked up a runtime version.
-                if tunnel.ingressSource != .runtimeLog, !d.localIngress.isEmpty {
-                    tunnel.ingressRules = d.localIngress
-                    tunnel.ingressSource = .localConfig
+                // While we're running the tunnel ourselves, the live connection state
+                // comes from log parsing (`activeConnectionCount`). Don't let a background
+                // `tunnel list` refresh clobber `edgeConnections` / ingress out from under
+                // a running or starting tunnel — leave its runtime-derived state intact.
+                let isLocallyActive = existing.status == .running || existing.status == .starting
+                if !isLocallyActive {
+                    tunnel.edgeConnections = d.edgeConnections
+                    // Only overwrite ingress from config.yml if we haven't picked up a runtime version.
+                    if tunnel.ingressSource != .runtimeLog, !d.localIngress.isEmpty {
+                        tunnel.ingressRules = d.localIngress
+                        tunnel.ingressSource = .localConfig
+                    }
                 }
             } else {
                 tunnel = NamedCloudflareTunnel(tunnelID: d.tunnelID, name: d.name, createdAt: d.createdAt)
