@@ -22,7 +22,7 @@ final class PortForwardManager {
     var isKillingProcesses = false
 
     var monitorTask: Task<Void, Never>?
-    let processManager = PortForwardProcessManager()
+    let processManager: PortForwardProcessManager
 
     var allConnected: Bool {
         guard !connections.isEmpty else { return false }
@@ -49,7 +49,8 @@ final class PortForwardManager {
         connections.firstIndex { $0.id == id }
     }
 
-    init() {
+    init(processManager: PortForwardProcessManager = PortForwardProcessManager()) {
+        self.processManager = processManager
         loadConnections()
     }
 
