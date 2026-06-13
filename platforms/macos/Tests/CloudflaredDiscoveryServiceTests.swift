@@ -58,4 +58,39 @@ struct CloudflaredDiscoveryServiceTests {
 
         #expect(rule.publicURL == "https://api.example.com")
     }
+
+    @Test("Handles comment-only lines, blank lines and tab indentation")
+    func handlesCommentsBlankLinesAndTabs() {
+        let service = CloudflaredDiscoveryService()
+        // Mixes a full-line comment, blank lines, and tab-indented ingress entries.
+        let config = "# top-level comment\n"
+            + "tunnel: dev-tunnel\n"
+            + "\n"
+            + "# ingress below\n"
+            + "ingress:\n"
+            + "\t- hostname: api.example.com\n"
+            + "\t  service: http://localhost:3000 # trailing comment\n"
+            + "\t- service: http_status:404\n"
+
+        let parsed = service.parseConfigYAML(config)
+
+        #expect(parsed?.tunnelRef == "dev-tunnel")
+        #expect(parsed?.ingress.count == 2)
+        #expect(parsed?.ingress[0].hostname == "api.example.com")
+        #expect(parsed?.ingress[0].service == "http://localhost:3000")
+        #expect(parsed?.ingress[1].hostname == nil)
+        #expect(parsed?.ingress[1].service == "http_status:404")
+    }
+
+    @Test("Returns nil when no tunnel reference is present")
+    func returnsNilWithoutTunnelRef() {
+        let service = CloudflaredDiscoveryService()
+        let config = """
+        ingress:
+          - hostname: api.example.com
+            service: http://localhost:3000
+        """
+
+        #expect(service.parseConfigYAML(config) == nil)
+    }
 }

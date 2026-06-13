@@ -116,27 +116,35 @@ actor CloudflaredDiscoveryService {
     // MARK: - Remote List
 
     private func runTunnelList(cloudflaredPath: String) async -> [RemoteTunnel]? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: cloudflaredPath)
-        process.arguments = ["--output", "json", "tunnel", "list"]
+        // `cloudflared tunnel list` is a network call that can take seconds. The
+        // blocking pipe-read + `waitUntilExit()` runs on a detached task so it does
+        // not tie up this actor's executor (and serialize all other discovery work).
+        let outData: Data? = await Task.detached(priority: .utility) {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: cloudflaredPath)
+            process.arguments = ["--output", "json", "tunnel", "list"]
 
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
+            let stdout = Pipe()
+            let stderr = Pipe()
+            process.standardOutput = stdout
+            process.standardError = stderr
 
-        do {
-            try process.run()
-        } catch {
-            return nil
-        }
+            do {
+                try process.run()
+            } catch {
+                return nil
+            }
 
-        // Read output before waiting to avoid pipe deadlock on large outputs.
-        let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-        _ = stderr.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
+            // Read output before waiting to avoid pipe deadlock on large outputs.
+            let data = stdout.fileHandleForReading.readDataToEndOfFile()
+            _ = stderr.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
 
-        guard process.terminationStatus == 0 else { return nil }
+            guard process.terminationStatus == 0 else { return nil }
+            return data
+        }.value
+
+        guard let outData else { return nil }
         return RemoteTunnel.parseList(outData)
     }
 
