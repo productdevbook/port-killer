@@ -11,29 +11,35 @@
     </linearGradient>
   </defs>
 
-  <!-- Background -->
-  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+  <!-- All artwork lives inside an 824x824 content box centered in the 1024 canvas
+       (100px transparent margin on every side), matching the macOS app-icon grid.
+       Without this margin the icon renders larger than its neighbors in the Dock
+       (issues #93, #19). -->
+  <g transform="translate(100, 100) scale(0.8046875)">
+    <!-- Background -->
+    <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
 
-  <!-- Plug body - scaled 1.6x and centered -->
-  <g transform="translate(512, 420) scale(1.6)">
-    <!-- Plug base -->
-    <rect x="-140" y="20" width="280" height="200" rx="30" fill="url(#plug)"/>
+    <!-- Plug body - scaled 1.6x and centered -->
+    <g transform="translate(512, 420) scale(1.6)">
+      <!-- Plug base -->
+      <rect x="-140" y="20" width="280" height="200" rx="30" fill="url(#plug)"/>
 
-    <!-- Plug prongs -->
-    <rect x="-100" y="-120" width="50" height="160" rx="12" fill="url(#plug)"/>
-    <rect x="50" y="-120" width="50" height="160" rx="12" fill="url(#plug)"/>
+      <!-- Plug prongs -->
+      <rect x="-100" y="-120" width="50" height="160" rx="12" fill="url(#plug)"/>
+      <rect x="50" y="-120" width="50" height="160" rx="12" fill="url(#plug)"/>
 
-    <!-- Ground prong -->
-    <rect x="-25" y="-80" width="50" height="120" rx="12" fill="url(#plug)"/>
+      <!-- Ground prong -->
+      <rect x="-25" y="-80" width="50" height="120" rx="12" fill="url(#plug)"/>
 
-    <!-- Cord -->
-    <path d="M 0 220 Q 0 300 -50 350 Q -100 400 -100 450"
-          stroke="url(#plug)" stroke-width="50" stroke-linecap="round" fill="none"/>
-  </g>
+      <!-- Cord -->
+      <path d="M 0 220 Q 0 300 -50 350 Q -100 400 -100 450"
+            stroke="url(#plug)" stroke-width="50" stroke-linecap="round" fill="none"/>
+    </g>
 
-  <!-- Kill X overlay - scaled 1.6x -->
-  <g transform="translate(512, 480) scale(1.6)">
-    <line x1="-180" y1="-180" x2="180" y2="180" stroke="#FFE066" stroke-width="80" stroke-linecap="round"/>
-    <line x1="180" y1="-180" x2="-180" y2="180" stroke="#FFE066" stroke-width="80" stroke-linecap="round"/>
+    <!-- Kill X overlay - scaled 1.6x -->
+    <g transform="translate(512, 480) scale(1.6)">
+      <line x1="-180" y1="-180" x2="180" y2="180" stroke="#FFE066" stroke-width="80" stroke-linecap="round"/>
+      <line x1="180" y1="-180" x2="-180" y2="180" stroke="#FFE066" stroke-width="80" stroke-linecap="round"/>
+    </g>
   </g>
 </svg>
