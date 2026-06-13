@@ -70,7 +70,8 @@ struct AddPortPopover: View {
         .frame(width: 280)
         .onAppear {
             // Make popover window key so TextField can receive focus
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            Task {
+                try? await Task.sleep(for: .milliseconds(50))
                 NSApp.activate(ignoringOtherApps: true)
                 if let window = NSApp.keyWindow {
                     window.makeKey()

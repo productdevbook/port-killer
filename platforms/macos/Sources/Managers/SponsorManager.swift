@@ -1,10 +1,13 @@
 import Foundation
 import SwiftUI
 import Defaults
+import os
 
 @Observable
 @MainActor
 final class SponsorManager {
+    private static let logger = Logger(subsystem: "com.portkiller.app", category: "Sponsors")
+
     // MARK: - State
     var sponsors: [Sponsor] = []
     var contributors: [Contributor] = []
@@ -82,7 +85,7 @@ final class SponsorManager {
             // Filter out bots
             let validContributors = contributors.filter { !$0.login.lowercased().contains("[bot]") }
             
-            print("Fetched \(sponsors.count) sponsors and \(validContributors.count) contributors")
+            Self.logger.info("Fetched \(sponsors.count) sponsors and \(validContributors.count) contributors")
             
             self.sponsors = sponsors
             self.contributors = validContributors
@@ -93,7 +96,7 @@ final class SponsorManager {
                 fetchedAt: Date()
             )
         } catch {
-            print("Failed to fetch sponsors/contributors: \(error)")
+            Self.logger.error("Failed to fetch sponsors/contributors: \(error.localizedDescription)")
             self.error = error
         }
 
