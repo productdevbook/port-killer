@@ -100,9 +100,7 @@ struct TunnelLogView: View {
                 .frame(width: 80, alignment: .leading)
 
             // Level indicator
-            Circle()
-                .fill(levelColor(entry.level))
-                .frame(width: 6, height: 6)
+            StatusDot(color: levelColor(entry.level), size: Sizing.statusDotSmall)
                 .padding(.top, 4)
 
             // Message

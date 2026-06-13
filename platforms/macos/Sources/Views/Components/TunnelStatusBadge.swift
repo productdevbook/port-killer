@@ -10,9 +10,7 @@ struct TunnelStatusBadge: View {
             // Main content area
             HStack(spacing: 8) {
                 // Status indicator
-                Circle()
-                    .fill(tunnel.status.color)
-                    .frame(width: 8, height: 8)
+                StatusDot(color: tunnel.status.color)
 
                 if tunnel.status == .active, let url = tunnel.tunnelURL {
                     Text(url.shortenedTunnelURL)
@@ -60,12 +58,12 @@ struct TunnelStatusBadge: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(nsColor: .controlBackgroundColor))
+            RoundedRectangle(cornerRadius: Radius.sm)
+                .fill(Theme.Colors.surfaceCard)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: Radius.sm)
+                .strokeBorder(Theme.Colors.border, lineWidth: 0.5)
         }
     }
 }

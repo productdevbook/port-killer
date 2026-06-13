@@ -45,14 +45,7 @@ struct NamedTunnelDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(statusColor.opacity(0.2))
-                        .frame(width: 48, height: 48)
-                    Image(systemName: "cloud.fill")
-                        .font(.title2)
-                        .foregroundStyle(statusColor)
-                }
+                IconBadge(systemName: "cloud.fill", color: statusColor)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(tunnel.name)
@@ -252,9 +245,10 @@ struct NamedTunnelDetailView: View {
             VStack(spacing: 4) {
                 ForEach(tunnel.edgeConnections, id: \.id) { conn in
                     HStack(spacing: 10) {
-                        Circle()
-                            .fill(conn.isPendingReconnect ? Color.yellow : Color.green)
-                            .frame(width: 6, height: 6)
+                        StatusDot(
+                            color: conn.isPendingReconnect ? Theme.Colors.statusWarning : Theme.Colors.statusSuccess,
+                            size: Sizing.statusDotSmall
+                        )
                         Text(conn.coloName)
                             .font(.system(.callout, design: .monospaced).weight(.semibold))
                             .frame(minWidth: 60, alignment: .leading)

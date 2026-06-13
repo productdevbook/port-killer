@@ -253,9 +253,7 @@ struct CloudflareTunnelRow: View {
     }
 
     private var statusIndicator: some View {
-        Circle()
-            .fill(tunnel.status.color)
-            .frame(width: 8, height: 8)
+        StatusDot(color: tunnel.status.color)
     }
 
     private var actionButtons: some View {

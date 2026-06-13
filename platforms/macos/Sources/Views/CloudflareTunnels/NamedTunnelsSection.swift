@@ -227,9 +227,7 @@ struct NamedTunnelRow: View {
     // MARK: - Subviews
 
     private var statusDot: some View {
-        Circle()
-            .fill(statusColor)
-            .frame(width: 8, height: 8)
+        StatusDot(color: statusColor)
     }
 
     private var statusColor: Color {
