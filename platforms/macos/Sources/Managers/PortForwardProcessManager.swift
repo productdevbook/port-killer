@@ -18,16 +18,8 @@ actor PortForwardProcessManager {
         logHandlers[id] = handler
     }
 
-    func removeLogHandler(for id: UUID) {
-        logHandlers.removeValue(forKey: id)
-    }
-
     func setPortConflictHandler(for id: UUID, handler: @escaping PortConflictHandler) {
         portConflictHandlers[id] = handler
-    }
-
-    func removePortConflictHandler(for id: UUID) {
-        portConflictHandlers.removeValue(forKey: id)
     }
 
     // MARK: - Output Reading
@@ -108,6 +100,11 @@ actor PortForwardProcessManager {
         }
         processes[id] = nil
         connectionErrors.removeValue(forKey: id)
+        // Drop stored handler closures so they can't outlive the connection. Callers that
+        // immediately reconnect re-register fresh handlers; this keeps the cleanup correct
+        // even for callers that don't.
+        logHandlers.removeValue(forKey: id)
+        portConflictHandlers.removeValue(forKey: id)
 
         let scriptPath = "/tmp/pf-wrapper-\(id.uuidString).sh"
         try? FileManager.default.removeItem(atPath: scriptPath)

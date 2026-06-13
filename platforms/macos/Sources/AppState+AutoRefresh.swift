@@ -11,12 +11,13 @@ extension AppState {
     /// Starts a background task that periodically refreshes the port list.
     func startAutoRefresh() {
         stopAutoRefresh()
-        refreshTask = Task { @MainActor in
+        refreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             var unchangedCycles = 0
             _ = await self.refresh()
             while !Task.isCancelled {
                 let baseInterval = max(1, Defaults[.refreshInterval])
-                let delaySeconds = adaptiveRefreshDelay(baseInterval: baseInterval, unchangedCycles: unchangedCycles)
+                let delaySeconds = self.adaptiveRefreshDelay(baseInterval: baseInterval, unchangedCycles: unchangedCycles)
                 try? await Task.sleep(for: .seconds(delaySeconds))
                 guard !Task.isCancelled else { break }
 

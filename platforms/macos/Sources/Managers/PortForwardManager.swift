@@ -199,9 +199,8 @@ final class PortForwardManager {
         state.clearLogs()
 
         Task {
+            // killProcesses also drops the stored log/port-conflict handlers.
             await processManager.killProcesses(for: id)
-            await processManager.removeLogHandler(for: id)
-            await processManager.removePortConflictHandler(for: id)
         }
     }
 
