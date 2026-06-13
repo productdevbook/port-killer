@@ -127,41 +127,19 @@ struct CloudflaredMissingBanner: View {
         isInstalling = true
         installError = nil
 
-        Task.detached(priority: .userInitiated) {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: brewPath)
-            process.arguments = ["install", "cloudflared"]
-
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = pipe
-
-            do {
-                try process.run()
-                process.waitUntilExit()
-
-                // Use autoreleasepool to prevent memory accumulation
-                var errorOutput: String = ""
-                if process.terminationStatus != 0 {
-                    autoreleasepool {
-                        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                        errorOutput = String(data: data, encoding: .utf8) ?? "Unknown error"
-                    }
-                }
-
-                await MainActor.run {
-                    isInstalling = false
-                    if process.terminationStatus == 0 {
-                        appState.tunnelManager.recheckInstallation()
-                    } else {
-                        installError = "Installation failed: \(errorOutput.prefix(100))"
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isInstalling = false
-                    installError = "Failed to run brew: \(error.localizedDescription)"
-                }
+        Task {
+            let result = await ProcessExecutor.run(brewPath, arguments: ["install", "cloudflared"])
+            isInstalling = false
+            guard let result else {
+                installError = "Failed to run brew"
+                return
+            }
+            if result.succeeded {
+                appState.tunnelManager.recheckInstallation()
+            } else {
+                let combined = result.standardOutput + result.standardError
+                let errorOutput = combined.isEmpty ? "Unknown error" : combined
+                installError = "Installation failed: \(errorOutput.prefix(100))"
             }
         }
     }

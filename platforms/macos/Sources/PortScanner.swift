@@ -37,30 +37,10 @@ actor PortScanner: PortScannerProtocol {
         // objects (Process, Pipe, FileHandle, URL, Data) immediately after each scan.
         // Without this, these objects accumulate across the long-lived scanning Task,
         // causing ~35KB per scan × 47,520 scans over 66 hours = ~1.7GB leak.
-        let output: String = autoreleasepool {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-            process.arguments = ["-iTCP", "-sTCP:LISTEN", "-P", "-n", "+c", "0"]
-
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-
-            do {
-                try process.run()
-
-                // CRITICAL: Read data BEFORE waitUntilExit to avoid deadlock.
-                // If lsof output exceeds the pipe buffer (~64KB), lsof blocks waiting
-                // to write. If we waitUntilExit first, we deadlock.
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                process.waitUntilExit()
-
-                return String(data: data, encoding: .utf8) ?? ""
-            } catch {
-                print("[PortScanner] Failed to scan ports: \(error.localizedDescription)")
-                return ""
-            }
-        }
+        let output = await ProcessExecutor.output(
+            "/usr/sbin/lsof",
+            arguments: ["-iTCP", "-sTCP:LISTEN", "-P", "-n", "+c", "0"]
+        ) ?? ""
 
         guard !output.isEmpty else { return [] }
 
@@ -390,24 +370,10 @@ actor PortScanner: PortScannerProtocol {
      * @returns Set of PIDs with established connections
      */
     func findEstablishedPids(for port: Int) async -> Set<Int> {
-        let output: String = autoreleasepool {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-            process.arguments = ["-iTCP:\(port)", "-sTCP:ESTABLISHED", "-P", "-n", "+c", "0"]
-
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = FileHandle.nullDevice
-
-            do {
-                try process.run()
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                process.waitUntilExit()
-                return String(data: data, encoding: .utf8) ?? ""
-            } catch {
-                return ""
-            }
-        }
+        let output = await ProcessExecutor.output(
+            "/usr/sbin/lsof",
+            arguments: ["-iTCP:\(port)", "-sTCP:ESTABLISHED", "-P", "-n", "+c", "0"]
+        ) ?? ""
 
         guard !output.isEmpty else { return [] }
 

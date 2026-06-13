@@ -131,28 +131,11 @@ actor DependencyChecker {
     }
 
     private func installWithBrew(brewPath: String, package: String) async -> (success: Bool, message: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: brewPath)
-        process.arguments = ["install", package]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            // Use autoreleasepool to prevent memory accumulation
-            var output: String = ""
-            autoreleasepool {
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                output = String(data: data, encoding: .utf8) ?? ""
-            }
-
-            return process.terminationStatus == 0 ? (true, "Installed") : (false, output)
-        } catch {
-            return (false, error.localizedDescription)
+        guard let result = await ProcessExecutor.run(brewPath, arguments: ["install", package]) else {
+            return (false, "Failed to launch brew")
         }
+        return result.succeeded
+            ? (true, "Installed")
+            : (false, result.standardOutput + result.standardError)
     }
 }

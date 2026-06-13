@@ -60,18 +60,10 @@ final class TunnelManager {
 
     /// Kill any stray cloudflared tunnel processes from previous sessions
     private func cleanupOrphanedTunnels() async {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        process.arguments = ["-9", "-f", "cloudflared.*tunnel.*--url"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            // Ignore errors - process may not exist
-        }
+        await ProcessExecutor.runDiscardingOutput(
+            "/usr/bin/pkill",
+            arguments: ["-9", "-f", "cloudflared.*tunnel.*--url"]
+        )
     }
 
     // MARK: - Tunnel Operations

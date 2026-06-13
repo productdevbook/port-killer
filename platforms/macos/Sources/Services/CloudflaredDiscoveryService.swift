@@ -119,33 +119,12 @@ actor CloudflaredDiscoveryService {
         // `cloudflared tunnel list` is a network call that can take seconds. The
         // blocking pipe-read + `waitUntilExit()` runs on a detached task so it does
         // not tie up this actor's executor (and serialize all other discovery work).
-        let outData: Data? = await Task.detached(priority: .utility) {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: cloudflaredPath)
-            process.arguments = ["--output", "json", "tunnel", "list"]
+        guard let result = await ProcessExecutor.run(
+            cloudflaredPath,
+            arguments: ["--output", "json", "tunnel", "list"]
+        ), result.succeeded else { return nil }
 
-            let stdout = Pipe()
-            let stderr = Pipe()
-            process.standardOutput = stdout
-            process.standardError = stderr
-
-            do {
-                try process.run()
-            } catch {
-                return nil
-            }
-
-            // Read output before waiting to avoid pipe deadlock on large outputs.
-            let data = stdout.fileHandleForReading.readDataToEndOfFile()
-            _ = stderr.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-
-            guard process.terminationStatus == 0 else { return nil }
-            return data
-        }.value
-
-        guard let outData else { return nil }
-        return RemoteTunnel.parseList(outData)
+        return RemoteTunnel.parseList(Data(result.standardOutput.utf8))
     }
 
     // MARK: - Local Config
