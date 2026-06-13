@@ -108,7 +108,7 @@ final class TunnelManager {
                     ClipboardService.copy(url)
                     NotificationService.shared.notify(
                         title: "Tunnel Active",
-                        body: "Port \(tunnelState.port) available at \(self?.shortenedURL(url) ?? url)"
+                        body: "Port \(tunnelState.port) available at \(url.shortenedTunnelURL)"
                     )
                 }
             }

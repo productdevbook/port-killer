@@ -72,38 +72,29 @@ actor CloudflaredService {
     // MARK: - Tunnel Management
 
     func startTunnel(id: UUID, port: Int) throws -> Process {
-        guard let cloudflaredPath = cloudflaredPath else {
-            throw CloudflaredError.notInstalled
-        }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: cloudflaredPath)
         let protocolValue = Defaults[.cloudflaredProtocol].rawValue
-        process.arguments = ["tunnel", "--url", "localhost:\(port)", "--protocol", protocolValue]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        try process.run()
-        processes[id] = process
-
-        startReadingOutput(pipe: pipe, id: id)
-
-        return process
+        return try launch(id: id, arguments: [
+            "tunnel", "--url", "localhost:\(port)", "--protocol", protocolValue
+        ])
     }
 
     /// Start `cloudflared tunnel run <name>` for a persistent named tunnel.
     /// `--metrics 127.0.0.1:0` lets cloudflared pick a free port for its metrics
     /// endpoint instead of contending with whatever the user already has on :20241.
     func runNamedTunnel(id: UUID, tunnelName: String) throws -> Process {
+        try launch(id: id, arguments: ["tunnel", "--metrics", "127.0.0.1:0", "run", tunnelName])
+    }
+
+    /// Launches `cloudflared` with the given arguments, wiring stdout/stderr into the
+    /// per-id output reader. Shared by quick and named tunnel starts.
+    private func launch(id: UUID, arguments: [String]) throws -> Process {
         guard let cloudflaredPath = cloudflaredPath else {
             throw CloudflaredError.notInstalled
         }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: cloudflaredPath)
-        process.arguments = ["tunnel", "--metrics", "127.0.0.1:0", "run", tunnelName]
+        process.arguments = arguments
 
         let pipe = Pipe()
         process.standardOutput = pipe
