@@ -29,7 +29,9 @@ extension AppState {
             checkWatchedPorts()
 
             // Check auto-kill rules
-            checkAutoKillRules()
+            autoKillManager.check(ports: ports) { [weak self] port in
+                Task { await self?.killPort(port) }
+            }
 
             isScanning = false
         } while hasPendingRefreshRequest

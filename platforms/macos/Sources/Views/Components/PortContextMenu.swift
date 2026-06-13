@@ -7,6 +7,7 @@
  */
 
 import SwiftUI
+import AppKit
 
 /// Configuration for PortContextMenu to enable/disable specific sections
 struct PortContextMenuOptions {
@@ -109,7 +110,7 @@ struct PortContextMenu: View {
         Divider()
 
         Button {
-            appState.promptForPortLabel(port: port.port)
+            promptForPortLabel(port: port.port)
         } label: {
             Label(
                 appState.portLabel(for: port.port) != nil ? "Edit Label" : "Set Label",
@@ -253,6 +254,25 @@ struct PortContextMenu: View {
             } label: {
                 Label("Copy: brew install cloudflared", systemImage: "doc.on.doc")
             }
+        }
+    }
+
+    /// Prompts the user to set a custom label for a port via an NSAlert, then persists it.
+    private func promptForPortLabel(port: Int) {
+        let alert = NSAlert()
+        alert.messageText = "Set Label for Port \(port)"
+        alert.informativeText = "Enter a custom name to identify this port."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        textField.placeholderString = "e.g., Frontend Dev Server"
+        textField.stringValue = appState.portLabel(for: port) ?? ""
+        alert.accessoryView = textField
+        alert.window.initialFirstResponder = textField
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            appState.setPortLabel(textField.stringValue, for: port)
         }
     }
 }

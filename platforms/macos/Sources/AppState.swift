@@ -225,6 +225,9 @@ final class AppState {
     /// Manages persistent (named) Cloudflare tunnels discovered from `~/.cloudflared/`
     let namedTunnelManager: NamedTunnelManager
 
+    /// Evaluates auto-kill rules against the scanned ports
+    let autoKillManager = AutoKillManager()
+
     // MARK: - Internal Properties (for extensions)
 
     /// Port scanning actor

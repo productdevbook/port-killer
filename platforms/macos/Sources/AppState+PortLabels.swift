@@ -1,4 +1,4 @@
-import AppKit
+import Foundation
 import Defaults
 
 extension AppState {
@@ -20,24 +20,5 @@ extension AppState {
     /// Removes the custom label for a port
     func removePortLabel(for port: Int) {
         Defaults[.portLabels].removeValue(forKey: String(port))
-    }
-
-    /// Prompts user to set a port label using NSAlert
-    func promptForPortLabel(port: Int) {
-        let alert = NSAlert()
-        alert.messageText = "Set Label for Port \(port)"
-        alert.informativeText = "Enter a custom name to identify this port."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        textField.placeholderString = "e.g., Frontend Dev Server"
-        textField.stringValue = portLabel(for: port) ?? ""
-        alert.accessoryView = textField
-        alert.window.initialFirstResponder = textField
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            setPortLabel(textField.stringValue, for: port)
-        }
     }
 }
