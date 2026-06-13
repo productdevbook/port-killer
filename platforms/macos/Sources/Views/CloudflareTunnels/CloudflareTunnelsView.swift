@@ -106,7 +106,7 @@ struct CloudflareTunnelsView: View {
         let quick = appState.tunnelManager.activeTunnelCount
         return HStack(spacing: 12) {
             if running > 0 || quick > 0 {
-                Circle().fill(Color.green).frame(width: 8, height: 8)
+                StatusDot(color: Theme.Colors.statusSuccess)
                 Text(statusSummary(running: running, quick: quick))
             } else {
                 Text("No active tunnels")

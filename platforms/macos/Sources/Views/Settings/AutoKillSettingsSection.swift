@@ -74,9 +74,7 @@ struct AutoKillSettingsSection: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Circle()
-                            .fill(rule.isEnabled ? .green : .secondary)
-                            .frame(width: 8, height: 8)
+                        StatusDot(color: rule.isEnabled ? Theme.Colors.statusSuccess : .secondary)
                         Text(rule.name.isEmpty ? "Unnamed Rule" : rule.name)
                             .fontWeight(.medium)
                     }

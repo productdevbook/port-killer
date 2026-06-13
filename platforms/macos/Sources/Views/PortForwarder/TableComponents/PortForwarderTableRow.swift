@@ -36,9 +36,7 @@ struct PortForwarderTableRow: View {
         HStack(spacing: 0) {
             // Status
             HStack(spacing: 4) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
+                StatusDot(color: statusColor)
                 Text(statusText)
                     .font(.caption)
                     .foregroundStyle(statusColor)

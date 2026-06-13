@@ -128,9 +128,7 @@ struct ConnectionEditSection: View {
 
     private var statusBadge: some View {
         HStack(spacing: 5) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
+            StatusDot(color: statusColor)
             Text(statusText)
                 .font(.caption.weight(.medium))
         }

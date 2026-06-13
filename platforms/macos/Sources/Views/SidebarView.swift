@@ -144,9 +144,7 @@ struct SidebarView: View {
                 Spacer()
 
                 // Status indicator
-                Circle()
-                    .fill(appState.portForwardManager.allConnected && !appState.portForwardManager.connections.isEmpty ? Color.green : Color.secondary.opacity(0.3))
-                    .frame(width: 8, height: 8)
+                StatusDot(color: appState.portForwardManager.allConnected && !appState.portForwardManager.connections.isEmpty ? Theme.Colors.statusSuccess : Theme.Colors.statusIdle)
 
                 Text("\(appState.portForwardManager.connections.count)")
                     .foregroundStyle(.secondary)
@@ -170,9 +168,7 @@ struct SidebarView: View {
 
                 let activeCount = appState.tunnelManager.activeTunnelCount + appState.namedTunnelManager.runningCount
                 if activeCount > 0 {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 8, height: 8)
+                    StatusDot(color: Theme.Colors.statusSuccess)
                 }
 
                 let totalCount = appState.tunnelManager.tunnels.count + appState.namedTunnelManager.tunnels.count

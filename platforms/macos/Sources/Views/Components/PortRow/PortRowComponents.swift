@@ -13,12 +13,10 @@ import SwiftUI
 /// Displays active/inactive status as a colored circle
 struct PortStatusIndicator: View {
     let isActive: Bool
-    var size: CGFloat = 8
+    var size: CGFloat = Sizing.statusDot
 
     var body: some View {
-        Circle()
-            .fill(isActive ? Color.green : Color.gray)
-            .frame(width: size, height: size)
+        StatusDot(color: isActive ? Theme.Colors.statusSuccess : .gray, size: size)
     }
 }
 

@@ -36,9 +36,7 @@ struct ProcessGroupListRow: View {
             // Process Name (aligned with Process column of header)
             HStack(spacing: 6) {
                 // Status indicator
-                Circle()
-                    .fill(isKilling ? .orange : .green)
-                    .frame(width: 8, height: 8)
+                StatusDot(color: isKilling ? Theme.Colors.statusWarning : Theme.Colors.statusSuccess)
                     .opacity(isKilling ? 0.3 : 1)
                     .animation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true), value: isKilling)
 

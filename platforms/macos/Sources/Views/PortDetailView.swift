@@ -69,14 +69,7 @@ struct PortDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(port.processType.color.opacity(0.2))
-                        .frame(width: 48, height: 48)
-                    Image(systemName: port.processType.icon)
-                        .font(.title2)
-                        .foregroundStyle(port.processType.color)
-                }
+                IconBadge(systemName: port.processType.icon, color: port.processType.color)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(port.processName)

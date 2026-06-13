@@ -112,10 +112,10 @@ struct CloudflaredMissingBanner: View {
                 .padding(.bottom, 8)
             }
         }
-        .background(Color.blue.opacity(0.1))
+        .background(Theme.Colors.link.opacity(0.1))
         .overlay(
             Rectangle()
-                .fill(Color.blue)
+                .fill(Theme.Colors.link)
                 .frame(height: 2),
             alignment: .top
         )

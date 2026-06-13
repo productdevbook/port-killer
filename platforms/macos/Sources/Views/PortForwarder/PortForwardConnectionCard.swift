@@ -74,9 +74,7 @@ struct PortForwardConnectionCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 10) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 10, height: 10)
+                StatusDot(color: statusColor, size: 10)
 
                 Text(connection.config.name)
                     .fontWeight(.medium)
