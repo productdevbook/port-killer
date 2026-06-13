@@ -97,10 +97,20 @@ struct MainWindowView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        if appState.selectedSidebarItem == .settings || appState.selectedSidebarItem == .sponsors || appState.selectedSidebarItem == .cloudflareTunnels {
+        if appState.selectedSidebarItem == .settings || appState.selectedSidebarItem == .sponsors {
             EmptyView()
         } else if appState.selectedSidebarItem == .kubernetesPortForward {
             ConnectionLogPanel(connection: appState.selectedPortForwardConnection)
+        } else if appState.selectedSidebarItem == .cloudflareTunnels {
+            if let tunnel = appState.selectedNamedTunnel {
+                NamedTunnelDetailView(tunnel: tunnel)
+            } else {
+                ContentUnavailableView {
+                    Label("No Tunnel Selected", systemImage: "cloud")
+                } description: {
+                    Text("Select a tunnel from the list to view details")
+                }
+            }
         } else if let selectedPort = appState.selectedPort {
             PortDetailView(port: selectedPort)
         } else {

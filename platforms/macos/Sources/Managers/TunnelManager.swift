@@ -11,7 +11,7 @@ final class TunnelManager {
     /// Observable state for UI (extracted)
     let state: TunnelState
 
-    /// The cloudflared service actor
+    /// The cloudflared service actor (shared with NamedTunnelManager).
     let cloudflaredService: CloudflaredService
 
     /// Task for cleaning up orphaned tunnels from previous sessions
