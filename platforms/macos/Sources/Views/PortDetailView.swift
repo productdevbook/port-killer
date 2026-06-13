@@ -4,6 +4,8 @@ struct PortDetailView: View {
     let port: PortInfo
     @Environment(AppState.self) private var appState
     @State private var showKillConfirmation = false
+    @State private var noteDraft = ""
+    @FocusState private var noteFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -15,6 +17,11 @@ struct PortDetailView: View {
 
                 // Details Grid
                 detailsGrid
+
+                Divider()
+
+                // Notes
+                notesSection
 
                 // Tunnel exposures (only shown when ≥1 named tunnel maps to this port)
                 if !exposures.isEmpty {
@@ -132,6 +139,53 @@ struct PortDetailView: View {
 
                 Spacer()
             }
+        }
+    }
+
+    private var notesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Notes")
+                    .font(.headline)
+                Spacer()
+                if appState.portNote(for: port.port) != nil {
+                    Button("Clear") {
+                        appState.removePortNote(for: port.port)
+                        noteDraft = ""
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                }
+            }
+
+            TextEditor(text: $noteDraft)
+                .focused($noteFocused)
+                .font(.body)
+                .frame(minHeight: 64, maxHeight: 140)
+                .padding(6)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(alignment: .topLeading) {
+                    if noteDraft.isEmpty {
+                        Text("Add a note for port \(String(port.port))…")
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 11)
+                            .padding(.vertical, 14)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                )
+                .onChange(of: noteFocused) { _, focused in
+                    // Persist when focus leaves the editor.
+                    if !focused { appState.setPortNote(noteDraft, for: port.port) }
+                }
+        }
+        .onAppear { noteDraft = appState.portNote(for: port.port) ?? "" }
+        .onChange(of: port.port) { _, _ in
+            noteDraft = appState.portNote(for: port.port) ?? ""
         }
     }
 

@@ -21,6 +21,9 @@ extension Defaults.Keys {
     // Port labels (port number string → custom name)
     static let portLabels = Key<[String: String]>("portLabels", default: [:])
 
+    // Port notes (port number string → freeform note)
+    static let portNotes = Key<[String: String]>("portNotes", default: [:])
+
     // Process type notification filters (rawValues of enabled types, empty = disabled)
     static let notifyProcessTypes = Key<Set<String>>("notifyProcessTypes", default: [])
 

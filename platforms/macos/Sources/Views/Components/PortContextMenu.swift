@@ -125,6 +125,23 @@ struct PortContextMenu: View {
                 Label("Remove Label", systemImage: "pencil.slash")
             }
         }
+
+        Button {
+            promptForPortNote(port: port.port)
+        } label: {
+            Label(
+                appState.portNote(for: port.port) != nil ? "Edit Note" : "Add Note",
+                systemImage: "note.text"
+            )
+        }
+
+        if appState.portNote(for: port.port) != nil {
+            Button {
+                appState.removePortNote(for: port.port)
+            } label: {
+                Label("Remove Note", systemImage: "trash")
+            }
+        }
     }
 
     @ViewBuilder
@@ -273,6 +290,34 @@ struct PortContextMenu: View {
 
         if alert.runModal() == .alertFirstButtonReturn {
             appState.setPortLabel(textField.stringValue, for: port)
+        }
+    }
+
+    /// Prompts the user to set a freeform note for a port via an NSAlert with a
+    /// multi-line text view, then persists it.
+    private func promptForPortNote(port: Int) {
+        let alert = NSAlert()
+        alert.messageText = "Note for Port \(port)"
+        alert.informativeText = "Add freeform notes about this port."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+
+        let textView = NSTextView(frame: scrollView.bounds)
+        textView.string = appState.portNote(for: port) ?? ""
+        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
+        textView.isRichText = false
+        textView.autoresizingMask = [.width]
+        scrollView.documentView = textView
+
+        alert.accessoryView = scrollView
+        alert.window.initialFirstResponder = textView
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            appState.setPortNote(textView.string, for: port)
         }
     }
 }
