@@ -8,10 +8,9 @@ struct MenuBarTunnelRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(tunnel.status.color).frame(width: 6, height: 6)
-                .shadow(color: tunnel.status == .active ? .green.opacity(0.5) : .clear, radius: 3)
+            StatusDot(color: tunnel.status.color, size: Sizing.statusDotSmall, glow: tunnel.status == .active)
             Text(":" + String(tunnel.port))
-                .font(.system(.callout, design: .monospaced)).fontWeight(.medium)
+                .textStyle(.portNumber)
                 .frame(width: 55, alignment: .leading)
 
             if let url = tunnel.tunnelURL {

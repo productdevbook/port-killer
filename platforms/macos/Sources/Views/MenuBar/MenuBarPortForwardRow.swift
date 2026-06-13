@@ -18,8 +18,7 @@ struct MenuBarPortForwardRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(statusColor).frame(width: 6, height: 6)
-                .shadow(color: connection.isFullyConnected ? .green.opacity(0.5) : .clear, radius: 3)
+            StatusDot(color: statusColor, size: Sizing.statusDotSmall, glow: connection.isFullyConnected)
             Text(":" + String(connection.effectivePort))
                 .font(.system(.callout, design: .monospaced)).fontWeight(.medium)
                 .frame(width: 55, alignment: .leading)

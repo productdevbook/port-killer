@@ -14,8 +14,7 @@ struct MenuBarProcessGroupRow: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: isExpanded ? "chevron.down" : "chevron.right").font(.caption).foregroundStyle(.secondary)
-                Circle().fill(isKilling ? .orange : .green).frame(width: 6, height: 6)
-                    .shadow(color: (isKilling ? Color.orange : Color.green).opacity(0.5), radius: 3)
+                StatusDot(color: isKilling ? Theme.Colors.statusWarning : Theme.Colors.statusSuccess, size: Sizing.statusDotSmall, glow: true)
                     .opacity(isKilling ? 0.5 : 1).animation(.easeInOut(duration: 0.3), value: isKilling)
                 HStack(spacing: 4) {
                     if group.ports.contains(where: { state.isFavorite($0.port) }) { Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow) }

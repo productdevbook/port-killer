@@ -13,8 +13,7 @@ struct MenuBarNamedTunnelRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(tunnel.status.color).frame(width: 6, height: 6)
-                .shadow(color: tunnel.status == .running ? .green.opacity(0.5) : .clear, radius: 3)
+            StatusDot(color: tunnel.status.color, size: Sizing.statusDotSmall, glow: tunnel.status == .running)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(tunnel.name)
