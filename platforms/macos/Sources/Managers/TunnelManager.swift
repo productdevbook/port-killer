@@ -98,9 +98,9 @@ final class TunnelManager {
             guard let self = self, let tunnelState = tunnelState else { return }
 
             // Set URL handler with proper weak capture in inner Task
-            let urlHandler: @Sendable (String) -> Void = { [weak self, weak tunnelState] url in
-                guard let tunnelState = tunnelState else { return }
-                Task { @MainActor [weak self, weak tunnelState] in
+            let urlHandler: @Sendable (String) -> Void = { [weak tunnelState] url in
+                guard tunnelState != nil else { return }
+                Task { @MainActor [weak tunnelState] in
                     guard let tunnelState = tunnelState else { return }
                     tunnelState.tunnelURL = url
                     tunnelState.status = .active
