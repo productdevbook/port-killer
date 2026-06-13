@@ -7,23 +7,13 @@ struct MenuBarNamedTunnelRow: View {
     @Bindable var state: AppState
     @State private var isHovered = false
 
-    private var statusColor: Color {
-        switch tunnel.status {
-        case .stopped: .secondary.opacity(0.3)
-        case .starting: .orange
-        case .running: .green
-        case .stopping: .orange
-        case .error: .red
-        }
-    }
-
     private var primaryRoute: String? {
         tunnel.ingressRules.compactMap { $0.publicURL }.first
     }
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(statusColor).frame(width: 6, height: 6)
+            Circle().fill(tunnel.status.color).frame(width: 6, height: 6)
                 .shadow(color: tunnel.status == .running ? .green.opacity(0.5) : .clear, radius: 3)
 
             VStack(alignment: .leading, spacing: 1) {

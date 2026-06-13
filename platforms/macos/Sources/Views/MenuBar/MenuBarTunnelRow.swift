@@ -6,26 +6,16 @@ struct MenuBarTunnelRow: View {
     @State private var isHovered = false
     @State private var isCopied = false
 
-    private var statusColor: Color {
-        switch tunnel.status {
-        case .idle: .secondary.opacity(0.3)
-        case .starting: .orange
-        case .active: .green
-        case .stopping: .orange
-        case .error: .red
-        }
-    }
-
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(statusColor).frame(width: 6, height: 6)
+            Circle().fill(tunnel.status.color).frame(width: 6, height: 6)
                 .shadow(color: tunnel.status == .active ? .green.opacity(0.5) : .clear, radius: 3)
             Text(":" + String(tunnel.port))
                 .font(.system(.callout, design: .monospaced)).fontWeight(.medium)
                 .frame(width: 55, alignment: .leading)
 
             if let url = tunnel.tunnelURL {
-                Text(shortenedURL(url))
+                Text(url.shortenedTunnelURL)
                     .font(.caption)
                     .foregroundStyle(.blue)
                     .lineLimit(1)
@@ -97,9 +87,5 @@ struct MenuBarTunnelRow: View {
                 Label("Stop Tunnel", systemImage: "stop.fill")
             }
         }
-    }
-
-    private func shortenedURL(_ url: String) -> String {
-        url.replacingOccurrences(of: "https://", with: "")
     }
 }

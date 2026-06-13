@@ -254,18 +254,8 @@ struct CloudflareTunnelRow: View {
 
     private var statusIndicator: some View {
         Circle()
-            .fill(statusColor)
+            .fill(tunnel.status.color)
             .frame(width: 8, height: 8)
-    }
-
-    private var statusColor: Color {
-        switch tunnel.status {
-        case .idle: .secondary
-        case .starting: .yellow
-        case .active: .green
-        case .stopping: .yellow
-        case .error: .red
-        }
     }
 
     private var actionButtons: some View {

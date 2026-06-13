@@ -11,11 +11,11 @@ struct TunnelStatusBadge: View {
             HStack(spacing: 8) {
                 // Status indicator
                 Circle()
-                    .fill(statusColor)
+                    .fill(tunnel.status.color)
                     .frame(width: 8, height: 8)
 
                 if tunnel.status == .active, let url = tunnel.tunnelURL {
-                    Text(shortenedURL(url))
+                    Text(url.shortenedTunnelURL)
                         .font(.body)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -67,19 +67,5 @@ struct TunnelStatusBadge: View {
             RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
         }
-    }
-
-    private var statusColor: Color {
-        switch tunnel.status {
-        case .idle: .secondary
-        case .starting: .orange
-        case .active: .green
-        case .stopping: .orange
-        case .error: .red
-        }
-    }
-
-    private func shortenedURL(_ url: String) -> String {
-        url.replacingOccurrences(of: "https://", with: "")
     }
 }
