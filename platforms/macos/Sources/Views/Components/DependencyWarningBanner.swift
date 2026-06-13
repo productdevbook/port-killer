@@ -4,20 +4,11 @@ struct DependencyWarningBanner: View {
     @State private var isInstalling = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Missing Dependencies")
-                    .font(.headline)
-                Text("kubectl is required for port forwarding")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
+        AlertBanner(
+            icon: "exclamationmark.triangle.fill",
+            title: "Missing Dependencies",
+            message: "kubectl is required for port forwarding"
+        ) {
             if isInstalling {
                 ProgressView()
                     .scaleEffect(0.8)
@@ -28,14 +19,6 @@ struct DependencyWarningBanner: View {
                 .buttonStyle(.bordered)
             }
         }
-        .padding(12)
-        .background(Color.orange.opacity(0.1))
-        .overlay(
-            Rectangle()
-                .fill(Color.orange)
-                .frame(height: 2),
-            alignment: .top
-        )
     }
 
     private func installDependencies() {
