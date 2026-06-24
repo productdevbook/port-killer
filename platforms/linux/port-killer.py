@@ -26,7 +26,6 @@ APPINDICATOR_ID = 'portkiller'
 
 class PortKillerTrayApp:
     def __init__(self):
-        script_dir = os.path.dirname(os.path.abspath(__file__))
         icon_path = "utilities-system-monitor" # Use standard system theme icon for high reliability on GNOME/Wayland
 
         self.indicator = appindicator.Indicator.new(
@@ -48,24 +47,24 @@ class PortKillerTrayApp:
     def scan_ports(self):
         ports = []
         try:
-            # Try lsof first
+            # Try ss first (more complete on Linux as it shows all ports, even of other users)
             result = subprocess.run(
-                ["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n"],
+                ["ss", "-tlnp"],
                 capture_output=True,
                 text=True,
                 check=True
             )
-            ports = self.parse_lsof_output(result.stdout)
+            ports = self.parse_ss_output(result.stdout)
         except (subprocess.SubprocessError, FileNotFoundError):
-            # Fall back to ss
+            # Fall back to lsof
             try:
                 result = subprocess.run(
-                    ["ss", "-tlnp"],
+                    ["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n"],
                     capture_output=True,
                     text=True,
                     check=True
                 )
-                ports = self.parse_ss_output(result.stdout)
+                ports = self.parse_lsof_output(result.stdout)
             except (subprocess.SubprocessError, FileNotFoundError):
                 pass
         return ports
@@ -153,10 +152,13 @@ class PortKillerTrayApp:
                 
             pid = 0
             process_name = "Unknown"
+            found_proc = False
+            
             if len(parts) >= 6:
-                proc_col = parts[5]
+                proc_col = " ".join(parts[5:])
                 users = self.parse_ss_users(proc_col)
                 for name, p in users:
+                    found_proc = True
                     command = commands.get(p, name)
                     if len(command) > 200:
                         command = command[:200] + "..."
@@ -170,15 +172,16 @@ class PortKillerTrayApp:
                             'address': address
                         })
             
-            if (port, pid) not in seen:
-                seen.add((port, pid))
-                ports.append({
-                    'port': port,
-                    'pid': pid,
-                    'process_name': process_name,
-                    'command': "Unknown",
-                    'address': address
-                })
+            if not found_proc:
+                if (port, pid) not in seen:
+                    seen.add((port, pid))
+                    ports.append({
+                        'port': port,
+                        'pid': pid,
+                        'process_name': process_name,
+                        'command': "Unknown",
+                        'address': address
+                    })
                 
         ports.sort(key=lambda x: x['port'])
         return ports
@@ -271,6 +274,45 @@ class PortKillerTrayApp:
             # Refresh menu shortly after killing
             GLib.timeout_add(100, self.build_menu)
 
+    def show_port_dialog(self, p):
+        dialog = Gtk.MessageDialog(
+            parent=None,
+            flags=0,
+            type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.NONE,
+            message_format=f"Port {p['port']} Details"
+        )
+        dialog.format_secondary_text(
+            f"Process: {p['process_name']}\n"
+            f"PID: {p['pid'] if p['pid'] != 0 else 'Unknown'}\n"
+            f"Address: {p['address']}\n"
+            f"Command: {p['command']}"
+        )
+        
+        # Add action buttons
+        if p['pid'] != 0:
+            dialog.add_button("Kill Gracefully (SIGTERM)", 1)
+            dialog.add_button("Force Kill (SIGKILL)", 2)
+            dialog.add_button("Copy PID", 3)
+        dialog.add_button("Copy Port", 4)
+        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+        
+        dialog.set_title(f"Port {p['port']} Management")
+        
+        dialog.show_all()
+        response = dialog.run()
+        
+        if response == 1:
+            self.on_kill_process(p['pid'], force=False)
+        elif response == 2:
+            self.on_kill_process(p['pid'], force=True)
+        elif response == 3:
+            self.copy_to_clipboard(str(p['pid']))
+        elif response == 4:
+            self.copy_to_clipboard(str(p['port']))
+            
+        dialog.destroy()
+
     def build_menu(self):
         for child in self.menu.get_children():
             self.menu.remove(child)
@@ -288,41 +330,7 @@ class PortKillerTrayApp:
                     port_label += f" (PID {p['pid']})"
                     
                 port_item = Gtk.MenuItem(label=port_label)
-                submenu = Gtk.Menu()
-                
-                info_label = f"Command: {p['command']}"
-                if len(info_label) > 60:
-                    info_label = info_label[:57] + "..."
-                info_item = Gtk.MenuItem(label=info_label)
-                info_item.set_sensitive(False)
-                submenu.append(info_item)
-                
-                addr_item = Gtk.MenuItem(label=f"Address: {p['address']}")
-                addr_item.set_sensitive(False)
-                submenu.append(addr_item)
-                
-                submenu.append(Gtk.SeparatorMenuItem())
-                
-                if p['pid'] != 0:
-                    kill_item = Gtk.MenuItem(label="Kill Process (SIGTERM)")
-                    kill_item.connect("activate", lambda w, pid=p['pid']: self.on_kill_process(pid, force=False))
-                    submenu.append(kill_item)
-                    
-                    force_kill_item = Gtk.MenuItem(label="Force Kill Process (SIGKILL)")
-                    force_kill_item.connect("activate", lambda w, pid=p['pid']: self.on_kill_process(pid, force=True))
-                    submenu.append(force_kill_item)
-                    
-                    submenu.append(Gtk.SeparatorMenuItem())
-                    
-                    copy_pid_item = Gtk.MenuItem(label="Copy PID")
-                    copy_pid_item.connect("activate", lambda w, pid=p['pid']: self.copy_to_clipboard(str(pid)))
-                    submenu.append(copy_pid_item)
-                    
-                copy_port_item = Gtk.MenuItem(label="Copy Port")
-                copy_port_item.connect("activate", lambda w, port=p['port']: self.copy_to_clipboard(str(port)))
-                submenu.append(copy_port_item)
-                
-                port_item.set_submenu(submenu)
+                port_item.connect("activate", lambda w, port_info=p: self.show_port_dialog(port_info))
                 self.menu.append(port_item)
                 
         self.menu.append(Gtk.SeparatorMenuItem())
