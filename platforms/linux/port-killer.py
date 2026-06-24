@@ -27,9 +27,7 @@ APPINDICATOR_ID = 'portkiller'
 class PortKillerTrayApp:
     def __init__(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        icon_path = os.path.abspath(os.path.join(script_dir, "../../Resources/AppIcon.svg"))
-        if not os.path.exists(icon_path):
-            icon_path = "network-server" # Fallback to standard system icon
+        icon_path = "utilities-system-monitor" # Use standard system theme icon for high reliability on GNOME/Wayland
 
         self.indicator = appindicator.Indicator.new(
             APPINDICATOR_ID,
