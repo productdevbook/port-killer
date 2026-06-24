@@ -19,6 +19,8 @@ except (ValueError, ImportError):
 from .window import MenuBarWindow
 from .dialogs import PortDetailsDialog
 from ..scanner import PortScanner
+from ..services.cloudflare import cloudflare_service
+from ..services.k8s import k8s_service
 
 APPINDICATOR_ID = 'portkiller'
 
@@ -55,18 +57,71 @@ class PortKillerTrayApp:
             self.menu.remove(child)
 
         # Item 1: Open Search & Dashboard
-        dash_item = Gtk.MenuItem(label="🔍 Quick Search & Port Dashboard...")
+        dash_item = Gtk.MenuItem(label="🔍 Open Search & Dashboard...")
         dash_item.connect("activate", lambda w: self.dashboard_window.show_near_pointer())
         self.menu.append(dash_item)
 
         self.menu.append(Gtk.SeparatorMenuItem())
 
-        # Render Active Ports directly in the menu for quick access
+        # Scan ports, tunnels, and forwards
         ports = PortScanner.scan_ports()
+        k8s_forwards = k8s_service.scan_active_forwards()
+        
+        # Get cloudflare tunnels
+        cf_tunnels = list(cloudflare_service.active_tunnels.values())
+        external_cf = cloudflare_service.scan_running_tunnels_from_ps()
+        for ext in external_cf:
+            if not any(t.port == ext['port'] for t in cf_tunnels):
+                cf_tunnels.append(ext)
+
+        # 1. Cloudflare Tunnels Submenu
+        cf_label = f"☁️ Cloudflare Tunnels ({len(cf_tunnels)})"
+        cf_item = Gtk.MenuItem(label=cf_label)
+        cf_submenu = Gtk.Menu()
+        cf_item.set_submenu(cf_submenu)
+        
+        if not cf_tunnels:
+            no_cf = Gtk.MenuItem(label="No active tunnels")
+            no_cf.set_sensitive(False)
+            cf_submenu.append(no_cf)
+        else:
+            for t in cf_tunnels:
+                port_val = t.port if hasattr(t, 'port') else t.get('port', 0)
+                url_val = t.url if hasattr(t, 'url') else t.get('url', '')
+                t_label = f"Port {port_val} → {url_val}"
+                t_item = Gtk.MenuItem(label=t_label)
+                t_item.connect("activate", lambda w: self.dashboard_window.show_near_pointer())
+                cf_submenu.append(t_item)
+        self.menu.append(cf_item)
+
+        # 2. K8s Port Forwards Submenu
+        k8s_label = f"☸️ K8s Port Forward ({len(k8s_forwards)})"
+        k8s_item = Gtk.MenuItem(label=k8s_label)
+        k8s_submenu = Gtk.Menu()
+        k8s_item.set_submenu(k8s_submenu)
+        
+        if not k8s_forwards:
+            no_k8s = Gtk.MenuItem(label="No active port forwards")
+            no_k8s.set_sensitive(False)
+            k8s_submenu.append(no_k8s)
+        else:
+            for k in k8s_forwards:
+                k_label = f"{k.resource} → {k.local_port}:{k.remote_port} ({k.namespace})"
+                k_item = Gtk.MenuItem(label=k_label)
+                k_item.connect("activate", lambda w: self.dashboard_window.show_near_pointer())
+                k_submenu.append(k_item)
+        self.menu.append(k8s_item)
+
+        # 3. Local Ports Submenu
+        local_label = f"🌐 Local Ports ({len(ports)})"
+        local_item = Gtk.MenuItem(label=local_label)
+        local_submenu = Gtk.Menu()
+        local_item.set_submenu(local_submenu)
+        
         if not ports:
-            empty_item = Gtk.MenuItem(label="No listening ports active")
-            empty_item.set_sensitive(False)
-            self.menu.append(empty_item)
+            no_ports = Gtk.MenuItem(label="No open ports")
+            no_ports.set_sensitive(False)
+            local_submenu.append(no_ports)
         else:
             for p in ports:
                 port_label = f"{p['port']} → {p['process_name']}"
@@ -75,16 +130,17 @@ class PortKillerTrayApp:
                 
                 port_item = Gtk.MenuItem(label=port_label)
                 port_item.connect("activate", lambda w, port_info=p: self.open_port_dialog(port_info))
-                self.menu.append(port_item)
+                local_submenu.append(port_item)
+        self.menu.append(local_item)
 
         self.menu.append(Gtk.SeparatorMenuItem())
 
-        # Item 2: Refresh Data
+        # Item 4: Refresh Data
         refresh_item = Gtk.MenuItem(label="Refresh Now")
         refresh_item.connect("activate", lambda w: self.build_menu())
         self.menu.append(refresh_item)
 
-        # Item 3: Quit
+        # Item 5: Quit
         quit_item = Gtk.MenuItem(label="Quit PortKiller")
         quit_item.connect("activate", lambda w: Gtk.main_quit())
         self.menu.append(quit_item)
