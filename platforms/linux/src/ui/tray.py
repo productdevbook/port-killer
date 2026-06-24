@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
@@ -17,10 +18,10 @@ except (ValueError, ImportError):
         sys.exit(1)
 
 from .window import MenuBarWindow
-from .dialogs import PortDetailsDialog
 from ..scanner import PortScanner
 from ..services.cloudflare import cloudflare_service
 from ..services.k8s import k8s_service
+from ..services.clipboard import copy_to_clipboard
 
 APPINDICATOR_ID = 'portkiller'
 
@@ -56,7 +57,7 @@ class PortKillerTrayApp:
         for child in self.menu.get_children():
             self.menu.remove(child)
 
-        # Item 1: Search & Filter Ports
+        # Item 1: Open Search & Dashboard
         dash_item = Gtk.MenuItem(label="🔍 Search & Filter Ports...")
         dash_item.connect("activate", lambda w: self.dashboard_window.show_near_pointer())
         self.menu.append(dash_item)
@@ -88,10 +89,23 @@ class PortKillerTrayApp:
             for t in cf_tunnels:
                 port_val = t.port if hasattr(t, 'port') else t.get('port', 0)
                 url_val = t.url if hasattr(t, 'url') else t.get('url', '')
-                t_label = f"Port {port_val} → {url_val}"
-                t_item = Gtk.MenuItem(label=t_label)
-                t_item.connect("activate", lambda w: self.dashboard_window.show_near_pointer())
-                cf_submenu.append(t_item)
+                t_label = f"Port {port_val} → {url_val if url_val else 'Starting...'}"
+                
+                # Single tunnel options submenu
+                single_t_item = Gtk.MenuItem(label=t_label)
+                single_t_submenu = Gtk.Menu()
+                single_t_item.set_submenu(single_t_submenu)
+                
+                if url_val:
+                    copy_url_item = Gtk.MenuItem(label="📋 Copy Tunnel URL")
+                    copy_url_item.connect("activate", lambda w, u=url_val: self.copy_and_notify(u, "Tunnel URL copied to clipboard!"))
+                    single_t_submenu.append(copy_url_item)
+                
+                stop_tunnel_item = Gtk.MenuItem(label="💀 Stop Tunnel")
+                stop_tunnel_item.connect("activate", lambda w, p=port_val: self.stop_cf_tunnel_and_notify(p))
+                single_t_submenu.append(stop_tunnel_item)
+                
+                cf_submenu.append(single_t_item)
         self.menu.append(cf_item)
 
         # 2. K8s Port Forwards Submenu
@@ -107,9 +121,21 @@ class PortKillerTrayApp:
         else:
             for k in k8s_forwards:
                 k_label = f"{k.resource} → {k.local_port}:{k.remote_port} ({k.namespace})"
-                k_item = Gtk.MenuItem(label=k_label)
-                k_item.connect("activate", lambda w: self.dashboard_window.show_near_pointer())
-                k8s_submenu.append(k_item)
+                
+                # Single k8s options submenu
+                single_k_item = Gtk.MenuItem(label=k_label)
+                single_k_submenu = Gtk.Menu()
+                single_k_item.set_submenu(single_k_submenu)
+                
+                copy_port_item = Gtk.MenuItem(label="📋 Copy Local Port")
+                copy_port_item.connect("activate", lambda w, p=k.local_port: self.copy_and_notify(str(p), f"Port {p} copied to clipboard!"))
+                single_k_submenu.append(copy_port_item)
+                
+                stop_forward_item = Gtk.MenuItem(label="💀 Stop Port Forward")
+                stop_forward_item.connect("activate", lambda w, p=k.pid, r=k.resource: self.stop_k8s_forward_and_notify(p, r))
+                single_k_submenu.append(stop_forward_item)
+                
+                k8s_submenu.append(single_k_item)
         self.menu.append(k8s_item)
 
         # 3. Local Ports Submenu
@@ -128,8 +154,26 @@ class PortKillerTrayApp:
                 if p['pid'] != 0:
                     port_label += f" (PID {p['pid']})"
                 
+                # Create a submenu for this port's direct actions
                 port_item = Gtk.MenuItem(label=port_label)
-                port_item.connect("activate", lambda w, port_info=p: self.open_port_dialog(port_info))
+                port_submenu = Gtk.Menu()
+                port_item.set_submenu(port_submenu)
+                
+                copy_port_item = Gtk.MenuItem(label="📋 Copy Port")
+                copy_port_item.connect("activate", lambda w, port=p['port']: self.copy_and_notify(str(port), f"Port {port} copied to clipboard!"))
+                port_submenu.append(copy_port_item)
+                
+                if p['pid'] != 0:
+                    copy_pid_item = Gtk.MenuItem(label="📋 Copy PID")
+                    copy_pid_item.connect("activate", lambda w, pid=p['pid']: self.copy_and_notify(str(pid), f"PID {pid} copied to clipboard!"))
+                    port_submenu.append(copy_pid_item)
+                    
+                    port_submenu.append(Gtk.SeparatorMenuItem())
+                    
+                    kill_item = Gtk.MenuItem(label="💀 Kill Process")
+                    kill_item.connect("activate", lambda w, pid=p['pid'], port=p['port']: self.kill_and_notify(pid, port))
+                    port_submenu.append(kill_item)
+                
                 local_submenu.append(port_item)
         self.menu.append(local_item)
 
@@ -147,24 +191,36 @@ class PortKillerTrayApp:
 
         self.menu.show_all()
 
-    def open_port_dialog(self, p):
-        # Open port details dialog
-        dialog = PortDetailsDialog(None, p)
-        response = dialog.run()
-        
-        if response == 1:  # Kill Process (SIGTERM)
-            PortScanner.kill_process(p['pid'], force=False)
-        elif response == 2:  # Force Kill (SIGKILL)
-            PortScanner.kill_process(p['pid'], force=True)
-        elif response == 3:  # Copy PID
-            from ..services.clipboard import copy_to_clipboard
-            copy_to_clipboard(str(p['pid']))
-        elif response == 4:  # Copy Port
-            from ..services.clipboard import copy_to_clipboard
-            copy_to_clipboard(str(p['port']))
-            
-        dialog.destroy()
-        # Refresh lists soon after closing/killing
+    def copy_and_notify(self, text, message):
+        copy_to_clipboard(text)
+        try:
+            subprocess.run(["notify-send", "-a", "PortKiller", "Copied", message])
+        except Exception:
+            pass
+
+    def kill_and_notify(self, pid, port):
+        if pid != 0:
+            PortScanner.kill_process(pid, force=True)
+            try:
+                subprocess.run(["notify-send", "-a", "PortKiller", "Process Terminated", f"Port {port} running process (PID {pid}) was killed!"])
+            except Exception:
+                pass
+            GLib.timeout_add(200, self.build_menu)
+
+    def stop_cf_tunnel_and_notify(self, port):
+        cloudflare_service.stop_tunnel(port)
+        try:
+            subprocess.run(["notify-send", "-a", "PortKiller", "Tunnel Stopped", f"Cloudflare Tunnel on port {port} stopped!"])
+        except Exception:
+            pass
+        GLib.timeout_add(200, self.build_menu)
+
+    def stop_k8s_forward_and_notify(self, pid, resource):
+        k8s_service.stop_port_forward(pid)
+        try:
+            subprocess.run(["notify-send", "-a", "PortKiller", "Port Forward Stopped", f"Kubernetes port-forward for {resource} stopped!"])
+        except Exception:
+            pass
         GLib.timeout_add(200, self.build_menu)
 
     def auto_refresh(self):

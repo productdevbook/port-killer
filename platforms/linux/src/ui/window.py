@@ -332,11 +332,18 @@ class MenuBarWindow(Gtk.Window):
         lbl_proc.set_xalign(0)
         row.pack_start(lbl_proc, True, True, 4)
         
-        # Manage Button
-        btn_manage = Gtk.Button(label="Manage")
-        btn_manage.get_style_context().add_class("menu-btn")
-        btn_manage.connect("clicked", lambda w, port_info=p: self.open_port_dialog(port_info))
-        row.pack_start(btn_manage, False, False, 0)
+        # Action buttons
+        btn_copy = Gtk.Button(label="Copy")
+        btn_copy.get_style_context().add_class("menu-btn")
+        btn_copy.connect("clicked", lambda w, port=p['port']: self.copy_port_direct(port))
+        row.pack_start(btn_copy, False, False, 0)
+        
+        if p['pid'] != 0:
+            btn_kill = Gtk.Button(label="Kill")
+            btn_kill.get_style_context().add_class("menu-btn")
+            btn_kill.get_style_context().add_class("menu-btn-destructive")
+            btn_kill.connect("clicked", lambda w, pid=p['pid'], port=p['port']: self.kill_process_direct(pid, port))
+            row.pack_start(btn_kill, False, False, 0)
         
         self.content_box.pack_start(row, False, False, 0)
 
@@ -401,11 +408,18 @@ class MenuBarWindow(Gtk.Window):
                 lbl_port.set_xalign(0)
                 child_row.pack_start(lbl_port, True, True, 4)
                 
-                # Manage Button
-                btn_manage = Gtk.Button(label="Manage")
-                btn_manage.get_style_context().add_class("menu-btn")
-                btn_manage.connect("clicked", lambda w, port_info=p: self.open_port_dialog(port_info))
-                child_row.pack_start(btn_manage, False, False, 0)
+                # Action buttons
+                btn_copy = Gtk.Button(label="Copy")
+                btn_copy.get_style_context().add_class("menu-btn")
+                btn_copy.connect("clicked", lambda w, port=p['port']: self.copy_port_direct(port))
+                child_row.pack_start(btn_copy, False, False, 0)
+                
+                if p['pid'] != 0:
+                    btn_kill = Gtk.Button(label="Kill")
+                    btn_kill.get_style_context().add_class("menu-btn")
+                    btn_kill.get_style_context().add_class("menu-btn-destructive")
+                    btn_kill.connect("clicked", lambda w, pid=p['pid'], port=p['port']: self.kill_process_direct(pid, port))
+                    child_row.pack_start(btn_kill, False, False, 0)
                 
                 self.content_box.pack_start(child_row, False, False, 0)
 
@@ -420,22 +434,23 @@ class MenuBarWindow(Gtk.Window):
         PortScanner.kill_process(pid, force=True)
         GLib.timeout_add(200, self.refresh_data)
 
-    def open_port_dialog(self, p):
-        # Open port details dialog
-        dialog = PortDetailsDialog(self, p)
-        response = dialog.run()
-        
-        if response == 1:  # Kill Process (SIGTERM)
-            PortScanner.kill_process(p['pid'], force=False)
-        elif response == 2:  # Force Kill (SIGKILL)
-            PortScanner.kill_process(p['pid'], force=True)
-        elif response == 3:  # Copy PID
-            copy_to_clipboard(str(p['pid']))
-        elif response == 4:  # Copy Port
-            copy_to_clipboard(str(p['port']))
-            
-        dialog.destroy()
-        # Refresh lists soon after closing/killing
-        GLib.timeout_add(200, self.refresh_data)
+    def copy_port_direct(self, port):
+        copy_to_clipboard(str(port))
+        try:
+            import subprocess
+            subprocess.run(["notify-send", "-a", "PortKiller", "Port Copied", f"Port {port} copied to clipboard!"])
+        except Exception:
+            pass
+
+    def kill_process_direct(self, pid, port=None):
+        if pid != 0:
+            PortScanner.kill_process(pid, force=True)
+            try:
+                import subprocess
+                msg = f"Process running on port {port} has been killed." if port else f"Process (PID {pid}) has been killed."
+                subprocess.run(["notify-send", "-a", "PortKiller", "Process Terminated", msg])
+            except Exception:
+                pass
+            GLib.timeout_add(200, self.refresh_data)
 
 
