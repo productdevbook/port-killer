@@ -1,0 +1,351 @@
+#!/usr/bin/env python3
+import os
+import sys
+import subprocess
+import gi
+
+# Ensure we use GTK 3
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GObject, GLib, Gdk
+
+# Import AppIndicator/AyatanaAppIndicator
+try:
+    gi.require_version('AppIndicator3', '0.1')
+    from gi.repository import AppIndicator3 as appindicator
+except (ValueError, ImportError):
+    try:
+        gi.require_version('AyatanaAppIndicator3', '0.1')
+        from gi.repository import AyatanaAppIndicator3 as appindicator
+    except (ValueError, ImportError):
+        print("Error: AppIndicator3 or AyatanaAppIndicator3 is required for the system tray app.")
+        print("Install it using: sudo apt install python3-gi python3-gi-cairo gir1.2-appindicator3-0.1")
+        sys.exit(1)
+
+# App configurations
+APPINDICATOR_ID = 'portkiller'
+
+class PortKillerTrayApp:
+    def __init__(self):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.abspath(os.path.join(script_dir, "../../Resources/AppIcon.svg"))
+        if not os.path.exists(icon_path):
+            icon_path = "network-server" # Fallback to standard system icon
+
+        self.indicator = appindicator.Indicator.new(
+            APPINDICATOR_ID,
+            icon_path,
+            appindicator.IndicatorCategory.SYSTEM_SERVICES
+        )
+        self.indicator.set_status(appindicator.IndicatorStatus.ACTIVE)
+
+        self.menu = Gtk.Menu()
+        self.indicator.set_menu(self.menu)
+
+        # Initial build
+        self.build_menu()
+
+        # Set up auto-refresh timer (every 5 seconds)
+        GLib.timeout_add_seconds(5, self.auto_refresh)
+
+    def scan_ports(self):
+        ports = []
+        try:
+            # Try lsof first
+            result = subprocess.run(
+                ["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            ports = self.parse_lsof_output(result.stdout)
+        except (subprocess.SubprocessError, FileNotFoundError):
+            # Fall back to ss
+            try:
+                result = subprocess.run(
+                    ["ss", "-tlnp"],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                ports = self.parse_ss_output(result.stdout)
+            except (subprocess.SubprocessError, FileNotFoundError):
+                pass
+        return ports
+
+    def parse_lsof_output(self, output):
+        ports = []
+        seen = set()
+        lines = output.strip().split('\n')
+        if len(lines) <= 1:
+            return ports
+        
+        commands = self.get_process_commands()
+
+        for line in lines[1:]:
+            if not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) < 9:
+                continue
+            
+            process_name = parts[0]
+            try:
+                pid = int(parts[1])
+            except ValueError:
+                continue
+            
+            # Find the name column with colon
+            address_str = None
+            for p in reversed(parts[8:]):
+                if ':' in p and not p.startswith('0x') and not p.startswith('0t'):
+                    address_str = p
+                    break
+            
+            if not address_str:
+                continue
+            
+            addr_port = self.parse_address(address_str)
+            if not addr_port:
+                continue
+            address, port = addr_port
+            
+            command = commands.get(pid, process_name)
+            if len(command) > 200:
+                command = command[:200] + "..."
+                
+            if (port, pid) not in seen:
+                seen.add((port, pid))
+                ports.append({
+                    'port': port,
+                    'pid': pid,
+                    'process_name': process_name,
+                    'command': command,
+                    'address': address
+                })
+                
+        ports.sort(key=lambda x: x['port'])
+        return ports
+
+    def parse_ss_output(self, output):
+        ports = []
+        seen = set()
+        lines = output.strip().split('\n')
+        
+        commands = self.get_process_commands()
+
+        for line in lines:
+            if not line.strip() or line.startswith('State'):
+                continue
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+                
+            local_addr = parts[3]
+            last_colon = local_addr.rfind(':')
+            if last_colon == -1:
+                continue
+                
+            address = local_addr[:last_colon]
+            if not address:
+                address = "*"
+            try:
+                port = int(local_addr[last_colon + 1:])
+            except ValueError:
+                continue
+                
+            pid = 0
+            process_name = "Unknown"
+            if len(parts) >= 6:
+                proc_col = parts[5]
+                users = self.parse_ss_users(proc_col)
+                for name, p in users:
+                    command = commands.get(p, name)
+                    if len(command) > 200:
+                        command = command[:200] + "..."
+                    if (port, p) not in seen:
+                        seen.add((port, p))
+                        ports.append({
+                            'port': port,
+                            'pid': p,
+                            'process_name': name,
+                            'command': command,
+                            'address': address
+                        })
+            
+            if (port, pid) not in seen:
+                seen.add((port, pid))
+                ports.append({
+                    'port': port,
+                    'pid': pid,
+                    'process_name': process_name,
+                    'command': "Unknown",
+                    'address': address
+                })
+                
+        ports.sort(key=lambda x: x['port'])
+        return ports
+
+    def parse_ss_users(self, users_str):
+        results = []
+        if "users:(" in users_str:
+            content = users_str[users_str.find("users:(") + 7 : -1]
+            for part in content.split("),("):
+                clean = part.lstrip('(').rstrip(')')
+                fields = clean.split(',')
+                if len(fields) >= 2:
+                    name = fields[0].strip('"')
+                    pid_str = fields[1].strip()
+                    if pid_str.startswith("pid="):
+                        try:
+                            pid = int(pid_str[4:])
+                            results.append((name, pid))
+                        except ValueError:
+                            pass
+        return results
+
+    def parse_address(self, address_str):
+        if address_str.startswith('['):
+            bracket_end = address_str.find(']')
+            if bracket_end == -1 or bracket_end + 1 >= len(address_str):
+                return None
+            after = address_str[bracket_end + 1:]
+            if not after.startswith(':'):
+                return None
+            try:
+                port = int(after[1:])
+                return address_str[:bracket_end + 1], port
+            except ValueError:
+                return None
+        else:
+            last_colon = address_str.rfind(':')
+            if last_colon == -1:
+                return None
+            try:
+                port = int(address_str[last_colon + 1:])
+                addr = address_str[:last_colon]
+                if not addr:
+                    addr = "*"
+                return addr, port
+            except ValueError:
+                return None
+
+    def get_process_commands(self):
+        commands = {}
+        try:
+            result = subprocess.run(
+                ["ps", "-axo", "pid,command"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            lines = result.stdout.strip().split('\n')
+            for line in lines[1:]:
+                trimmed = line.strip()
+                if not trimmed:
+                    continue
+                parts = trimmed.split(None, 1)
+                if len(parts) < 2:
+                    continue
+                try:
+                    pid = int(parts[0])
+                    commands[pid] = parts[1].strip()
+                except ValueError:
+                    continue
+        except subprocess.SubprocessError:
+            pass
+        return commands
+
+    def kill_process(self, pid, force=False):
+        try:
+            sig = "-9" if force else "-15"
+            subprocess.run(["kill", sig, str(pid)], check=True)
+            return True
+        except subprocess.SubprocessError:
+            return False
+
+    def copy_to_clipboard(self, text):
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        clipboard.set_text(text, -1)
+
+    def on_kill_process(self, pid, force):
+        success = self.kill_process(pid, force)
+        if success:
+            # Refresh menu shortly after killing
+            GLib.timeout_add(100, self.build_menu)
+
+    def build_menu(self):
+        for child in self.menu.get_children():
+            self.menu.remove(child)
+            
+        ports = self.scan_ports()
+        
+        if not ports:
+            empty_item = Gtk.MenuItem(label="No listening ports active")
+            empty_item.set_sensitive(False)
+            self.menu.append(empty_item)
+        else:
+            for p in ports:
+                port_label = f"{p['port']} → {p['process_name']}"
+                if p['pid'] != 0:
+                    port_label += f" (PID {p['pid']})"
+                    
+                port_item = Gtk.MenuItem(label=port_label)
+                submenu = Gtk.Menu()
+                
+                info_label = f"Command: {p['command']}"
+                if len(info_label) > 60:
+                    info_label = info_label[:57] + "..."
+                info_item = Gtk.MenuItem(label=info_label)
+                info_item.set_sensitive(False)
+                submenu.append(info_item)
+                
+                addr_item = Gtk.MenuItem(label=f"Address: {p['address']}")
+                addr_item.set_sensitive(False)
+                submenu.append(addr_item)
+                
+                submenu.append(Gtk.SeparatorMenuItem())
+                
+                if p['pid'] != 0:
+                    kill_item = Gtk.MenuItem(label="Kill Process (SIGTERM)")
+                    kill_item.connect("activate", lambda w, pid=p['pid']: self.on_kill_process(pid, force=False))
+                    submenu.append(kill_item)
+                    
+                    force_kill_item = Gtk.MenuItem(label="Force Kill Process (SIGKILL)")
+                    force_kill_item.connect("activate", lambda w, pid=p['pid']: self.on_kill_process(pid, force=True))
+                    submenu.append(force_kill_item)
+                    
+                    submenu.append(Gtk.SeparatorMenuItem())
+                    
+                    copy_pid_item = Gtk.MenuItem(label="Copy PID")
+                    copy_pid_item.connect("activate", lambda w, pid=p['pid']: self.copy_to_clipboard(str(pid)))
+                    submenu.append(copy_pid_item)
+                    
+                copy_port_item = Gtk.MenuItem(label="Copy Port")
+                copy_port_item.connect("activate", lambda w, port=p['port']: self.copy_to_clipboard(str(port)))
+                submenu.append(copy_port_item)
+                
+                port_item.set_submenu(submenu)
+                self.menu.append(port_item)
+                
+        self.menu.append(Gtk.SeparatorMenuItem())
+        
+        refresh_item = Gtk.MenuItem(label="Refresh Now")
+        refresh_item.connect("activate", lambda w: self.build_menu())
+        self.menu.append(refresh_item)
+        
+        quit_item = Gtk.MenuItem(label="Quit PortKiller")
+        quit_item.connect("activate", Gtk.main_quit)
+        self.menu.append(quit_item)
+        
+        self.menu.show_all()
+
+    def auto_refresh(self):
+        self.build_menu()
+        return True
+
+def main():
+    app = PortKillerTrayApp()
+    Gtk.main()
+
+if __name__ == '__main__':
+    main()
