@@ -26,86 +26,141 @@ APPINDICATOR_ID = 'portkiller'
 
 # Custom CSS styling for the details dialog to make it look premium
 CSS_DATA = b"""
-    window.port-dialog {
+    window.port-dialog, dialog, dialog > box, dialog .content-area, dialog .dialog-action-area {
         background-color: #1e1e2e;
+        background: #1e1e2e;
         color: #cdd6f4;
-        border-radius: 12px;
+        border: none;
+        box-shadow: none;
     }
+    
+    window.port-dialog {
+        border-radius: 12px;
+        border: 1px solid #313244;
+    }
+    
+    /* Style the header bar natively and give it rounded top corners */
+    headerbar {
+        background-color: #1e1e2e;
+        background: #1e1e2e;
+        border-bottom: 1px solid #313244;
+        box-shadow: none;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    headerbar .title {
+        color: #cdd6f4;
+        font-weight: bold;
+    }
+    
+    /* Make the X close button in the header bar minimal */
+    headerbar button.close {
+        background-color: transparent;
+        background: none;
+        border: none;
+        box-shadow: none;
+        padding: 4px;
+        min-width: 16px;
+        min-height: 16px;
+        border-radius: 50%;
+        color: #a6adc8;
+    }
+    
+    headerbar button.close:hover {
+        background-color: #f38ba8;
+        color: #11111b;
+    }
+    
     .header-box {
-        background: linear-gradient(135deg, #89b4fa, #cba6f7);
+        background-color: #1e1e2e;
         padding: 20px;
         border-radius: 12px 12px 0 0;
     }
+    
     .header-title {
         font-family: 'Ubuntu', 'Liberation Sans', sans-serif;
         font-size: 24px;
         font-weight: 800;
-        color: #11111b;
+        color: #89b4fa;
     }
+    
     .header-subtitle {
         font-family: 'Ubuntu', 'Liberation Sans', sans-serif;
         font-size: 14px;
         font-weight: 500;
-        color: #1e1e2e;
+        color: #a6adc8;
     }
+    
     .content-box {
         padding: 16px;
         background-color: #1e1e2e;
+        border-radius: 0 0 12px 12px;
     }
+    
     .detail-label {
         font-family: 'Liberation Mono', 'Fira Code', 'DejaVu Sans Mono', monospace;
         font-size: 12px;
         color: #cdd6f4;
-        background-color: #11111b;
-        padding: 14px;
-        border-radius: 8px;
-        border: 1px solid #313244;
+        background-color: transparent;
+        background: none;
+        border: none;
+        padding: 0;
     }
+    
+    /* Styled outline buttons */
     button {
         font-family: 'Ubuntu', 'Liberation Sans', sans-serif;
         font-size: 13px;
         font-weight: bold;
         padding: 10px 16px;
         border-radius: 8px;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-        transition: all 0.2s ease-in-out;
+        box-shadow: none;
+        background-color: transparent;
+        background: none;
+        margin: 4px;
     }
+    
     .btn-kill {
-        background-color: #f38ba8;
-        color: #11111b;
+        color: #f38ba8;
+        border: 1.5px solid #f38ba8;
     }
+    
     .btn-kill:hover {
-        background-color: #eba0b2;
+        background-color: rgba(243, 139, 168, 0.1);
     }
+    
     .btn-force {
-        background-color: #fab387;
-        color: #11111b;
+        color: #fab387;
+        border: 1.5px solid #fab387;
     }
+    
     .btn-force:hover {
-        background-color: #f9e2af;
+        background-color: rgba(250, 179, 135, 0.1);
     }
+    
     .btn-secondary {
-        background-color: #313244;
         color: #cdd6f4;
-        border: 1px solid #45475a;
+        border: 1.5px solid #45475a;
     }
+    
     .btn-secondary:hover {
-        background-color: #45475a;
+        background-color: rgba(205, 214, 244, 0.05);
     }
+    
     .btn-close {
-        background-color: #45475a;
-        color: #cdd6f4;
+        color: #a6adc8;
+        border: 1.5px solid #313244;
     }
+    
     .btn-close:hover {
-        background-color: #585b70;
+        background-color: rgba(166, 172, 200, 0.05);
     }
 """
 
 class PortDetailsDialog(Gtk.Dialog):
     def __init__(self, parent, p):
         super().__init__(title=f"Port {p['port']} Management", transient_for=parent, flags=0)
-        self.set_default_size(440, 380)
+        self.set_default_size(440, 360)
         self.set_resizable(False)
         
         # Apply CSS class
