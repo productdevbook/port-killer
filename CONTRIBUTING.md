@@ -2,8 +2,10 @@
 
 ## Requirements
 
-- **macOS 15.0+** - This is a macOS-only menu bar app
-- **Xcode 16+** with Swift 6.0
+- **macOS 15.0+** / **Windows 10+** / **Linux**
+- **Xcode 16+** with Swift 6.0 (for macOS)
+- **.NET 9 SDK** (for Windows)
+- **Rust stable (1.75+)** (for the shared Rust backend)
 
 ## Setup
 
@@ -26,6 +28,22 @@ open Package.swift
 > ⚠️ `swift run` doesn't work for menu bar apps - use Xcode or the build script.
 
 ## Building
+
+### Shared Rust Backend (portkiller-core & portkiller-ffi)
+
+```bash
+# Core library
+cd portkiller-core
+cargo build             # Debug
+cargo build --release   # Release
+
+# FFI bindings
+cd ../portkiller-ffi
+cargo build             # Debug
+cargo build --release   # Release
+```
+
+### macOS App
 
 ```bash
 swift build              # Debug
@@ -70,9 +88,8 @@ Then in Instruments:
 ## Project Structure
 
 ```
-Sources/
-├── PortKillerApp.swift    # Entry point
-├── Managers/              # State & scanning
-├── Models/                # Data models
-└── Views/                 # SwiftUI views
+├── portkiller-core/       # Core Rust library (platform-agnostic)
+├── portkiller-ffi/        # C FFI bindings in Rust (exposes APIs to SwiftUI/.NET)
+├── Sources/               # Swift app source code (macOS)
+└── platforms/             # Platforms (macOS, Windows, Linux)
 ```

@@ -19,6 +19,9 @@ mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
+#[cfg(target_os = "linux")]
+mod linux;
+
 /// Errors that can occur during process killing
 #[derive(Debug, Error)]
 pub enum KillError {
@@ -108,9 +111,12 @@ pub use macos::MacOsProcessManager as PlatformProcessManager;
 #[cfg(target_os = "windows")]
 pub use windows::WindowsProcessManager as PlatformProcessManager;
 
+#[cfg(target_os = "linux")]
+pub use linux::LinuxProcessManager as PlatformProcessManager;
+
 // Fallback for unsupported platforms (compile-time check)
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-compile_error!("Unsupported platform: only macOS and Windows are supported");
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+compile_error!("Unsupported platform: only macOS, Windows and Linux are supported");
 
 /// Kill a process by PID with graceful shutdown, falling back to force kill
 ///

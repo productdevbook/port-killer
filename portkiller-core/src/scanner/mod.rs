@@ -13,6 +13,9 @@ mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
+#[cfg(target_os = "linux")]
+mod linux;
+
 // Re-export platform-specific scanner as PlatformScanner
 #[cfg(target_os = "macos")]
 pub use macos::MacOsScanner as PlatformScanner;
@@ -20,25 +23,28 @@ pub use macos::MacOsScanner as PlatformScanner;
 #[cfg(target_os = "windows")]
 pub use windows::WindowsScanner as PlatformScanner;
 
-// Stub for unsupported platforms (Linux support can be added later)
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "linux")]
+pub use linux::LinuxScanner as PlatformScanner;
+
+// Stub for unsupported platforms
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 pub struct PlatformScanner;
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 impl PlatformScanner {
     pub fn new() -> Self {
         Self
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 impl PlatformScanner {
     pub async fn get_pids_on_port(&self, _port: u16) -> Result<Vec<u32>, ScanError> {
         Err(ScanError::PlatformNotSupported)
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 impl PortScanner for PlatformScanner {
     async fn scan_ports(&self) -> Result<Vec<PortInfo>, ScanError> {
         Err(ScanError::PlatformNotSupported)
