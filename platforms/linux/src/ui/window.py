@@ -15,7 +15,7 @@ class MenuBarWindow(Gtk.Window):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.set_keep_above(True)
         self.set_decorated(False)
-        self.set_default_size(340, 520)
+        self.set_default_size(340, 400)
         self.set_resizable(False)
         
         # Style classes
@@ -53,13 +53,6 @@ class MenuBarWindow(Gtk.Window):
         
         self.content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.scroll.add(self.content_box)
-        
-        # 3. Actions / Footer Area
-        self.footer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        self.footer_box.get_style_context().add_class("actions-box")
-        main_box.pack_start(self.footer_box, False, False, 0)
-        
-        self.build_footer()
         
         # Initial scan & render
         self.local_ports = []
@@ -445,144 +438,4 @@ class MenuBarWindow(Gtk.Window):
         # Refresh lists soon after closing/killing
         GLib.timeout_add(200, self.refresh_data)
 
-    def build_footer(self):
-        # Clear previous footer buttons
-        for child in self.footer_box.get_children():
-            self.footer_box.remove(child)
-            
-        # Create action rows
-        # Row 1: Refresh & View Mode
-        row1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        self.footer_box.pack_start(row1, False, False, 0)
-        
-        btn_refresh = Gtk.Button(label="Refresh Now")
-        btn_refresh.get_style_context().add_class("menu-btn")
-        btn_refresh.set_image(Gtk.Image.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.MENU))
-        btn_refresh.set_always_show_image(True)
-        btn_refresh.connect("clicked", lambda w: self.refresh_data())
-        row1.pack_start(btn_refresh, True, True, 0)
-        
-        view_label = "List View" if config.use_tree_view else "Tree View"
-        view_icon = "format-justify-fill-symbolic" if config.use_tree_view else "view-list-bullet-symbolic"
-        btn_view = Gtk.Button(label=view_label)
-        btn_view.get_style_context().add_class("menu-btn")
-        btn_view.set_image(Gtk.Image.new_from_icon_name(view_icon, Gtk.IconSize.MENU))
-        btn_view.set_always_show_image(True)
-        btn_view.connect("clicked", self._toggle_view_mode)
-        row1.pack_start(btn_view, True, True, 0)
-        
-        # Row 2: Kill All
-        row2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        self.footer_box.pack_start(row2, False, False, 0)
-        
-        if self.confirming_kill_all:
-            lbl_confirm = Gtk.Label(label="Kill all active ports?")
-            lbl_confirm.set_margin_start(8)
-            row2.pack_start(lbl_confirm, True, True, 0)
-            
-            btn_yes = Gtk.Button(label="Yes")
-            btn_yes.get_style_context().add_class("menu-btn")
-            btn_yes.get_style_context().add_class("menu-btn-destructive")
-            btn_yes.connect("clicked", self.kill_all_ports)
-            row2.pack_start(btn_yes, False, False, 0)
-            
-            btn_no = Gtk.Button(label="Cancel")
-            btn_no.get_style_context().add_class("menu-btn")
-            btn_no.connect("clicked", self._toggle_kill_all_confirm)
-            row2.pack_start(btn_no, False, False, 0)
-        else:
-            btn_kill_all = Gtk.Button(label="Kill All Processes")
-            btn_kill_all.get_style_context().add_class("menu-btn")
-            btn_kill_all.get_style_context().add_class("menu-btn-destructive")
-            btn_kill_all.set_image(Gtk.Image.new_from_icon_name("process-stop-symbolic", Gtk.IconSize.MENU))
-            btn_kill_all.set_always_show_image(True)
-            btn_kill_all.connect("clicked", self._toggle_kill_all_confirm)
-            row2.pack_start(btn_kill_all, True, True, 0)
 
-        # Separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        self.footer_box.pack_start(sep, False, False, 2)
-
-        # Row 3: Open PortKiller Dashboard, Sponsor, Settings, Quit
-        row3 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        self.footer_box.pack_start(row3, False, False, 0)
-
-        btn_dashboard = Gtk.Button(label="Open Port Killer")
-        btn_dashboard.get_style_context().add_class("menu-btn")
-        btn_dashboard.connect("clicked", self.open_dashboard)
-        row3.pack_start(btn_dashboard, True, True, 0)
-
-        btn_sponsor = Gtk.Button(label="Sponsor")
-        btn_sponsor.get_style_context().add_class("menu-btn")
-        btn_sponsor.connect("clicked", lambda w: Gtk.show_uri_on_window(self, "https://github.com/sponsors/productdevbook", Gdk.CURRENT_TIME))
-        row3.pack_start(btn_sponsor, False, False, 0)
-
-        # Settings: Toggles hiding system processes
-        settings_label = "Settings"
-        btn_settings = Gtk.Button(label=settings_label)
-        btn_settings.get_style_context().add_class("menu-btn")
-        btn_settings.connect("clicked", self.open_settings_menu)
-        row3.pack_start(btn_settings, False, False, 0)
-
-        btn_quit = Gtk.Button(label="Quit")
-        btn_quit.get_style_context().add_class("menu-btn")
-        btn_quit.get_style_context().add_class("menu-btn-destructive")
-        btn_quit.connect("clicked", lambda w: Gtk.main_quit())
-        row3.pack_start(btn_quit, False, False, 0)
-        
-        self.footer_box.show_all()
-
-    def _toggle_view_mode(self, btn):
-        config.use_tree_view = not config.use_tree_view
-        self.build_footer()
-        self.render_list()
-
-    def _toggle_kill_all_confirm(self, btn=None):
-        self.confirming_kill_all = not self.confirming_kill_all
-        self.build_footer()
-
-    def kill_all_ports(self, btn):
-        self.confirming_kill_all = False
-        # Kill everything
-        for p in self.local_ports:
-            if p['pid'] != 0:
-                PortScanner.kill_process(p['pid'], force=True)
-        # Also kill k8s forwards
-        k8s_service.kill_all()
-        # Also stop cf tunnels
-        cloudflare_service.stop_all()
-        
-        self.build_footer()
-        GLib.timeout_add(300, self.refresh_data)
-
-    def open_dashboard(self, btn):
-        # Trigger an alert or notifications as placeholder
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            flags=0,
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.OK,
-            text="PortKiller Linux App"
-        )
-        dialog.format_secondary_text("You are currently running the system tray app dashboard dashboard.")
-        dialog.run()
-        dialog.destroy()
-
-    def open_settings_menu(self, btn):
-        # Create a simple settings menu popup or toggle system processes directly
-        # Toggle showing/hiding system processes for simplicity
-        config.hide_system_processes = not config.hide_system_processes
-        
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            flags=0,
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.OK,
-            text="Settings Updated"
-        )
-        status_txt = "hiding" if config.hide_system_processes else "showing"
-        dialog.format_secondary_text(f"PortKiller is now {status_txt} system services.")
-        dialog.run()
-        dialog.destroy()
-        
-        self.refresh_data()
