@@ -41,6 +41,7 @@ Icon=$INSTALL_DIR/AppIcon.svg
 Terminal=false
 Categories=Development;Utility;
 StartupNotify=false
+StartupWMClass=port-killer
 EOF
 
 # Copy desktop file to autostart so it starts on login

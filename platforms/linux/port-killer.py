@@ -168,6 +168,15 @@ class PortDetailsDialog(Gtk.Dialog):
         
         # Apply CSS class
         self.get_style_context().add_class("port-dialog")
+
+        # Set window icon for taskbar/dock
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(script_dir, "AppIcon.svg")
+        if os.path.exists(icon_path):
+            try:
+                self.set_icon_from_file(icon_path)
+            except Exception:
+                pass
         
         # Hide default action area to prevent drawing a square box at the very bottom
         self.get_action_area().hide()
@@ -292,7 +301,10 @@ class PortDetailsDialog(Gtk.Dialog):
 
 class PortKillerTrayApp:
     def __init__(self):
-        icon_path = "utilities-system-monitor" # Use standard system theme icon for high reliability on GNOME/Wayland
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(script_dir, "AppIcon.svg")
+        if not os.path.exists(icon_path):
+            icon_path = "utilities-system-monitor" # Fallback if icon is not found
 
         self.indicator = appindicator.Indicator.new(
             APPINDICATOR_ID,
@@ -592,6 +604,18 @@ class PortKillerTrayApp:
         return True
 
 def main():
+    # Set application details for desktop integration (so taskbar/dock maps correctly)
+    GLib.set_prgname('port-killer')
+    GLib.set_application_name('PortKiller')
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    icon_path = os.path.join(script_dir, "AppIcon.svg")
+    if os.path.exists(icon_path):
+        try:
+            Gtk.Window.set_default_icon_from_file(icon_path)
+        except Exception as e:
+            print(f"Warning: Could not set default window icon: {e}")
+
     # Load CSS Styles
     css_provider = Gtk.CssProvider()
     css_provider.load_from_data(CSS_DATA)
