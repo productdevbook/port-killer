@@ -109,7 +109,7 @@ class PortKillerTrayApp:
                 k_label = f"{k.resource} → {k.local_port}:{k.remote_port} ({k.namespace})"
                 k_item = Gtk.MenuItem(label=k_label)
                 k_item.connect("activate", lambda w: self.dashboard_window.show_near_pointer())
-                k_submenu.append(k_item)
+                k8s_submenu.append(k_item)
         self.menu.append(k8s_item)
 
         # 3. Local Ports Submenu
