@@ -34,8 +34,11 @@ CSS_DATA = b"""
         box-shadow: none;
     }
     
-    window.port-dialog {
+    window.port-dialog, dialog > box, dialog .content-area {
         border-radius: 12px;
+    }
+    
+    window.port-dialog {
         border: 1px solid #313244;
     }
     
@@ -166,6 +169,9 @@ class PortDetailsDialog(Gtk.Dialog):
         # Apply CSS class
         self.get_style_context().add_class("port-dialog")
         
+        # Hide default action area to prevent drawing a square box at the very bottom
+        self.get_action_area().hide()
+        
         # Main layout box
         content_area = self.get_content_area()
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -235,16 +241,21 @@ class PortDetailsDialog(Gtk.Dialog):
         actions_box.set_margin_bottom(16)
         body_box.pack_start(actions_box, False, False, 0)
         
+        # Create a size group for homogeneous button widths
+        button_size_group = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.HORIZONTAL)
+        
         # Row 1: Kill actions
         if p['pid'] != 0:
             kill_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
             btn_kill = Gtk.Button(label="Kill Process (SIGTERM)")
             btn_kill.get_style_context().add_class("btn-kill")
             btn_kill.connect("clicked", lambda w: self.response(1))
+            button_size_group.add_widget(btn_kill)
             
             btn_force = Gtk.Button(label="Force Kill (SIGKILL)")
             btn_force.get_style_context().add_class("btn-force")
             btn_force.connect("clicked", lambda w: self.response(2))
+            button_size_group.add_widget(btn_force)
             
             kill_row.pack_start(btn_kill, True, True, 0)
             kill_row.pack_start(btn_force, True, True, 0)
@@ -255,10 +266,12 @@ class PortDetailsDialog(Gtk.Dialog):
             btn_copy_pid = Gtk.Button(label="Copy PID")
             btn_copy_pid.get_style_context().add_class("btn-secondary")
             btn_copy_pid.connect("clicked", lambda w: self.response(3))
+            button_size_group.add_widget(btn_copy_pid)
             
             btn_copy_port = Gtk.Button(label="Copy Port")
             btn_copy_port.get_style_context().add_class("btn-secondary")
             btn_copy_port.connect("clicked", lambda w: self.response(4))
+            button_size_group.add_widget(btn_copy_port)
             
             utils_row.pack_start(btn_copy_pid, True, True, 0)
             utils_row.pack_start(btn_copy_port, True, True, 0)
@@ -273,7 +286,7 @@ class PortDetailsDialog(Gtk.Dialog):
         btn_close = Gtk.Button(label="Close")
         btn_close.get_style_context().add_class("btn-close")
         btn_close.connect("clicked", lambda w: self.response(Gtk.ResponseType.CLOSE))
-        actions_box.pack_start(btn_close, False, False, 0)
+        actions_box.pack_start(btn_close, True, True, 0)
         
         self.show_all()
 
