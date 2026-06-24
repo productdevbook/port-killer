@@ -17,7 +17,7 @@ except (ValueError, ImportError):
         print("Error: AppIndicator3 or AyatanaAppIndicator3 is required.")
         sys.exit(1)
 
-from .window import MenuBarWindow
+from .dialogs import PortDetailsDialog
 from ..scanner import PortScanner
 from ..services.cloudflare import cloudflare_service
 from ..services.k8s import k8s_service
@@ -27,9 +27,6 @@ APPINDICATOR_ID = 'portkiller'
 
 class PortKillerTrayApp:
     def __init__(self):
-        # Create the macOS-like dropdown window
-        self.dashboard_window = MenuBarWindow()
-
         # Locate AppIcon.svg
         from ..config import get_icon_path
         icon_path = get_icon_path()
@@ -46,17 +43,16 @@ class PortKillerTrayApp:
         self.menu = Gtk.Menu()
         self.indicator.set_menu(self.menu)
 
+        # Cache variables to detect changes and prevent menu flickering/autoclose
+        self.last_state = None
+
         # Build initial tray menu
-        self.build_menu()
+        self.refresh_and_build()
 
         # Set up auto-refresh timer (every 5 seconds)
         GLib.timeout_add_seconds(5, self.auto_refresh)
 
-    def build_menu(self):
-        # Clear previous items
-        for child in self.menu.get_children():
-            self.menu.remove(child)
-
+    def refresh_and_build(self):
         # Scan ports, tunnels, and forwards
         ports = PortScanner.scan_ports()
         k8s_forwards = k8s_service.scan_active_forwards()
@@ -67,6 +63,14 @@ class PortKillerTrayApp:
         for ext in external_cf:
             if not any(t.port == ext['port'] for t in cf_tunnels):
                 cf_tunnels.append(ext)
+
+        # Rebuild Gtk Menu
+        self.build_menu_with_data(ports, k8s_forwards, cf_tunnels)
+
+    def build_menu_with_data(self, ports, k8s_forwards, cf_tunnels):
+        # Clear previous items
+        for child in self.menu.get_children():
+            self.menu.remove(child)
 
         # 1. Cloudflare Tunnels Submenu
         cf_label = f"☁️ Cloudflare Tunnels ({len(cf_tunnels)})"
@@ -131,7 +135,7 @@ class PortKillerTrayApp:
                 k8s_submenu.append(single_k_item)
         self.menu.append(k8s_item)
 
-        # 3. Local Ports Submenu
+        # 3. Local Ports Submenu (Restored direct clicks to open management Dialog)
         local_label = f"🌐 Local Ports ({len(ports)})"
         local_item = Gtk.MenuItem(label=local_label)
         local_submenu = Gtk.Menu()
@@ -147,26 +151,9 @@ class PortKillerTrayApp:
                 if p['pid'] != 0:
                     port_label += f" (PID {p['pid']})"
                 
-                # Create a submenu for this port's direct actions
+                # Port item clicking opens the Dialog modal
                 port_item = Gtk.MenuItem(label=port_label)
-                port_submenu = Gtk.Menu()
-                port_item.set_submenu(port_submenu)
-                
-                copy_port_item = Gtk.MenuItem(label="📋 Copy Port")
-                copy_port_item.connect("activate", lambda w, port=p['port']: self.copy_and_notify(str(port), f"Port {port} copied to clipboard!"))
-                port_submenu.append(copy_port_item)
-                
-                if p['pid'] != 0:
-                    copy_pid_item = Gtk.MenuItem(label="📋 Copy PID")
-                    copy_pid_item.connect("activate", lambda w, pid=p['pid']: self.copy_and_notify(str(pid), f"PID {pid} copied to clipboard!"))
-                    port_submenu.append(copy_pid_item)
-                    
-                    port_submenu.append(Gtk.SeparatorMenuItem())
-                    
-                    kill_item = Gtk.MenuItem(label="💀 Kill Process")
-                    kill_item.connect("activate", lambda w, pid=p['pid'], port=p['port']: self.kill_and_notify(pid, port))
-                    port_submenu.append(kill_item)
-                
+                port_item.connect("activate", lambda w, port_info=p: self.open_port_dialog(port_info))
                 local_submenu.append(port_item)
         self.menu.append(local_item)
 
@@ -174,7 +161,7 @@ class PortKillerTrayApp:
 
         # Item 4: Refresh Data
         refresh_item = Gtk.MenuItem(label="Refresh Now")
-        refresh_item.connect("activate", lambda w: self.build_menu())
+        refresh_item.connect("activate", lambda w: self.refresh_and_build())
         self.menu.append(refresh_item)
 
         # Item 5: Quit
@@ -184,21 +171,32 @@ class PortKillerTrayApp:
 
         self.menu.show_all()
 
+    def open_port_dialog(self, p):
+        # Open port details dialog
+        dialog = PortDetailsDialog(None, p)
+        response = dialog.run()
+        
+        if response == 1:  # Kill Process (SIGTERM)
+            PortScanner.kill_process(p['pid'], force=False)
+            self.copy_and_notify(str(p['port']), f"Process on port {p['port']} terminated (SIGTERM)!")
+        elif response == 2:  # Force Kill (SIGKILL)
+            PortScanner.kill_process(p['pid'], force=True)
+            self.copy_and_notify(str(p['port']), f"Process on port {p['port']} force killed (SIGKILL)!")
+        elif response == 3:  # Copy PID
+            self.copy_and_notify(str(p['pid']), f"PID {p['pid']} copied to clipboard!")
+        elif response == 4:  # Copy Port
+            self.copy_and_notify(str(p['port']), f"Port {p['port']} copied to clipboard!")
+            
+        dialog.destroy()
+        # Refresh lists soon after closing/killing
+        GLib.timeout_add(200, self.refresh_and_build)
+
     def copy_and_notify(self, text, message):
         copy_to_clipboard(text)
         try:
-            subprocess.run(["notify-send", "-a", "PortKiller", "Copied", message])
+            subprocess.run(["notify-send", "-a", "PortKiller", "Action Done", message])
         except Exception:
             pass
-
-    def kill_and_notify(self, pid, port):
-        if pid != 0:
-            PortScanner.kill_process(pid, force=True)
-            try:
-                subprocess.run(["notify-send", "-a", "PortKiller", "Process Terminated", f"Port {port} running process (PID {pid}) was killed!"])
-            except Exception:
-                pass
-            GLib.timeout_add(200, self.build_menu)
 
     def stop_cf_tunnel_and_notify(self, port):
         cloudflare_service.stop_tunnel(port)
@@ -206,7 +204,7 @@ class PortKillerTrayApp:
             subprocess.run(["notify-send", "-a", "PortKiller", "Tunnel Stopped", f"Cloudflare Tunnel on port {port} stopped!"])
         except Exception:
             pass
-        GLib.timeout_add(200, self.build_menu)
+        GLib.timeout_add(200, self.refresh_and_build)
 
     def stop_k8s_forward_and_notify(self, pid, resource):
         k8s_service.stop_port_forward(pid)
@@ -214,8 +212,31 @@ class PortKillerTrayApp:
             subprocess.run(["notify-send", "-a", "PortKiller", "Port Forward Stopped", f"Kubernetes port-forward for {resource} stopped!"])
         except Exception:
             pass
-        GLib.timeout_add(200, self.build_menu)
+        GLib.timeout_add(200, self.refresh_and_build)
 
     def auto_refresh(self):
-        self.build_menu()
+        # Scan ports, tunnels, and forwards
+        ports = PortScanner.scan_ports()
+        k8s_forwards = k8s_service.scan_active_forwards()
+        
+        # Get cloudflare tunnels
+        cf_tunnels = list(cloudflare_service.active_tunnels.values())
+        external_cf = cloudflare_service.scan_running_tunnels_from_ps()
+        for ext in external_cf:
+            if not any(t.port == ext['port'] for t in cf_tunnels):
+                cf_tunnels.append(ext)
+
+        # Hash/Represent current state to compare with previous state
+        current_state = {
+            'ports': [(p['port'], p['pid'], p['process_name']) for p in ports],
+            'k8s': [(k.pid, k.local_port, k.remote_port, k.resource) for k in k8s_forwards],
+            'cf': [(t.port if hasattr(t, 'port') else t.get('port', 0),
+                    t.url if hasattr(t, 'url') else t.get('url', '')) for t in cf_tunnels]
+        }
+
+        # Rebuild only if something changed (prevents menu from closing while user reads it)
+        if self.last_state != current_state:
+            self.last_state = current_state
+            self.build_menu_with_data(ports, k8s_forwards, cf_tunnels)
+
         return True
