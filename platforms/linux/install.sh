@@ -15,6 +15,7 @@ mkdir -p "$AUTOSTART_DIR"
 mkdir -p "$APPLICATIONS_DIR"
 
 # Copy python script and assets
+cp -r "$SCRIPT_DIR/src" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/port-killer.py" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/port-killer.py"
 
