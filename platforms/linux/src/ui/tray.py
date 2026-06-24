@@ -57,13 +57,6 @@ class PortKillerTrayApp:
         for child in self.menu.get_children():
             self.menu.remove(child)
 
-        # Item 1: Open Search & Dashboard
-        dash_item = Gtk.MenuItem(label="🔍 Search & Filter Ports...")
-        dash_item.connect("activate", lambda w: self.dashboard_window.show_near_pointer())
-        self.menu.append(dash_item)
-
-        self.menu.append(Gtk.SeparatorMenuItem())
-
         # Scan ports, tunnels, and forwards
         ports = PortScanner.scan_ports()
         k8s_forwards = k8s_service.scan_active_forwards()
