@@ -52,6 +52,20 @@ swift build -c release   # Release
 ./scripts/build-debug.sh # App bundle (debug, for profiling)
 ```
 
+### Linux App (Native Tray Application)
+
+We provide a native system tray application for Linux built with Python, GTK3, and AppIndicator.
+
+To install it on your system (registers application launcher and autostart on login):
+```bash
+./platforms/linux/install.sh
+```
+
+To run it directly:
+```bash
+./platforms/linux/port-killer.py &
+```
+
 ## Profiling with Instruments
 
 To profile the app with Instruments (memory, CPU, etc.):
