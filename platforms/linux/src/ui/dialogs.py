@@ -1,10 +1,6 @@
-import os
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GdkPixbuf
-
-from ..services.clipboard import copy_to_clipboard
-from ..scanner import PortScanner
+from gi.repository import Gtk, GdkPixbuf
 
 class PortDetailsDialog(Gtk.Dialog):
     def __init__(self, parent, p):

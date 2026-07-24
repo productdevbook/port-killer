@@ -1,4 +1,7 @@
+import os
+import signal
 import subprocess
+import time
 
 class PortScanner:
     @staticmethod
@@ -87,11 +90,13 @@ class PortScanner:
         ports = []
         seen = set()
         lines = output.strip().split('\n')
-        
+
         commands = PortScanner.get_process_commands()
 
-        for line in lines:
-            if not line.strip() or line.startswith('State'):
+        # Skip the header by position: matching on "State" breaks under
+        # locales where ss translates its column titles.
+        for line in lines[1:]:
+            if not line.strip():
                 continue
             parts = line.split()
             if len(parts) < 4:
@@ -220,10 +225,55 @@ class PortScanner:
         return commands
 
     @staticmethod
-    def kill_process(pid, force=False):
+    def is_process_running(pid):
+        if pid <= 0:
+            return False
         try:
-            sig = "-9" if force else "-15"
-            subprocess.run(["kill", sig, str(pid)], check=True)
+            os.kill(pid, 0)
             return True
-        except subprocess.SubprocessError:
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            # Exists but owned by another user
+            return True
+
+    @staticmethod
+    def kill_process(pid, force=False):
+        """
+        Terminate a process.
+
+        force=False follows the project convention: SIGTERM, wait 500ms, then
+        SIGKILL if it is still alive. force=True sends SIGKILL immediately.
+
+        Returns True on success, False if the signal could not be delivered
+        (e.g. the process is owned by another user).
+        """
+        if pid <= 0:
+            return False
+
+        try:
+            if force:
+                os.kill(pid, signal.SIGKILL)
+                return True
+
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            # Already gone
+            return True
+        except (PermissionError, OSError) as e:
+            print(f"Error killing process {pid}: {e}")
+            return False
+
+        # Grace period, then escalate to SIGKILL if still running
+        time.sleep(0.5)
+        if not PortScanner.is_process_running(pid):
+            return True
+
+        try:
+            os.kill(pid, signal.SIGKILL)
+            return True
+        except ProcessLookupError:
+            return True
+        except (PermissionError, OSError) as e:
+            print(f"Error force-killing process {pid}: {e}")
             return False

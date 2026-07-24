@@ -1,14 +1,13 @@
-import os
+import threading
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
+from gi.repository import Gtk, Gdk, GLib
 
 from ..config import config
 from ..scanner import PortScanner
 from ..services.cloudflare import cloudflare_service
 from ..services.k8s import k8s_service
-from ..services.clipboard import copy_to_clipboard
-from .dialogs import PortDetailsDialog
+from ..services.clipboard import copy_to_clipboard, notify
 
 class MenuBarWindow(Gtk.Window):
     def __init__(self):
@@ -102,19 +101,37 @@ class MenuBarWindow(Gtk.Window):
         self.render_list()
 
     def refresh_data(self):
-        # Scan system state
-        self.local_ports = PortScanner.scan_ports()
-        self.k8s_forwards = k8s_service.scan_active_forwards()
-        
-        # Get managed cloudflare tunnels + external ones
-        self.cf_tunnels = list(cloudflare_service.active_tunnels.values())
-        external_cf = cloudflare_service.scan_running_tunnels_from_ps()
-        for ext in external_cf:
-            # Avoid duplicate ports
-            if not any(t.port == ext['port'] for t in self.cf_tunnels):
-                self.cf_tunnels.append(ext)
-                
-        self.render_list()
+        # Scanning spawns subprocesses; keep it off the GTK main thread so the
+        # window does not freeze while it runs.
+        def worker():
+            try:
+                local_ports = PortScanner.scan_ports()
+                k8s_forwards = k8s_service.scan_active_forwards()
+
+                # Get managed cloudflare tunnels + external ones
+                cf_tunnels = list(cloudflare_service.active_tunnels.values())
+                external_cf = cloudflare_service.scan_running_tunnels_from_ps()
+                for ext in external_cf:
+                    # Avoid duplicate ports
+                    if not any(
+                        (t.port if hasattr(t, 'port') else t.get('port', 0)) == ext['port']
+                        for t in cf_tunnels
+                    ):
+                        cf_tunnels.append(ext)
+            except Exception as e:
+                print(f"Error refreshing port data: {e}")
+                return
+
+            def apply():
+                self.local_ports = local_ports
+                self.k8s_forwards = k8s_forwards
+                self.cf_tunnels = cf_tunnels
+                self.render_list()
+                return False
+
+            GLib.idle_add(apply)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def render_list(self):
         # Clear previous items
@@ -431,26 +448,25 @@ class MenuBarWindow(Gtk.Window):
         self.render_list()
 
     def kill_entire_process(self, pid):
-        PortScanner.kill_process(pid, force=True)
+        # Graceful by default (SIGTERM, then SIGKILL after a grace period),
+        # matching the behaviour documented for the other platforms.
+        if PortScanner.kill_process(pid, force=False):
+            notify("Process Terminated", f"Process (PID {pid}) has been terminated.")
+        else:
+            notify("Kill Failed", f"Could not terminate PID {pid}.")
         GLib.timeout_add(200, self.refresh_data)
 
     def copy_port_direct(self, port):
         copy_to_clipboard(str(port))
-        try:
-            import subprocess
-            subprocess.run(["notify-send", "-a", "PortKiller", "Port Copied", f"Port {port} copied to clipboard!"])
-        except Exception:
-            pass
+        notify("Port Copied", f"Port {port} copied to clipboard!")
 
     def kill_process_direct(self, pid, port=None):
         if pid != 0:
-            PortScanner.kill_process(pid, force=True)
-            try:
-                import subprocess
-                msg = f"Process running on port {port} has been killed." if port else f"Process (PID {pid}) has been killed."
-                subprocess.run(["notify-send", "-a", "PortKiller", "Process Terminated", msg])
-            except Exception:
-                pass
+            target = f"on port {port}" if port else f"(PID {pid})"
+            if PortScanner.kill_process(pid, force=False):
+                notify("Process Terminated", f"Process {target} has been terminated.")
+            else:
+                notify("Kill Failed", f"Could not terminate process {target}.")
             GLib.timeout_add(200, self.refresh_data)
 
 

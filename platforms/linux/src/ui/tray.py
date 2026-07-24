@@ -1,6 +1,5 @@
-import os
 import sys
-import subprocess
+import threading
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib
@@ -18,10 +17,11 @@ except (ValueError, ImportError):
         sys.exit(1)
 
 from .dialogs import PortDetailsDialog
+from .window import MenuBarWindow
 from ..scanner import PortScanner
 from ..services.cloudflare import cloudflare_service
 from ..services.k8s import k8s_service
-from ..services.clipboard import copy_to_clipboard
+from ..services.clipboard import copy_to_clipboard, notify
 
 APPINDICATOR_ID = 'portkiller'
 
@@ -46,26 +46,52 @@ class PortKillerTrayApp:
         # Cache variables to detect changes and prevent menu flickering/autoclose
         self.last_state = None
 
+        # Searchable browser window, created on first use
+        self.window = None
+
         # Build initial tray menu
         self.refresh_and_build()
 
         # Set up auto-refresh timer (every 5 seconds)
         GLib.timeout_add_seconds(5, self.auto_refresh)
 
-    def refresh_and_build(self):
-        # Scan ports, tunnels, and forwards
+    @staticmethod
+    def _collect_state():
+        """
+        Run the system scans. Spawns several subprocesses, so this must never
+        run on the GTK main thread.
+        """
         ports = PortScanner.scan_ports()
         k8s_forwards = k8s_service.scan_active_forwards()
-        
+
         # Get cloudflare tunnels
         cf_tunnels = list(cloudflare_service.active_tunnels.values())
         external_cf = cloudflare_service.scan_running_tunnels_from_ps()
         for ext in external_cf:
-            if not any(t.port == ext['port'] for t in cf_tunnels):
+            if not any(
+                (t.port if hasattr(t, 'port') else t.get('port', 0)) == ext['port']
+                for t in cf_tunnels
+            ):
                 cf_tunnels.append(ext)
 
-        # Rebuild Gtk Menu
-        self.build_menu_with_data(ports, k8s_forwards, cf_tunnels)
+        return ports, k8s_forwards, cf_tunnels
+
+    def refresh_and_build(self):
+        # Scan off the main thread, then rebuild the menu back on it.
+        def worker():
+            try:
+                ports, k8s_forwards, cf_tunnels = self._collect_state()
+            except Exception as e:
+                print(f"Error refreshing port data: {e}")
+                return
+
+            def apply():
+                self.build_menu_with_data(ports, k8s_forwards, cf_tunnels)
+                return False
+
+            GLib.idle_add(apply)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def build_menu_with_data(self, ports, k8s_forwards, cf_tunnels):
         # Clear previous items
@@ -159,17 +185,34 @@ class PortKillerTrayApp:
 
         self.menu.append(Gtk.SeparatorMenuItem())
 
-        # Item 4: Refresh Data
+        # Item 4: Open the searchable port browser window
+        window_item = Gtk.MenuItem(label="Open PortKiller Window")
+        window_item.connect("activate", lambda w: self.open_main_window())
+        self.menu.append(window_item)
+
+        # Item 5: Refresh Data
         refresh_item = Gtk.MenuItem(label="Refresh Now")
         refresh_item.connect("activate", lambda w: self.refresh_and_build())
         self.menu.append(refresh_item)
 
-        # Item 5: Quit
+        # Item 6: Quit
         quit_item = Gtk.MenuItem(label="Quit PortKiller")
-        quit_item.connect("activate", lambda w: Gtk.main_quit())
+        quit_item.connect("activate", lambda w: self.quit())
         self.menu.append(quit_item)
 
         self.menu.show_all()
+
+    def open_main_window(self):
+        # Created lazily and reused so window state (search, expanded rows)
+        # survives between openings.
+        if self.window is None:
+            self.window = MenuBarWindow()
+        self.window.show_near_pointer()
+
+    def quit(self):
+        # Tear down any tunnels we own so cloudflared children are not orphaned
+        cloudflare_service.stop_all()
+        Gtk.main_quit()
 
     def open_port_dialog(self, p):
         # Open port details dialog
@@ -177,11 +220,15 @@ class PortKillerTrayApp:
         response = dialog.run()
         
         if response == 1:  # Kill Process (SIGTERM)
-            PortScanner.kill_process(p['pid'], force=False)
-            self.copy_and_notify(str(p['port']), f"Process on port {p['port']} terminated (SIGTERM)!")
+            if PortScanner.kill_process(p['pid'], force=False):
+                notify("Process Terminated", f"Process on port {p['port']} terminated (SIGTERM).")
+            else:
+                notify("Kill Failed", f"Could not terminate PID {p['pid']} on port {p['port']}.")
         elif response == 2:  # Force Kill (SIGKILL)
-            PortScanner.kill_process(p['pid'], force=True)
-            self.copy_and_notify(str(p['port']), f"Process on port {p['port']} force killed (SIGKILL)!")
+            if PortScanner.kill_process(p['pid'], force=True):
+                notify("Process Killed", f"Process on port {p['port']} force killed (SIGKILL).")
+            else:
+                notify("Kill Failed", f"Could not kill PID {p['pid']} on port {p['port']}.")
         elif response == 3:  # Copy PID
             self.copy_and_notify(str(p['pid']), f"PID {p['pid']} copied to clipboard!")
         elif response == 4:  # Copy Port
@@ -193,50 +240,46 @@ class PortKillerTrayApp:
 
     def copy_and_notify(self, text, message):
         copy_to_clipboard(text)
-        try:
-            subprocess.run(["notify-send", "-a", "PortKiller", "Action Done", message])
-        except Exception:
-            pass
+        notify("Action Done", message)
 
     def stop_cf_tunnel_and_notify(self, port):
         cloudflare_service.stop_tunnel(port)
-        try:
-            subprocess.run(["notify-send", "-a", "PortKiller", "Tunnel Stopped", f"Cloudflare Tunnel on port {port} stopped!"])
-        except Exception:
-            pass
+        notify("Tunnel Stopped", f"Cloudflare Tunnel on port {port} stopped!")
         GLib.timeout_add(200, self.refresh_and_build)
 
     def stop_k8s_forward_and_notify(self, pid, resource):
-        k8s_service.stop_port_forward(pid)
-        try:
-            subprocess.run(["notify-send", "-a", "PortKiller", "Port Forward Stopped", f"Kubernetes port-forward for {resource} stopped!"])
-        except Exception:
-            pass
+        if k8s_service.stop_port_forward(pid):
+            notify("Port Forward Stopped", f"Kubernetes port-forward for {resource} stopped!")
+        else:
+            notify("Port Forward Failed", f"Could not stop port-forward for {resource} (PID {pid}).")
         GLib.timeout_add(200, self.refresh_and_build)
 
     def auto_refresh(self):
-        # Scan ports, tunnels, and forwards
-        ports = PortScanner.scan_ports()
-        k8s_forwards = k8s_service.scan_active_forwards()
-        
-        # Get cloudflare tunnels
-        cf_tunnels = list(cloudflare_service.active_tunnels.values())
-        external_cf = cloudflare_service.scan_running_tunnels_from_ps()
-        for ext in external_cf:
-            if not any(t.port == ext['port'] for t in cf_tunnels):
-                cf_tunnels.append(ext)
+        # Scan off the main thread so the tray stays responsive.
+        def worker():
+            try:
+                ports, k8s_forwards, cf_tunnels = self._collect_state()
+            except Exception as e:
+                print(f"Error during auto-refresh: {e}")
+                return
 
-        # Hash/Represent current state to compare with previous state
-        current_state = {
-            'ports': [(p['port'], p['pid'], p['process_name']) for p in ports],
-            'k8s': [(k.pid, k.local_port, k.remote_port, k.resource) for k in k8s_forwards],
-            'cf': [(t.port if hasattr(t, 'port') else t.get('port', 0),
-                    t.url if hasattr(t, 'url') else t.get('url', '')) for t in cf_tunnels]
-        }
+            # Hash/Represent current state to compare with previous state
+            current_state = {
+                'ports': [(p['port'], p['pid'], p['process_name']) for p in ports],
+                'k8s': [(k.pid, k.local_port, k.remote_port, k.resource) for k in k8s_forwards],
+                'cf': [(t.port if hasattr(t, 'port') else t.get('port', 0),
+                        t.url if hasattr(t, 'url') else t.get('url', '')) for t in cf_tunnels]
+            }
 
-        # Rebuild only if something changed (prevents menu from closing while user reads it)
-        if self.last_state != current_state:
-            self.last_state = current_state
-            self.build_menu_with_data(ports, k8s_forwards, cf_tunnels)
+            def apply():
+                # Rebuild only if something changed (prevents the menu from
+                # closing while the user is reading it)
+                if self.last_state != current_state:
+                    self.last_state = current_state
+                    self.build_menu_with_data(ports, k8s_forwards, cf_tunnels)
+                return False
 
+            GLib.idle_add(apply)
+
+        threading.Thread(target=worker, daemon=True).start()
         return True

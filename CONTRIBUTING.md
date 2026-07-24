@@ -66,6 +66,14 @@ To run it directly:
 ./platforms/linux/port-killer.py &
 ```
 
+Requires Python 3, PyGObject (GTK 3) and libappindicator/libayatana-appindicator.
+`install.sh` checks for these and stops with install hints if any are missing.
+
+Run the Linux parser tests with:
+```bash
+python3 -m unittest discover -s platforms/linux/tests
+```
+
 ## Profiling with Instruments
 
 To profile the app with Instruments (memory, CPU, etc.):

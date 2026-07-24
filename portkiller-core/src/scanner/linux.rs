@@ -5,6 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 use tokio::process::Command;
+use tracing::debug;
 use crate::models::PortInfo;
 use super::{PortScanner, ScanError};
 
@@ -38,8 +39,8 @@ impl LinuxScanner {
                     return Ok(pids);
                 }
             }
-            Err(_) => {
-                // lsof command probably not found, fall back to ss
+            Err(e) => {
+                debug!(error = %e, "lsof unavailable, falling back to ss");
             }
         }
 
@@ -150,8 +151,12 @@ impl LinuxScanner {
     }
 
     /// Decode escaped characters in lsof output (e.g. `\x20` -> space)
+    ///
+    /// Decoded bytes are accumulated as raw bytes rather than pushed as `char`s:
+    /// lsof escapes each byte of a multi-byte UTF-8 sequence separately, so
+    /// `byte as char` would map e.g. `\xc3\xa9` to "Ã©" instead of "é".
     fn decode_escaped(input: &str) -> String {
-        let mut result = String::with_capacity(input.len());
+        let mut bytes: Vec<u8> = Vec::with_capacity(input.len());
         let mut chars = input.chars().peekable();
 
         while let Some(c) = chars.next() {
@@ -172,23 +177,25 @@ impl LinuxScanner {
 
                     if hex.len() == 2 {
                         if let Ok(byte) = u8::from_str_radix(&hex, 16) {
-                            result.push(byte as char);
+                            bytes.push(byte);
                             continue;
                         }
                     }
 
-                    result.push('\\');
-                    result.push('x');
-                    result.push_str(&hex);
+                    bytes.push(b'\\');
+                    bytes.push(b'x');
+                    bytes.extend_from_slice(hex.as_bytes());
                 } else {
-                    result.push(c);
+                    let mut buf = [0u8; 4];
+                    bytes.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
                 }
             } else {
-                result.push(c);
+                let mut buf = [0u8; 4];
+                bytes.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
             }
         }
 
-        result
+        String::from_utf8_lossy(&bytes).into_owned()
     }
 
     /// Parse an address:port string into (address, port)
@@ -394,8 +401,8 @@ impl PortScanner for LinuxScanner {
                     }
                 }
             }
-            Err(_) => {
-                // lsof probably not installed, fall back to ss
+            Err(e) => {
+                debug!(error = %e, "lsof unavailable, falling back to ss");
             }
         }
 
@@ -465,5 +472,97 @@ mod tests {
             LinuxScanner::parse_address("[fe80::1]:8080"),
             Some(("[fe80::1]".to_string(), 8080))
         );
+    }
+
+    #[test]
+    fn test_parse_address_invalid() {
+        assert_eq!(LinuxScanner::parse_address("no-colon-here"), None);
+        assert_eq!(LinuxScanner::parse_address("127.0.0.1:notaport"), None);
+        assert_eq!(LinuxScanner::parse_address("[::1]"), None);
+    }
+
+    #[test]
+    fn test_decode_escaped_ascii() {
+        assert_eq!(LinuxScanner::decode_escaped("my\\x20app"), "my app");
+        assert_eq!(LinuxScanner::decode_escaped("plain"), "plain");
+    }
+
+    #[test]
+    fn test_decode_escaped_multibyte_utf8() {
+        // lsof escapes each byte of a UTF-8 sequence separately; "\xc3\xa9" is "é"
+        assert_eq!(LinuxScanner::decode_escaped("caf\\xc3\\xa9"), "café");
+    }
+
+    #[test]
+    fn test_decode_escaped_incomplete_sequence_is_preserved() {
+        assert_eq!(LinuxScanner::decode_escaped("bad\\xzz"), "bad\\xzz");
+    }
+
+    #[test]
+    fn test_parse_ss_users_no_process_info() {
+        assert!(LinuxScanner::parse_ss_users("").is_empty());
+        assert!(LinuxScanner::parse_ss_users("0.0.0.0:*").is_empty());
+    }
+
+    #[test]
+    fn test_parse_ss_output_skips_header_and_parses_rows() {
+        let scanner = LinuxScanner::new();
+        let output = "\
+State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+LISTEN 0      4096   127.0.0.1:3000     0.0.0.0:*         users:((\"node\",pid=1234,fd=23))
+LISTEN 0      511    [::1]:8080         [::]:*            users:((\"nginx\",pid=555,fd=6))
+";
+        let commands = HashMap::new();
+        let ports = scanner.parse_ss_output(output, &commands);
+
+        assert_eq!(ports.len(), 2);
+        assert_eq!(ports[0].port, 3000);
+        assert_eq!(ports[0].pid, 1234);
+        assert_eq!(ports[0].process_name, "node");
+        assert_eq!(ports[0].address, "127.0.0.1");
+        assert_eq!(ports[1].port, 8080);
+        assert_eq!(ports[1].pid, 555);
+        assert_eq!(ports[1].address, "[::1]");
+    }
+
+    #[test]
+    fn test_parse_ss_output_without_process_column() {
+        let scanner = LinuxScanner::new();
+        // Unprivileged `ss` omits users:(...) for sockets owned by other users
+        let output = "\
+State  Recv-Q Send-Q Local Address:Port Peer Address:Port
+LISTEN 0      128    0.0.0.0:22         0.0.0.0:*
+";
+        let commands = HashMap::new();
+        let ports = scanner.parse_ss_output(output, &commands);
+
+        assert_eq!(ports.len(), 1);
+        assert_eq!(ports[0].port, 22);
+        assert_eq!(ports[0].pid, 0);
+        assert_eq!(ports[0].process_name, "Unknown");
+    }
+
+    #[test]
+    fn test_parse_lsof_output_parses_and_dedupes() {
+        let output = "\
+COMMAND  PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+node    1234 user   23u  IPv4  56789      0t0  TCP 127.0.0.1:3000 (LISTEN)
+node    1234 user   24u  IPv4  56790      0t0  TCP 127.0.0.1:3000 (LISTEN)
+nginx    555 root    6u  IPv6  11111      0t0  TCP [::1]:8080 (LISTEN)
+";
+        let mut commands = HashMap::new();
+        commands.insert(1234u32, "node server.js".to_string());
+
+        let ports = LinuxScanner::parse_lsof_output(output, &commands).unwrap();
+
+        // The duplicate (port, pid) row is collapsed
+        assert_eq!(ports.len(), 2);
+        assert_eq!(ports[0].port, 3000);
+        assert_eq!(ports[0].pid, 1234);
+        assert_eq!(ports[0].command, "node server.js");
+        assert_eq!(ports[1].port, 8080);
+        assert_eq!(ports[1].address, "[::1]");
+        // Falls back to the process name when ps had no entry for the pid
+        assert_eq!(ports[1].command, "nginx");
     }
 }

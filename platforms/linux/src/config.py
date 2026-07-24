@@ -79,8 +79,11 @@ def get_icon_path():
         os.path.join(src_dir, "AppIcon.svg"),
         os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "AppIcon.svg"),
     ]
+    # Require a non-empty file: an empty AppIcon.svg (e.g. left by an older
+    # installer) would otherwise be passed to AppIndicator instead of letting
+    # the caller fall back to a system icon name.
     for p in candidates:
-        if os.path.exists(p):
+        if os.path.isfile(p) and os.path.getsize(p) > 0:
             return p
     return None
 

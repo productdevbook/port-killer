@@ -1,7 +1,12 @@
 import os
 import re
 import shutil
+import signal
 import subprocess
+
+# kubectl flags whose value is a separate following token
+VALUE_FLAGS = ("-n", "--namespace", "--kubeconfig", "--context", "--address")
+
 
 class K8sPortForward:
     def __init__(self, pid, namespace, resource, local_port, remote_port, raw_cmd):
@@ -93,26 +98,21 @@ class K8sService:
         # Parse Resource Name
         # E.g. "svc/my-service", "pod/my-pod", "deployment/my-dep", or just "my-pod"
         resource = "Unknown Resource"
-        # Find arguments that are not flags and not port mappings
         cmd_tokens = cmd.split()
-        for i, token in enumerate(cmd_tokens):
-            if token == "port-forward":
-                # The resource is typically the next non-flag argument
-                for j in range(i + 1, len(cmd_tokens)):
-                    t = cmd_tokens[j]
-                    if t.startswith("-"):
-                        # If it's a flag that takes an argument, skip both
-                        if t in ["-n", "--namespace", "--kubeconfig", "--context", "--address"]:
-                            continue
-                        continue
-                    # Skip the previous token if it was a flag that takes an argument
-                    if j > 0 and cmd_tokens[j - 1] in ["-n", "--namespace", "--kubeconfig", "--context", "--address"]:
-                        continue
-                    # Skip port mappings
-                    if ":" in t or t.isdigit():
-                        continue
-                    resource = t
-                    break
+        if "port-forward" in cmd_tokens:
+            start = cmd_tokens.index("port-forward") + 1
+            for j in range(start, len(cmd_tokens)):
+                t = cmd_tokens[j]
+                # Skip flags themselves
+                if t.startswith("-"):
+                    continue
+                # Skip the value of a flag that takes a separate argument
+                if cmd_tokens[j - 1] in VALUE_FLAGS:
+                    continue
+                # Skip port mappings ("8080:80") and bare port numbers
+                if ":" in t or t.isdigit():
+                    continue
+                resource = t
                 break
 
         return K8sPortForward(pid, namespace, resource, local_port, remote_port, cmd)
@@ -121,21 +121,32 @@ class K8sService:
         """
         Kill a specific port forward process by PID.
         """
+        if pid <= 0:
+            return False
         try:
-            subprocess.run(["kill", "-9", str(pid)], check=True)
+            os.kill(pid, signal.SIGTERM)
             return True
-        except subprocess.SubprocessError:
+        except ProcessLookupError:
+            # Already gone; treat as success
+            return True
+        except (PermissionError, OSError) as e:
+            print(f"Error stopping port-forward {pid}: {e}")
             return False
 
     def kill_all(self):
         """
         Kill all active kubectl port-forward processes.
+
+        Only PIDs identified by scan_active_forwards() are signalled. A broad
+        `pkill -f "kubectl.*port-forward"` would match any process whose command
+        line merely contains that text (an editor, a shell script, a grep) and
+        kill it too.
         """
-        try:
-            subprocess.run(["pkill", "-9", "-f", "kubectl.*port-forward"], check=True)
-            return True
-        except subprocess.SubprocessError:
-            return False
+        ok = True
+        for fw in self.scan_active_forwards():
+            if not self.stop_port_forward(fw.pid):
+                ok = False
+        return ok
 
 # Global service instance
 k8s_service = K8sService()

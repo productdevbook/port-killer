@@ -49,28 +49,32 @@ class CloudflareTunnel:
 
     def _read_output(self):
         pattern = r"https://[a-zA-Z0-9-]+\.trycloudflare\.com"
+        last_error_line = None
+
         while self.process and self.process.poll() is None:
             line = self.process.stdout.readline()
             if not line:
                 break
-            
+
             # Parse URL
             match = re.search(pattern, line)
             if match:
                 self.url = match.group(0)
                 self.status = "active"
-            
-            # Parse error
+
+            # Remember the most recent error-looking line, but do not change
+            # status yet: cloudflared logs transient connection retries during
+            # startup that contain "error"/"failed" and still go on to connect.
             line_lower = line.lower()
             if "error" in line_lower or "failed" in line_lower:
-                if self.status != "active":
-                    self.status = "error"
-                    self.error = line.strip()
+                last_error_line = line.strip()
 
+        # Only the process actually exiting is treated as a failure.
         if self.process and self.process.poll() is not None:
-            if self.status != "error":
+            returncode = self.process.returncode
+            if self.status not in ("stopping", "stopped"):
                 self.status = "error"
-                self.error = f"Process exited with code {self.process.returncode}"
+                self.error = last_error_line or f"Process exited with code {returncode}"
 
     def stop(self):
         self.status = "stopping"
@@ -82,9 +86,12 @@ class CloudflareTunnel:
                     if self.process.poll() is not None:
                         break
                     time.sleep(0.1)
-                
+
                 if self.process.poll() is None:
                     self.process.kill()
+
+                # Reap the child so it does not linger as a zombie
+                self.process.wait()
             except Exception:
                 pass
         self.status = "stopped"
@@ -131,7 +138,7 @@ class CloudflareService:
         try:
             # Query running processes matching cloudflared
             result = subprocess.run(
-                ["ps", "-aux"],
+                ["ps", "-axo", "pid,command"],
                 capture_output=True,
                 text=True
             )
@@ -140,25 +147,41 @@ class CloudflareService:
 
             # Pattern to parse cloudflared tunnel command
             # e.g., cloudflared tunnel --url localhost:3000
-            for line in result.stdout.splitlines():
-                if "cloudflared" in line and "tunnel" in line and "--url" in line:
-                    # Find local port
-                    port_match = re.search(r"localhost:(\d+)", line)
-                    if port_match:
-                        port = int(port_match.group(1))
-                        # Get PID
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            pid = int(parts[1])
-                            # Check if we already manage this port. If not, add as external
-                            if port not in self.active_tunnels:
-                                external_tunnels.append({
-                                    "port": port,
-                                    "pid": pid,
-                                    "status": "active",
-                                    "url": "External (check terminal)",
-                                    "command": " ".join(parts[10:])
-                                })
+            # Output format is "PID COMMAND", so split off the PID and keep
+            # the rest of the line as the command.
+            for line in result.stdout.splitlines()[1:]:
+                trimmed = line.strip()
+                if not trimmed:
+                    continue
+
+                parts = trimmed.split(None, 1)
+                if len(parts) < 2:
+                    continue
+
+                pid_str, cmd = parts[0], parts[1]
+                if "cloudflared" not in cmd or "tunnel" not in cmd or "--url" not in cmd:
+                    continue
+
+                # Find local port
+                port_match = re.search(r"localhost:(\d+)", cmd)
+                if not port_match:
+                    continue
+
+                try:
+                    pid = int(pid_str)
+                except ValueError:
+                    continue
+
+                port = int(port_match.group(1))
+                # Check if we already manage this port. If not, add as external
+                if port not in self.active_tunnels:
+                    external_tunnels.append({
+                        "port": port,
+                        "pid": pid,
+                        "status": "active",
+                        "url": "External (check terminal)",
+                        "command": cmd,
+                    })
         except Exception as e:
             print(f"Error scanning cloudflared processes: {e}")
         
