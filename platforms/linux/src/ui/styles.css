@@ -1,0 +1,258 @@
+/* General window & dialog styles */
+window.port-dialog, dialog, dialog > box, dialog .content-area, dialog .dialog-action-area,
+window.menu-bar-window, window.menu-bar-window > box {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+window.port-dialog, dialog > box, dialog .content-area,
+window.menu-bar-window, window.menu-bar-window > box {
+    border-radius: 12px;
+}
+
+window.port-dialog, window.menu-bar-window {
+    border: 1px solid #313244;
+}
+
+/* Header bar for dialogs */
+headerbar {
+    background-color: #1e1e2e;
+    border-bottom: 1px solid #313244;
+    box-shadow: none;
+    border-radius: 12px 12px 0 0;
+}
+
+headerbar .title {
+    color: #cdd6f4;
+    font-weight: bold;
+}
+
+headerbar button.close {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 4px;
+    min-width: 16px;
+    min-height: 16px;
+    border-radius: 50%;
+    color: #a6adc8;
+}
+
+headerbar button.close:hover {
+    background-color: #f38ba8;
+    color: #11111b;
+}
+
+/* Dialog content styles */
+.header-box {
+    background-color: #1e1e2e;
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+}
+
+.header-title {
+    font-family: 'Ubuntu', 'Liberation Sans', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: #89b4fa;
+}
+
+.header-subtitle {
+    font-family: 'Ubuntu', 'Liberation Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #a6adc8;
+}
+
+.content-box {
+    padding: 16px;
+    background-color: #1e1e2e;
+    border-radius: 0 0 12px 12px;
+}
+
+.detail-label {
+    font-family: 'Liberation Mono', 'Fira Code', 'DejaVu Sans Mono', monospace;
+    font-size: 12px;
+    color: #cdd6f4;
+    background-color: transparent;
+    padding: 0;
+}
+
+/* Buttons in dialogs */
+button {
+    font-family: 'Ubuntu', 'Liberation Sans', sans-serif;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 10px 16px;
+    border-radius: 8px;
+    box-shadow: none;
+    background-color: transparent;
+    margin: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-kill {
+    color: #f38ba8;
+    border: 1.5px solid #f38ba8;
+}
+
+.btn-kill:hover {
+    background-color: rgba(243, 139, 168, 0.1);
+}
+
+.btn-force {
+    color: #fab387;
+    border: 1.5px solid #fab387;
+}
+
+.btn-force:hover {
+    background-color: rgba(250, 179, 135, 0.1);
+}
+
+.btn-secondary {
+    color: #cdd6f4;
+    border: 1.5px solid #45475a;
+}
+
+.btn-secondary:hover {
+    background-color: rgba(205, 214, 244, 0.05);
+}
+
+.btn-close {
+    color: #a6adc8;
+    border: 1.5px solid #313244;
+}
+
+.btn-close:hover {
+    background-color: rgba(166, 172, 200, 0.05);
+}
+
+/* Menu Bar Popup Window specific styles */
+.search-box {
+    padding: 12px;
+    background-color: #1e1e2e;
+    border-radius: 12px 12px 0 0;
+}
+
+/* Custom Search Entry style */
+.search-entry {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    padding: 8px 12px;
+    caret-color: #89b4fa;
+}
+
+.search-entry:focus {
+    border-color: #89b4fa;
+}
+
+/* Section Header Style */
+.section-header {
+    background-color: rgba(255, 255, 255, 0.03);
+    padding: 6px 12px;
+}
+
+.section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #89b4fa;
+}
+
+/* Scrollable port list items */
+.port-list-container {
+    background-color: #1e1e2e;
+}
+
+/* List Row layout */
+.list-row {
+    padding: 8px 12px;
+    border-bottom: 1px solid #181825;
+    transition: background-color 0.15s ease;
+}
+
+.list-row:hover {
+    background-color: #313244;
+}
+
+/* Connection rows: Tunnels, K8s */
+.connection-row {
+    padding: 6px 12px;
+    border-bottom: 1px solid #181825;
+}
+
+.connection-title {
+    font-weight: 600;
+    font-size: 12px;
+    color: #cdd6f4;
+}
+
+.connection-detail {
+    font-size: 11px;
+    color: #a6adc8;
+}
+
+.row-port {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #89b4fa;
+}
+
+.row-process {
+    font-size: 13px;
+    font-weight: 600;
+    color: #cdd6f4;
+}
+
+.row-pid {
+    font-size: 11px;
+    color: #a6adc8;
+}
+
+/* Tree expand/collapse toggle */
+.tree-expand-btn {
+    background: transparent;
+    border: none;
+    padding: 2px;
+    margin: 0;
+    min-width: 16px;
+    min-height: 16px;
+    color: #a6adc8;
+}
+
+/* Bottom Action Buttons bar */
+.actions-box {
+    padding: 8px;
+    background-color: #181825;
+    border-radius: 0 0 12px 12px;
+    border-top: 1px solid #313244;
+}
+
+/* Small icons inside the menu bar popup buttons */
+.menu-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+    margin: 2px;
+    border-radius: 6px;
+    font-weight: 500;
+    color: #cdd6f4;
+    border: 1px solid transparent;
+}
+
+.menu-btn:hover {
+    background-color: #313244;
+    border-color: #45475a;
+}
+
+.menu-btn-destructive {
+    color: #f38ba8;
+}
+
+.menu-btn-destructive:hover {
+    background-color: rgba(243, 139, 168, 0.1);
+    border-color: #f38ba8;
+}

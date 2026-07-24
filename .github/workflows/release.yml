@@ -448,3 +448,123 @@ jobs:
           $version = "${{ env.RELEASE_VERSION }}"
           gh release upload $version "PortKiller-${version}-windows-x64.zip" --clobber
           gh release upload $version "PortKiller-${version}-windows-arm64.zip" --clobber
+
+  build-linux:
+    name: Build Linux
+    needs: create-release
+    # Skip for PR builds (macOS only)
+    if: ${{ always() && !inputs.is_pr_build && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            python3 python3-gi python3-gi-cairo \
+            gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 \
+            librsvg2-bin desktop-file-utils file
+
+      - name: Build AppImage
+        run: |
+          VERSION="${{ env.RELEASE_VERSION }}"
+          VERSION="${VERSION#v}"
+          APPDIR=AppDir
+
+          # Lay out the AppDir
+          mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/port-killer"
+          mkdir -p "$APPDIR/usr/share/applications"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/scalable/apps"
+
+          cp -r platforms/linux/src "$APPDIR/usr/share/port-killer/"
+          cp platforms/linux/port-killer.py "$APPDIR/usr/share/port-killer/"
+          chmod +x "$APPDIR/usr/share/port-killer/port-killer.py"
+
+          # Icon: AppImage needs it at the AppDir root as well as in the theme
+          cp platforms/macos/Resources/AppIcon.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/port-killer.svg"
+          cp platforms/macos/Resources/AppIcon.svg "$APPDIR/port-killer.svg"
+          # Some desktop environments will not read an SVG-only AppImage icon
+          rsvg-convert -w 256 -h 256 platforms/macos/Resources/AppIcon.svg -o "$APPDIR/port-killer.png"
+
+          cat > "$APPDIR/usr/share/applications/port-killer.desktop" <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=PortKiller
+          Comment=Monitor listening ports and terminate processes from system tray
+          Exec=port-killer
+          Icon=port-killer
+          Terminal=false
+          Categories=Development;
+          StartupNotify=false
+          StartupWMClass=port-killer
+          DESKTOP
+          cp "$APPDIR/usr/share/applications/port-killer.desktop" "$APPDIR/port-killer.desktop"
+          desktop-file-validate "$APPDIR/port-killer.desktop"
+
+          # Launcher. The GTK stack is taken from the host rather than bundled:
+          # PyGObject binds tightly to the system GLib/GTK, and bundling them
+          # breaks on distros whose versions differ from the build image.
+          cat > "$APPDIR/usr/bin/port-killer" <<'LAUNCH'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          APPROOT="$(dirname "$(dirname "$HERE")")"
+
+          for dep in "gi:python3-gi" "gi.repository.Gtk:gir1.2-gtk-3.0"; do
+              mod="${dep%%:*}"
+              if ! python3 -c "import ${mod%%.*}" 2>/dev/null; then
+                  echo "PortKiller: missing ${dep##*:}." >&2
+                  echo "Install the GTK Python bindings, e.g.:" >&2
+                  echo "  Debian/Ubuntu: sudo apt install python3-gi gir1.2-ayatanaappindicator3-0.1" >&2
+                  echo "  Fedora:        sudo dnf install python3-gobject libayatana-appindicator-gtk3" >&2
+                  echo "  Arch:          sudo pacman -S python-gobject libayatana-appindicator" >&2
+                  exit 1
+              fi
+          done
+
+          exec python3 "$APPROOT/usr/share/port-killer/port-killer.py" "$@"
+          LAUNCH
+          chmod +x "$APPDIR/usr/bin/port-killer"
+
+          # AppRun -> launcher
+          ln -s usr/bin/port-killer "$APPDIR/AppRun"
+
+          # Package
+          curl -fsSL -o appimagetool \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
+            "$APPDIR" "PortKiller-${{ env.RELEASE_VERSION }}-linux-x86_64.AppImage"
+
+      - name: Verify AppImage
+        run: |
+          FILE="PortKiller-${{ env.RELEASE_VERSION }}-linux-x86_64.AppImage"
+          [ -f "$FILE" ] || { echo "AppImage not produced"; exit 1; }
+          chmod +x "$FILE"
+          file "$FILE"
+
+          # Confirm the payload is actually in there
+          ./"$FILE" --appimage-extract >/dev/null
+          [ -f squashfs-root/usr/share/port-killer/port-killer.py ] || { echo "Missing entry point"; exit 1; }
+          [ -f squashfs-root/usr/share/port-killer/src/ui/tray.py ] || { echo "Missing src/"; exit 1; }
+          [ -x squashfs-root/AppRun ] || { echo "AppRun not executable"; exit 1; }
+          rm -rf squashfs-root
+          echo "AppImage verified"
+
+      - name: Upload to Release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ env.RELEASE_VERSION }}" \
+            "PortKiller-${{ env.RELEASE_VERSION }}-linux-x86_64.AppImage" --clobber
+
+      - name: Upload artifact (dry run)
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: PortKiller-*-linux-x86_64.AppImage

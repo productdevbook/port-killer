@@ -64,3 +64,12 @@ bun.lockb
 
 # Rust
 **/target/
+
+# Python (Linux tray app)
+__pycache__/
+*.py[cod]
+
+# Linux packaging
+AppDir/
+*.AppImage
+appimagetool
