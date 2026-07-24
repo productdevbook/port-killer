@@ -68,3 +68,7 @@ Cargo.lock
 
 # Xcode config (generated)
 PortKiller.xcconfig
+
+# Python (Linux tray app)
+__pycache__/
+*.py[cod]
