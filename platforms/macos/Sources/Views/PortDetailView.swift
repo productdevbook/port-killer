@@ -237,16 +237,16 @@ struct PortDetailView: View {
                 // Tunnel section
                 if port.isActive {
                     tunnelSection
-                }
 
-                Button(role: .destructive) {
-                    showKillConfirmation = true
-                } label: {
-                    Text("Kill Process")
-                        .frame(maxWidth: .infinity)
+                    Button(role: .destructive) {
+                        showKillConfirmation = true
+                    } label: {
+                        Text("Kill Process")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
             }
         }
     }

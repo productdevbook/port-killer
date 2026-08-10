@@ -94,6 +94,14 @@ enum SidebarItem: Hashable, Identifiable, Sendable {
         }
     }
 
+    /// Whether this selection shows the port list and port detail pane
+    var showsPorts: Bool {
+        switch self {
+        case .allPorts, .favorites, .watched, .processType: return true
+        case .kubernetesPortForward, .cloudflareTunnels, .sponsors, .settings: return false
+        }
+    }
+
     var icon: String {
         switch self {
         case .allPorts: return "list.bullet"

@@ -111,6 +111,14 @@ struct PortContextMenu: View {
         Divider()
 
         Button {
+            // Inactive placeholders only exist in the favorites/watched lists,
+            // and special sidebar states suppress the port detail pane —
+            // navigate somewhere the port can actually be shown.
+            if !port.isActive {
+                appState.selectedSidebarItem = appState.isFavorite(port.port) ? .favorites : .watched
+            } else if !appState.selectedSidebarItem.showsPorts {
+                appState.selectedSidebarItem = .allPorts
+            }
             appState.selectedPortID = port.id
             NSApp.activate(ignoringOtherApps: true)
             openWindow(id: "main")

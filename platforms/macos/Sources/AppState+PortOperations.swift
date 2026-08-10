@@ -57,7 +57,10 @@ extension AppState {
     }
 
     /// Kills the process using the specified port.
+    /// pid 0 would signal the whole process group (kill(0, …)), so guard
+    /// against inactive placeholders ever reaching the syscall.
     func killPort(_ port: PortInfo) async {
+        guard port.isActive, port.pid > 0 else { return }
         if await scanner.killProcessGracefully(pid: port.pid) {
             ports.removeAll { $0.id == port.id }
             await refresh()
@@ -66,6 +69,8 @@ extension AppState {
 
     /// Kills the listening process and all processes with ESTABLISHED connections to the port.
     func killPortDeep(_ port: PortInfo) async {
+        guard port.isActive, port.pid > 0 else { return }
+
         // 1. Kill the listener
         _ = await scanner.killProcessGracefully(pid: port.pid)
 

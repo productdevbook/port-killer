@@ -97,10 +97,13 @@ final class AppState {
     /// ID of the currently selected port in the detail view
     var selectedPortID: String? = nil
 
-    /// The currently selected port, if any
+    /// The currently selected port, if any.
+    /// Falls back to filteredPorts so inactive favorite/watched placeholders
+    /// (which are synthesized during filtering, never stored in `ports`)
+    /// can be selected and customized.
     var selectedPort: PortInfo? {
         guard let id = selectedPortID else { return nil }
-        return ports.first { $0.id == id }
+        return ports.first { $0.id == id } ?? filteredPorts.first { $0.id == id }
     }
 
     /// ID of the currently selected port-forward connection
