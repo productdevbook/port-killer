@@ -13,7 +13,7 @@ import Foundation
 /// ProcessType provides automatic detection of process categories based on
 /// well-known process names, enabling better organization and visualization
 /// in the UI through icons and color coding.
-enum ProcessType: String, CaseIterable, Identifiable, Sendable {
+enum ProcessType: String, CaseIterable, Identifiable, Sendable, Codable {
     /// Web servers (nginx, apache, caddy, etc.)
     case webServer = "Web Server"
 

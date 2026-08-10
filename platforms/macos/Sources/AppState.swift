@@ -22,7 +22,11 @@ extension Defaults.Keys {
     static let portLabels = Key<[String: String]>("portLabels", default: [:])
 
     // Port notes (port number string → freeform note)
+    // Legacy: migrated into portCustomizations on launch
     static let portNotes = Key<[String: String]>("portNotes", default: [:])
+
+    // Per-port customizations (port number string → name/description/folder/type)
+    static let portCustomizations = Key<[String: PortCustomization]>("portCustomizations", default: [:])
 
     // Process type notification filters (rawValues of enabled types, empty = disabled)
     static let notifyProcessTypes = Key<Set<String>>("notifyProcessTypes", default: [])

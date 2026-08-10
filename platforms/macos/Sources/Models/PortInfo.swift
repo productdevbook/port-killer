@@ -79,14 +79,13 @@ struct PortInfo: Identifiable, Hashable, Sendable {
     ///   - fd: File descriptor information
     /// - Returns: An active PortInfo instance
     static func active(port: Int, pid: Int, processName: String, address: String, user: String, command: String, fd: String) -> PortInfo {
-        // Check for user-defined process type override first
-        let processType: ProcessType
-        if let overrideRaw = Defaults[.processTypeOverrides][processName],
-           let overrideType = ProcessType(rawValue: overrideRaw) {
-            processType = overrideType
-        } else {
-            processType = ProcessType.detect(from: processName)
-        }
+        // Per-port override → legacy per-name override → auto-detect
+        let custom = Defaults[.portCustomizations][String(port)]
+        let processType = PortCustomization.resolveType(
+            portOverride: custom?.type,
+            legacyRaw: Defaults[.processTypeOverrides][processName],
+            processName: processName
+        )
 
         return PortInfo(
             port: port,
