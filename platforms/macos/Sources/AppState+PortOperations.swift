@@ -52,6 +52,7 @@ extension AppState {
             if aFav != bFav { return aFav }
             return a.port < b.port
         }
+        portsRevision += 1
         return true
     }
 

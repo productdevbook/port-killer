@@ -75,6 +75,11 @@ final class AppState {
     /// All currently scanned ports
     var ports: [PortInfo] = []
 
+    /// Bumped whenever `updatePorts` replaces `ports` with changed values.
+    /// Cache keys use it so any per-port change (not just the first row)
+    /// invalidates cached filtered results.
+    var portsRevision = 0
+
     /// Whether a port scan is currently in progress
     var isScanning = false
 
@@ -122,7 +127,7 @@ final class AppState {
     /// Cache key to detect when recalculation is needed
     private struct FilterCacheKey: Equatable {
         let portsCount: Int
-        let portsHash: Int
+        let portsRevision: Int
         let sidebarItem: SidebarItem
         let filterActive: Bool
         let filterText: String
@@ -137,7 +142,7 @@ final class AppState {
     var filteredPorts: [PortInfo] {
         let currentKey = FilterCacheKey(
             portsCount: ports.count,
-            portsHash: ports.isEmpty ? 0 : ports[0].hashValue ^ ports.count,
+            portsRevision: portsRevision,
             sidebarItem: selectedSidebarItem,
             filterActive: filter.isActive,
             filterText: filter.searchText,

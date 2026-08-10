@@ -28,7 +28,7 @@ struct MenuBarView: View {
     /// Cache key to detect when recalculation is needed
     private struct CacheKey: Equatable {
         let portsCount: Int
-        let firstPortHash: Int
+        let portsRevision: Int
         let searchText: String
         let hideSystem: Bool
         let customizationsHash: Int
@@ -40,7 +40,7 @@ struct MenuBarView: View {
     private func updateCachedData() {
         let currentKey = CacheKey(
             portsCount: state.ports.count,
-            firstPortHash: state.ports.first?.hashValue ?? 0,
+            portsRevision: state.portsRevision,
             searchText: searchText,
             hideSystem: hideSystemProcesses,
             customizationsHash: state.customizationsState.customizations.hashValue
