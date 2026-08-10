@@ -76,10 +76,13 @@ struct PortDescriptionEditor: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay(alignment: .topLeading) {
                     if draft.isEmpty {
+                        // Align with the TextEditor's first line: 6pt outer padding
+                        // plus its ~5pt internal line-fragment inset
                         Text("Describe what runs on port \(String(port.port))…")
+                            .font(.body)
                             .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 14)
+                            .padding(.leading, 11)
+                            .padding(.top, 6)
                             .allowsHitTesting(false)
                     }
                 }
