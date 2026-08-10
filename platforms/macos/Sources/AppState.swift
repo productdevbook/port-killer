@@ -129,6 +129,7 @@ final class AppState {
         let hideSystem: Bool
         let favoritesCount: Int
         let watchedCount: Int
+        let customizationsHash: Int
     }
 
     /// Returns filtered ports based on sidebar selection and active filters.
@@ -142,7 +143,8 @@ final class AppState {
             filterText: filter.searchText,
             hideSystem: Defaults[.hideSystemProcesses],
             favoritesCount: favorites.count,
-            watchedCount: watchedPorts.count
+            watchedCount: watchedPorts.count,
+            customizationsHash: customizationsState.customizations.hashValue
         )
 
         // Return cached value if nothing changed
@@ -191,7 +193,9 @@ final class AppState {
         }
 
         if filter.isActive {
-            result = result.filter { filter.matches($0, favorites: favorites, watched: watchedPorts) }
+            result = result.filter {
+                filter.matches($0, favorites: favorites, watched: watchedPorts, customization: customizationsState.customization(for: $0.port))
+            }
         }
 
         if Defaults[.hideSystemProcesses] {
