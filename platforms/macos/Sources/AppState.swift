@@ -28,6 +28,9 @@ extension Defaults.Keys {
     // Per-port customizations (port number string → name/description/folder/type)
     static let portCustomizations = Key<[String: PortCustomization]>("portCustomizations", default: [:])
 
+    // One-time migration flag for portLabels/portNotes → portCustomizations
+    static let hasMigratedCustomizations = Key<Bool>("hasMigratedCustomizations", default: false)
+
     // Process type notification filters (rawValues of enabled types, empty = disabled)
     static let notifyProcessTypes = Key<Set<String>>("notifyProcessTypes", default: [])
 

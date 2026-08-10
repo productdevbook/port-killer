@@ -16,17 +16,24 @@ struct CustomizationsStateTests {
         let key: Defaults.Key<[String: PortCustomization]>
         let labelsKey: Defaults.Key<[String: String]>
         let notesKey: Defaults.Key<[String: String]>
+        let migratedKey: Defaults.Key<Bool>
 
         init() {
             let suite = UserDefaults(suiteName: suiteName)!
             key = Defaults.Key("portCustomizations", default: [:], suite: suite)
             labelsKey = Defaults.Key("portLabels", default: [:], suite: suite)
             notesKey = Defaults.Key("portNotes", default: [:], suite: suite)
+            migratedKey = Defaults.Key("hasMigratedCustomizations", default: false, suite: suite)
         }
 
         @MainActor
         func makeState() -> CustomizationsState {
-            CustomizationsState(key: key, legacyLabelsKey: labelsKey, legacyNotesKey: notesKey)
+            CustomizationsState(
+                key: key,
+                legacyLabelsKey: labelsKey,
+                legacyNotesKey: notesKey,
+                migratedFlagKey: migratedKey
+            )
         }
     }
 
@@ -67,7 +74,7 @@ struct CustomizationsStateTests {
         #expect(state.customization(for: 3000)?.description == nil)
     }
 
-    @Test("Init migrates legacy labels and notes, then clears them")
+    @Test("Init migrates legacy labels and notes once, leaving them intact")
     func migrationOnInit() {
         let keys = TestKeys()
         Defaults[keys.labelsKey] = ["3000": "My App", "9999": ""]
@@ -78,12 +85,30 @@ struct CustomizationsStateTests {
         #expect(state.customization(for: 3000)?.description == "The main app")
         #expect(state.customization(for: 4000)?.description == "Postgres note")
         #expect(state.customization(for: 9999) == nil)
-        #expect(Defaults[keys.labelsKey].isEmpty)
-        #expect(Defaults[keys.notesKey].isEmpty)
+        #expect(Defaults[keys.migratedKey])
 
-        // Second init has nothing left to migrate and keeps the records
+        // Legacy keys stay populated so a downgrade still sees its data
+        #expect(!Defaults[keys.labelsKey].isEmpty)
+        #expect(!Defaults[keys.notesKey].isEmpty)
+
+        // Second init does not re-merge and keeps the records
         let again = keys.makeState()
         #expect(again.customization(for: 3000)?.name == "My App")
+    }
+
+    @Test("Deleted values are not resurrected from intact legacy keys")
+    func noZombieResurrection() {
+        let keys = TestKeys()
+        Defaults[keys.labelsKey] = ["3000": "My App"]
+
+        let state = keys.makeState()
+        #expect(state.customization(for: 3000)?.name == "My App")
+        state.setName("", for: 3000)
+        #expect(state.customization(for: 3000) == nil)
+
+        // Relaunch: the migration flag prevents re-importing the legacy label
+        let again = keys.makeState()
+        #expect(again.customization(for: 3000) == nil)
     }
 
     @Test("merged() lets existing record fields win over legacy values")

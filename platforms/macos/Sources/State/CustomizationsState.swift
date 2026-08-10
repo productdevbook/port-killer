@@ -23,21 +23,27 @@ final class CustomizationsState {
     ///
     /// - Parameters:
     ///   - key: Storage key for customizations (defaults to the app key)
-    ///   - legacyLabelsKey: Legacy port labels key to migrate and clear
-    ///   - legacyNotesKey: Legacy port notes key to migrate and clear
+    ///   - legacyLabelsKey: Legacy port labels key to migrate from
+    ///   - legacyNotesKey: Legacy port notes key to migrate from
+    ///   - migratedFlagKey: One-time flag marking the migration as done
     init(
         key: Defaults.Key<[String: PortCustomization]> = .portCustomizations,
         legacyLabelsKey: Defaults.Key<[String: String]> = .portLabels,
-        legacyNotesKey: Defaults.Key<[String: String]> = .portNotes
+        legacyNotesKey: Defaults.Key<[String: String]> = .portNotes,
+        migratedFlagKey: Defaults.Key<Bool> = .hasMigratedCustomizations
     ) {
         self.key = key
 
-        let labels = Defaults[legacyLabelsKey]
-        let notes = Defaults[legacyNotesKey]
-        if !labels.isEmpty || !notes.isEmpty {
-            Defaults[key] = Self.merged(labels: labels, notes: notes, into: Defaults[key])
-            Defaults[legacyLabelsKey] = [:]
-            Defaults[legacyNotesKey] = [:]
+        // One-time merge. Legacy keys are left intact so a downgrade still
+        // sees its labels/notes; the flag prevents re-merging, which would
+        // resurrect values the user has since deleted.
+        if !Defaults[migratedFlagKey] {
+            let labels = Defaults[legacyLabelsKey]
+            let notes = Defaults[legacyNotesKey]
+            if !labels.isEmpty || !notes.isEmpty {
+                Defaults[key] = Self.merged(labels: labels, notes: notes, into: Defaults[key])
+            }
+            Defaults[migratedFlagKey] = true
         }
 
         customizations = Defaults[key].reduce(into: [:]) { result, entry in
