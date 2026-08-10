@@ -67,6 +67,9 @@ final class AppState {
     /// Manages watched ports (extracted state)
     let watchedPortsState: WatchedPortsState
 
+    /// Manages per-port customizations (extracted state)
+    let customizationsState: CustomizationsState
+
     // MARK: - Port State
 
     /// All currently scanned ports
@@ -250,11 +253,13 @@ final class AppState {
     init(
         scanner: PortScannerProtocol = PortScanner(),
         favoritesState: FavoritesState? = nil,
-        watchedPortsState: WatchedPortsState? = nil
+        watchedPortsState: WatchedPortsState? = nil,
+        customizationsState: CustomizationsState? = nil
     ) {
         self.scanner = scanner
         self.favoritesState = favoritesState ?? FavoritesState()
         self.watchedPortsState = watchedPortsState ?? WatchedPortsState()
+        self.customizationsState = customizationsState ?? CustomizationsState()
 
         let cloudflared = CloudflaredService()
         self.tunnelManager = TunnelManager(cloudflaredService: cloudflared)
