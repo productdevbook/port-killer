@@ -42,6 +42,7 @@ struct PortContextMenu: View {
     let options: PortContextMenuOptions
 
     @Environment(AppState.self) private var appState
+    @Environment(\.openWindow) private var openWindow
 
     init(port: PortInfo, options: PortContextMenuOptions = .full) {
         self.port = port
@@ -110,37 +111,11 @@ struct PortContextMenu: View {
         Divider()
 
         Button {
-            promptForPortLabel(port: port.port)
+            appState.selectedPortID = port.id
+            NSApp.activate(ignoringOtherApps: true)
+            openWindow(id: "main")
         } label: {
-            Label(
-                appState.portLabel(for: port.port) != nil ? "Edit Label" : "Set Label",
-                systemImage: "pencil"
-            )
-        }
-
-        if appState.portLabel(for: port.port) != nil {
-            Button {
-                appState.removePortLabel(for: port.port)
-            } label: {
-                Label("Remove Label", systemImage: "pencil.slash")
-            }
-        }
-
-        Button {
-            promptForPortNote(port: port.port)
-        } label: {
-            Label(
-                appState.portNote(for: port.port) != nil ? "Edit Note" : "Add Note",
-                systemImage: "note.text"
-            )
-        }
-
-        if appState.portNote(for: port.port) != nil {
-            Button {
-                appState.removePortNote(for: port.port)
-            } label: {
-                Label("Remove Note", systemImage: "trash")
-            }
+            Label("Customize…", systemImage: "pencil")
         }
     }
 
@@ -149,7 +124,7 @@ struct PortContextMenu: View {
         Menu {
             ForEach(ProcessType.allCases) { type in
                 Button {
-                    appState.setProcessTypeOverride(processName: port.processName, type: type)
+                    appState.setTypeOverride(type, for: port.port)
                 } label: {
                     HStack {
                         Label(type.rawValue, systemImage: type.icon)
@@ -160,10 +135,10 @@ struct PortContextMenu: View {
                 }
             }
 
-            if appState.processTypeOverride(for: port.processName) != nil {
+            if appState.customization(for: port.port)?.type != nil {
                 Divider()
                 Button {
-                    appState.clearProcessTypeOverride(processName: port.processName)
+                    appState.setTypeOverride(nil, for: port.port)
                 } label: {
                     Label("Reset to Auto", systemImage: "arrow.counterclockwise")
                 }
@@ -271,53 +246,6 @@ struct PortContextMenu: View {
             } label: {
                 Label("Copy: brew install cloudflared", systemImage: "doc.on.doc")
             }
-        }
-    }
-
-    /// Prompts the user to set a custom label for a port via an NSAlert, then persists it.
-    private func promptForPortLabel(port: Int) {
-        let alert = NSAlert()
-        alert.messageText = "Set Label for Port \(port)"
-        alert.informativeText = "Enter a custom name to identify this port."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        textField.placeholderString = "e.g., Frontend Dev Server"
-        textField.stringValue = appState.portLabel(for: port) ?? ""
-        alert.accessoryView = textField
-        alert.window.initialFirstResponder = textField
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            appState.setPortLabel(textField.stringValue, for: port)
-        }
-    }
-
-    /// Prompts the user to set a freeform note for a port via an NSAlert with a
-    /// multi-line text view, then persists it.
-    private func promptForPortNote(port: Int) {
-        let alert = NSAlert()
-        alert.messageText = "Note for Port \(port)"
-        alert.informativeText = "Add freeform notes about this port."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
-        scrollView.hasVerticalScroller = true
-        scrollView.borderType = .bezelBorder
-
-        let textView = NSTextView(frame: scrollView.bounds)
-        textView.string = appState.portNote(for: port) ?? ""
-        textView.font = .systemFont(ofSize: NSFont.systemFontSize)
-        textView.isRichText = false
-        textView.autoresizingMask = [.width]
-        scrollView.documentView = textView
-
-        alert.accessoryView = scrollView
-        alert.window.initialFirstResponder = textView
-
-        if alert.runModal() == .alertFirstButtonReturn {
-            appState.setPortNote(textView.string, for: port)
         }
     }
 }
