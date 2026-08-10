@@ -4,8 +4,6 @@ struct PortDetailView: View {
     let port: PortInfo
     @Environment(AppState.self) private var appState
     @State private var showKillConfirmation = false
-    @State private var noteDraft = ""
-    @FocusState private var noteFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -20,8 +18,8 @@ struct PortDetailView: View {
 
                 Divider()
 
-                // Notes
-                notesSection
+                // Description
+                PortDescriptionEditor(port: port)
 
                 // Tunnel exposures (only shown when ≥1 named tunnel maps to this port)
                 if !exposures.isEmpty {
@@ -72,24 +70,11 @@ struct PortDetailView: View {
                 IconBadge(systemName: port.processType.icon, color: port.processType.color)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(port.processName)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .lineLimit(1)
+                    PortNameField(port: port)
 
-                    HStack(spacing: 4) {
-                        Text("Port \(String(port.port))")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-
-                        if let label = appState.portLabel(for: port.port) {
-                            Text("·")
-                                .foregroundStyle(.secondary)
-                            Text(label)
-                                .font(.subheadline)
-                                .foregroundStyle(.orange)
-                        }
-                    }
+                    Text("Port \(String(port.port))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
@@ -135,65 +120,22 @@ struct PortDetailView: View {
         }
     }
 
-    private var notesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Notes")
-                    .font(.headline)
-                Spacer()
-                if appState.portNote(for: port.port) != nil {
-                    Button("Clear") {
-                        appState.removePortNote(for: port.port)
-                        noteDraft = ""
-                    }
-                    .buttonStyle(.borderless)
-                    .controlSize(.small)
-                }
+    private var detailsGrid: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], alignment: .leading, spacing: 16) {
+                DetailRow(title: "Port", value: String(port.port))
+                DetailRow(title: "Process", value: port.processName)
+                DetailRow(title: "PID", value: String(port.pid))
+                DetailRow(title: "Address", value: port.address)
+                DetailRow(title: "User", value: port.user)
+                DetailRow(title: "File Descriptor", value: port.fd)
+                PortTypePicker(port: port)
             }
 
-            TextEditor(text: $noteDraft)
-                .focused($noteFocused)
-                .font(.body)
-                .frame(minHeight: 64, maxHeight: 140)
-                .padding(6)
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay(alignment: .topLeading) {
-                    if noteDraft.isEmpty {
-                        Text("Add a note for port \(String(port.port))…")
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 14)
-                            .allowsHitTesting(false)
-                    }
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
-                )
-                .onChange(of: noteFocused) { _, focused in
-                    // Persist when focus leaves the editor.
-                    if !focused { appState.setPortNote(noteDraft, for: port.port) }
-                }
-        }
-        .onAppear { noteDraft = appState.portNote(for: port.port) ?? "" }
-        .onChange(of: port.port) { _, _ in
-            noteDraft = appState.portNote(for: port.port) ?? ""
-        }
-    }
-
-    private var detailsGrid: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], alignment: .leading, spacing: 16) {
-            DetailRow(title: "Port", value: String(port.port))
-            DetailRow(title: "Label", value: appState.portLabel(for: port.port) ?? "—")
-            DetailRow(title: "PID", value: String(port.pid))
-            DetailRow(title: "Address", value: port.address)
-            DetailRow(title: "User", value: port.user)
-            DetailRow(title: "File Descriptor", value: port.fd)
-            DetailRow(title: "Type", value: port.processType.rawValue)
+            PortFolderRow(port: port)
         }
     }
 
@@ -335,22 +277,6 @@ struct PortDetailView: View {
             }
             .buttonStyle(.bordered)
             .help("Create a public URL for this port via Cloudflare Tunnel")
-        }
-    }
-}
-
-struct DetailRow: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.body)
-                .textSelection(.enabled)
         }
     }
 }
