@@ -16,6 +16,9 @@ final class CustomizationsState {
     /// Storage key, injectable for tests
     @ObservationIgnored private let key: Defaults.Key<[String: PortCustomization]>
 
+    /// Legacy per-process-name type overrides, still honored as a fallback
+    @ObservationIgnored private let legacyTypeOverridesKey: Defaults.Key<[String: String]>
+
     /// Cached customizations keyed by port number, persisted on mutation
     private(set) var customizations: [Int: PortCustomization] = [:]
 
@@ -26,13 +29,16 @@ final class CustomizationsState {
     ///   - legacyLabelsKey: Legacy port labels key to migrate from
     ///   - legacyNotesKey: Legacy port notes key to migrate from
     ///   - migratedFlagKey: One-time flag marking the migration as done
+    ///   - legacyTypeOverridesKey: Legacy per-process-name type overrides
     init(
         key: Defaults.Key<[String: PortCustomization]> = .portCustomizations,
         legacyLabelsKey: Defaults.Key<[String: String]> = .portLabels,
         legacyNotesKey: Defaults.Key<[String: String]> = .portNotes,
-        migratedFlagKey: Defaults.Key<Bool> = .hasMigratedCustomizations
+        migratedFlagKey: Defaults.Key<Bool> = .hasMigratedCustomizations,
+        legacyTypeOverridesKey: Defaults.Key<[String: String]> = .processTypeOverrides
     ) {
         self.key = key
+        self.legacyTypeOverridesKey = legacyTypeOverridesKey
 
         // One-time merge. Legacy keys are left intact so a downgrade still
         // sees its labels/notes; the flag prevents re-merging, which would
@@ -81,9 +87,20 @@ final class CustomizationsState {
         update(for: port) { $0.folder = path }
     }
 
-    /// Sets or clears the process type override
-    func setType(_ type: ProcessType?, for port: Int) {
+    /// Sets or clears the process type override.
+    /// Clearing ("Automatic") also removes the legacy per-name override so
+    /// automatic detection actually applies instead of silently reverting.
+    func setType(_ type: ProcessType?, for port: Int, processName: String) {
         update(for: port) { $0.type = type }
+        if type == nil {
+            Defaults[legacyTypeOverridesKey].removeValue(forKey: processName)
+        }
+    }
+
+    /// Effective type override: per-port record, else legacy per-name entry
+    func effectiveTypeOverride(for port: Int, processName: String) -> ProcessType? {
+        customizations[port]?.type
+            ?? Defaults[legacyTypeOverridesKey][processName].flatMap(ProcessType.init(rawValue:))
     }
 
     private static func normalized(_ raw: String) -> String? {

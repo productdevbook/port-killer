@@ -17,6 +17,7 @@ struct CustomizationsStateTests {
         let labelsKey: Defaults.Key<[String: String]>
         let notesKey: Defaults.Key<[String: String]>
         let migratedKey: Defaults.Key<Bool>
+        let typeOverridesKey: Defaults.Key<[String: String]>
 
         init() {
             let suite = UserDefaults(suiteName: suiteName)!
@@ -24,6 +25,7 @@ struct CustomizationsStateTests {
             labelsKey = Defaults.Key("portLabels", default: [:], suite: suite)
             notesKey = Defaults.Key("portNotes", default: [:], suite: suite)
             migratedKey = Defaults.Key("hasMigratedCustomizations", default: false, suite: suite)
+            typeOverridesKey = Defaults.Key("processTypeOverrides", default: [:], suite: suite)
         }
 
         @MainActor
@@ -32,7 +34,8 @@ struct CustomizationsStateTests {
                 key: key,
                 legacyLabelsKey: labelsKey,
                 legacyNotesKey: notesKey,
-                migratedFlagKey: migratedKey
+                migratedFlagKey: migratedKey,
+                legacyTypeOverridesKey: typeOverridesKey
             )
         }
     }
@@ -44,7 +47,7 @@ struct CustomizationsStateTests {
         state.setName("My API", for: 3000)
         state.setDescription("Local dev server", for: 3000)
         state.setFolder("/Users/me/src/api", for: 3000)
-        state.setType(.database, for: 3000)
+        state.setType(.database, for: 3000, processName: "node")
 
         let reloaded = keys.makeState()
         let record = reloaded.customization(for: 3000)
@@ -109,6 +112,32 @@ struct CustomizationsStateTests {
         // Relaunch: the migration flag prevents re-importing the legacy label
         let again = keys.makeState()
         #expect(again.customization(for: 3000) == nil)
+    }
+
+    @Test("Choosing Automatic clears the legacy per-name override")
+    func automaticClearsLegacyOverride() {
+        let keys = TestKeys()
+        Defaults[keys.typeOverridesKey] = ["node": ProcessType.database.rawValue]
+
+        let state = keys.makeState()
+        // Legacy override is the effective one while no per-port record exists
+        #expect(state.effectiveTypeOverride(for: 3000, processName: "node") == .database)
+
+        state.setType(nil, for: 3000, processName: "node")
+        #expect(Defaults[keys.typeOverridesKey].isEmpty)
+        #expect(state.effectiveTypeOverride(for: 3000, processName: "node") == nil)
+    }
+
+    @Test("Per-port override wins over the legacy per-name override")
+    func perPortOverrideWinsOverLegacy() {
+        let keys = TestKeys()
+        Defaults[keys.typeOverridesKey] = ["node": ProcessType.database.rawValue]
+
+        let state = keys.makeState()
+        state.setType(.webServer, for: 3000, processName: "node")
+        #expect(state.effectiveTypeOverride(for: 3000, processName: "node") == .webServer)
+        // Setting an explicit type does not clear the legacy entry
+        #expect(!Defaults[keys.typeOverridesKey].isEmpty)
     }
 
     @Test("merged() lets existing record fields win over legacy values")

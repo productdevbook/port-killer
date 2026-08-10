@@ -202,8 +202,8 @@ struct PortTypePicker: View {
 
     private var typeBinding: Binding<ProcessType?> {
         Binding(
-            get: { appState.customization(for: port.port)?.type },
-            set: { appState.setTypeOverride($0, for: port.port) }
+            get: { appState.typeOverride(for: port) },
+            set: { appState.setTypeOverride($0, for: port) }
         )
     }
 }

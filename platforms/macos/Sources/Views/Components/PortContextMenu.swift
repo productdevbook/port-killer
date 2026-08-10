@@ -124,7 +124,7 @@ struct PortContextMenu: View {
         Menu {
             ForEach(ProcessType.allCases) { type in
                 Button {
-                    appState.setTypeOverride(type, for: port.port)
+                    appState.setTypeOverride(type, for: port)
                 } label: {
                     HStack {
                         Label(type.rawValue, systemImage: type.icon)
@@ -135,10 +135,10 @@ struct PortContextMenu: View {
                 }
             }
 
-            if appState.customization(for: port.port)?.type != nil {
+            if appState.typeOverride(for: port) != nil {
                 Divider()
                 Button {
-                    appState.setTypeOverride(nil, for: port.port)
+                    appState.setTypeOverride(nil, for: port)
                 } label: {
                     Label("Reset to Auto", systemImage: "arrow.counterclockwise")
                 }
