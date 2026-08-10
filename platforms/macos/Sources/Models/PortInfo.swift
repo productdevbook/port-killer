@@ -40,6 +40,9 @@ struct PortInfo: Identifiable, Hashable, Sendable {
     /// File descriptor information from lsof
     let fd: String
 
+    /// Detected working directory of the process (nil if unavailable)
+    let workingDirectory: String?
+
     /// Whether this port is currently active/listening
     let isActive: Bool
 
@@ -62,6 +65,7 @@ struct PortInfo: Identifiable, Hashable, Sendable {
             user: "-",
             command: "",
             fd: "",
+            workingDirectory: nil,
             isActive: false,
             processType: .other
         )
@@ -77,8 +81,9 @@ struct PortInfo: Identifiable, Hashable, Sendable {
     ///   - user: Username of the process owner
     ///   - command: Full command line
     ///   - fd: File descriptor information
+    ///   - workingDirectory: Detected working directory, if available
     /// - Returns: An active PortInfo instance
-    static func active(port: Int, pid: Int, processName: String, address: String, user: String, command: String, fd: String) -> PortInfo {
+    static func active(port: Int, pid: Int, processName: String, address: String, user: String, command: String, fd: String, workingDirectory: String? = nil) -> PortInfo {
         // Per-port override → legacy per-name override → auto-detect
         let custom = Defaults[.portCustomizations][String(port)]
         let processType = PortCustomization.resolveType(
@@ -95,6 +100,7 @@ struct PortInfo: Identifiable, Hashable, Sendable {
             user: user,
             command: command,
             fd: fd,
+            workingDirectory: workingDirectory,
             isActive: true,
             processType: processType
         )

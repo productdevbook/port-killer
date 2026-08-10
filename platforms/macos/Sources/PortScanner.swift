@@ -47,7 +47,8 @@ actor PortScanner: PortScannerProtocol {
         // Extract PIDs from lsof output, then get command lines via sysctl (no process spawn)
         let pids = extractPids(from: output)
         let commands = pids.isEmpty ? [:] : getProcessCommands(for: pids)
-        return parseLsofOutput(output, commands: commands)
+        let cwds = pids.isEmpty ? [:] : workingDirectories(for: pids)
+        return parseLsofOutput(output, commands: commands, workingDirectories: cwds)
     }
 
     /// Extracts unique PIDs from raw lsof output (second column of each data line).
@@ -158,7 +159,7 @@ actor PortScanner: PortScannerProtocol {
      * @param commands - Dictionary of PID to full command string from ps
      * @returns Array of unique PortInfo objects, sorted by port number
      */
-    nonisolated private func parseLsofOutput(_ output: String, commands: [Int: String]) -> [PortInfo] {
+    nonisolated private func parseLsofOutput(_ output: String, commands: [Int: String], workingDirectories: [Int: String]) -> [PortInfo] {
         var ports: [PortInfo] = []
         var seen: Set<String> = []
         // Use split for zero-copy Substring iteration (no allocation per line)
@@ -206,7 +207,7 @@ actor PortScanner: PortScannerProtocol {
             // Get full command from ps output
             let command = commands[pid] ?? processName
 
-            guard let portInfo = parseAddress(String(addressPart), processName: processName, pid: pid, user: user, command: command, fd: fd) else {
+            guard let portInfo = parseAddress(String(addressPart), processName: processName, pid: pid, user: user, command: command, fd: fd, workingDirectory: workingDirectories[pid]) else {
                 continue
             }
 
@@ -235,7 +236,7 @@ actor PortScanner: PortScannerProtocol {
      * @param fd - File descriptor number
      * @returns PortInfo object or nil if parsing fails
      */
-    nonisolated private func parseAddress(_ address: String, processName: String, pid: Int, user: String, command: String, fd: String) -> PortInfo? {
+    nonisolated private func parseAddress(_ address: String, processName: String, pid: Int, user: String, command: String, fd: String, workingDirectory: String?) -> PortInfo? {
         let parts: [String]
 
         if address.hasPrefix("[") {
@@ -267,7 +268,8 @@ actor PortScanner: PortScannerProtocol {
             address: addr.isEmpty ? "*" : addr,
             user: user,
             command: command,
-            fd: fd
+            fd: fd,
+            workingDirectory: workingDirectory
         )
     }
 

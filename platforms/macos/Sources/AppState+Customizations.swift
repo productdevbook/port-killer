@@ -11,9 +11,9 @@ extension AppState {
         customization(for: port.port)?.name ?? port.processName
     }
 
-    /// Effective folder for a port: manual override, or nothing yet
+    /// Effective folder for a port: manual override, or detected working directory
     func folder(for port: PortInfo) -> String? {
-        customization(for: port.port)?.folder
+        customization(for: port.port)?.folder ?? port.workingDirectory
     }
 
     /// Sets or clears the per-port type override.
