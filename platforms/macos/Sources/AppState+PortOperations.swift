@@ -40,11 +40,11 @@ extension AppState {
     }
 
     /// Updates the internal port list only if there are changes.
+    /// Compares full values so per-port changes (e.g. a type override
+    /// resolved at scan time) replace stale entries.
     @discardableResult
     func updatePorts(_ newPorts: [PortInfo]) -> Bool {
-        let newSet = Set(newPorts.map { "\($0.port)-\($0.pid)" })
-        let oldSet = Set(ports.map { "\($0.port)-\($0.pid)" })
-        guard newSet != oldSet else { return false }
+        guard Set(newPorts) != Set(ports) else { return false }
 
         ports = newPorts.sorted { a, b in
             let aFav = favorites.contains(a.port)
