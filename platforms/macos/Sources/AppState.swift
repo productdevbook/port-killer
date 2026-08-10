@@ -22,7 +22,14 @@ extension Defaults.Keys {
     static let portLabels = Key<[String: String]>("portLabels", default: [:])
 
     // Port notes (port number string → freeform note)
+    // Legacy: migrated into portCustomizations on launch
     static let portNotes = Key<[String: String]>("portNotes", default: [:])
+
+    // Per-port customizations (port number string → name/description/folder/type)
+    static let portCustomizations = Key<[String: PortCustomization]>("portCustomizations", default: [:])
+
+    // One-time migration flag for portLabels/portNotes → portCustomizations
+    static let hasMigratedCustomizations = Key<Bool>("hasMigratedCustomizations", default: false)
 
     // Process type notification filters (rawValues of enabled types, empty = disabled)
     static let notifyProcessTypes = Key<Set<String>>("notifyProcessTypes", default: [])
@@ -63,10 +70,18 @@ final class AppState {
     /// Manages watched ports (extracted state)
     let watchedPortsState: WatchedPortsState
 
+    /// Manages per-port customizations (extracted state)
+    let customizationsState: CustomizationsState
+
     // MARK: - Port State
 
     /// All currently scanned ports
     var ports: [PortInfo] = []
+
+    /// Bumped whenever `updatePorts` replaces `ports` with changed values.
+    /// Cache keys use it so any per-port change (not just the first row)
+    /// invalidates cached filtered results.
+    var portsRevision = 0
 
     /// Whether a port scan is currently in progress
     var isScanning = false
@@ -82,10 +97,13 @@ final class AppState {
     /// ID of the currently selected port in the detail view
     var selectedPortID: String? = nil
 
-    /// The currently selected port, if any
+    /// The currently selected port, if any.
+    /// Falls back to filteredPorts so inactive favorite/watched placeholders
+    /// (which are synthesized during filtering, never stored in `ports`)
+    /// can be selected and customized.
     var selectedPort: PortInfo? {
         guard let id = selectedPortID else { return nil }
-        return ports.first { $0.id == id }
+        return ports.first { $0.id == id } ?? filteredPorts.first { $0.id == id }
     }
 
     /// ID of the currently selected port-forward connection
@@ -115,13 +133,14 @@ final class AppState {
     /// Cache key to detect when recalculation is needed
     private struct FilterCacheKey: Equatable {
         let portsCount: Int
-        let portsHash: Int
+        let portsRevision: Int
         let sidebarItem: SidebarItem
         let filterActive: Bool
         let filterText: String
         let hideSystem: Bool
         let favoritesCount: Int
         let watchedCount: Int
+        let customizationsHash: Int
     }
 
     /// Returns filtered ports based on sidebar selection and active filters.
@@ -129,13 +148,14 @@ final class AppState {
     var filteredPorts: [PortInfo] {
         let currentKey = FilterCacheKey(
             portsCount: ports.count,
-            portsHash: ports.isEmpty ? 0 : ports[0].hashValue ^ ports.count,
+            portsRevision: portsRevision,
             sidebarItem: selectedSidebarItem,
             filterActive: filter.isActive,
             filterText: filter.searchText,
             hideSystem: Defaults[.hideSystemProcesses],
             favoritesCount: favorites.count,
-            watchedCount: watchedPorts.count
+            watchedCount: watchedPorts.count,
+            customizationsHash: customizationsState.customizations.hashValue
         )
 
         // Return cached value if nothing changed
@@ -184,7 +204,9 @@ final class AppState {
         }
 
         if filter.isActive {
-            result = result.filter { filter.matches($0, favorites: favorites, watched: watchedPorts) }
+            result = result.filter {
+                filter.matches($0, favorites: favorites, watched: watchedPorts, customization: customizationsState.customization(for: $0.port))
+            }
         }
 
         if Defaults[.hideSystemProcesses] {
@@ -246,11 +268,13 @@ final class AppState {
     init(
         scanner: PortScannerProtocol = PortScanner(),
         favoritesState: FavoritesState? = nil,
-        watchedPortsState: WatchedPortsState? = nil
+        watchedPortsState: WatchedPortsState? = nil,
+        customizationsState: CustomizationsState? = nil
     ) {
         self.scanner = scanner
         self.favoritesState = favoritesState ?? FavoritesState()
         self.watchedPortsState = watchedPortsState ?? WatchedPortsState()
+        self.customizationsState = customizationsState ?? CustomizationsState()
 
         let cloudflared = CloudflaredService()
         self.tunnelManager = TunnelManager(cloudflaredService: cloudflared)

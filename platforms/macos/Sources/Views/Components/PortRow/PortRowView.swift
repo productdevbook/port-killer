@@ -78,9 +78,9 @@ struct PortRowView: View {
             PortStatusIndicator(isActive: port.isActive)
                 .padding(.trailing, 8)
 
-            // Port + exposure indicator
+            // Port + exposure indicator (custom name already replaces the process name)
             HStack(spacing: 4) {
-                PortNumberDisplay(port: port.port, isActive: port.isActive)
+                PortNumberDisplay(port: port.port, isActive: port.isActive, showLabel: false)
                 if port.isActive {
                     TunnelExposureBadge(port: port.port)
                 }
@@ -89,7 +89,7 @@ struct PortRowView: View {
 
             // Process
             PortProcessInfo(
-                processName: port.processName,
+                processName: appState.displayName(for: port),
                 processType: port.processType,
                 isActive: port.isActive
             )
@@ -129,6 +129,7 @@ struct PortRowView: View {
         .padding(.leading, 16)
         .padding(.trailing, 16)
         .padding(.vertical, 8)
+        .help(appState.customization(for: port.port)?.description ?? "")
     }
 
     // MARK: - Nested Row
@@ -260,19 +261,11 @@ struct PortRowView: View {
             .frame(width: 110, alignment: .leading)
             .opacity(isKilling ? 0.5 : 1)
 
-            // Process name + label
-            HStack(spacing: 4) {
-                Text(port.processName)
-                    .font(.callout)
-                    .lineLimit(1)
-                if let label = appState.portLabel(for: port.port) {
-                    Text("(\(label))")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .lineLimit(1)
-                }
-            }
-            .opacity(isKilling ? 0.5 : 1)
+            // Process name (custom name replaces it when set)
+            Text(appState.displayName(for: port))
+                .font(.callout)
+                .lineLimit(1)
+                .opacity(isKilling ? 0.5 : 1)
 
             Spacer()
 

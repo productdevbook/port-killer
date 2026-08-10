@@ -40,11 +40,11 @@ extension AppState {
     }
 
     /// Updates the internal port list only if there are changes.
+    /// Compares full values so per-port changes (e.g. a type override
+    /// resolved at scan time) replace stale entries.
     @discardableResult
     func updatePorts(_ newPorts: [PortInfo]) -> Bool {
-        let newSet = Set(newPorts.map { "\($0.port)-\($0.pid)" })
-        let oldSet = Set(ports.map { "\($0.port)-\($0.pid)" })
-        guard newSet != oldSet else { return false }
+        guard Set(newPorts) != Set(ports) else { return false }
 
         ports = newPorts.sorted { a, b in
             let aFav = favorites.contains(a.port)
@@ -52,11 +52,15 @@ extension AppState {
             if aFav != bFav { return aFav }
             return a.port < b.port
         }
+        portsRevision += 1
         return true
     }
 
     /// Kills the process using the specified port.
+    /// pid 0 would signal the whole process group (kill(0, …)), so guard
+    /// against inactive placeholders ever reaching the syscall.
     func killPort(_ port: PortInfo) async {
+        guard port.isActive, port.pid > 0 else { return }
         if await scanner.killProcessGracefully(pid: port.pid) {
             ports.removeAll { $0.id == port.id }
             await refresh()
@@ -65,6 +69,8 @@ extension AppState {
 
     /// Kills the listening process and all processes with ESTABLISHED connections to the port.
     func killPortDeep(_ port: PortInfo) async {
+        guard port.isActive, port.pid > 0 else { return }
+
         // 1. Kill the listener
         _ = await scanner.killProcessGracefully(pid: port.pid)
 

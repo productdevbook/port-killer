@@ -304,4 +304,30 @@ struct PortFilterTests {
         let port = createPort(command: "node server.js")
         #expect(filter.matches(port, favorites: [], watched: []))
     }
+
+    // MARK: - Customization Search
+
+    @Test("Search matches the custom name")
+    func matchesCustomName() {
+        let filter = PortFilter(searchText: "my api")
+        let port = createPort()
+        let customization = PortCustomization(name: "My API Server")
+        #expect(filter.matches(port, favorites: [], watched: [], customization: customization))
+    }
+
+    @Test("Search matches the description")
+    func matchesDescription() {
+        let filter = PortFilter(searchText: "staging")
+        let port = createPort()
+        let customization = PortCustomization(description: "Staging database tunnel")
+        #expect(filter.matches(port, favorites: [], watched: [], customization: customization))
+    }
+
+    @Test("Non-matching search still fails with a customization present")
+    func customizationDoesNotMatchEverything() {
+        let filter = PortFilter(searchText: "zzz-no-match")
+        let port = createPort()
+        let customization = PortCustomization(name: "My API Server", description: "Staging tunnel")
+        #expect(!filter.matches(port, favorites: [], watched: [], customization: customization))
+    }
 }

@@ -17,7 +17,7 @@ struct PortFilter: Equatable, Sendable {
         showOnlyWatched
     }
 
-    func matches(_ port: PortInfo, favorites: Set<Int>, watched: [WatchedPort]) -> Bool {
+    func matches(_ port: PortInfo, favorites: Set<Int>, watched: [WatchedPort], customization: PortCustomization? = nil) -> Bool {
         // Search text filter
         if !searchText.isEmpty {
             let query = searchText.lowercased()
@@ -26,7 +26,9 @@ struct PortFilter: Equatable, Sendable {
                           String(port.pid).contains(query) ||
                           port.address.lowercased().contains(query) ||
                           port.user.lowercased().contains(query) ||
-                          port.command.lowercased().contains(query)
+                          port.command.lowercased().contains(query) ||
+                          (customization?.name?.lowercased().contains(query) ?? false) ||
+                          (customization?.description?.lowercased().contains(query) ?? false)
             if !matches { return false }
         }
 
@@ -89,6 +91,14 @@ enum SidebarItem: Hashable, Identifiable, Sendable {
         case .cloudflareTunnels: return "Cloudflare Tunnels"
         case .sponsors: return "Sponsors"
         case .settings: return "Settings"
+        }
+    }
+
+    /// Whether this selection shows the port list and port detail pane
+    var showsPorts: Bool {
+        switch self {
+        case .allPorts, .favorites, .watched, .processType: return true
+        case .kubernetesPortForward, .cloudflareTunnels, .sponsors, .settings: return false
         }
     }
 

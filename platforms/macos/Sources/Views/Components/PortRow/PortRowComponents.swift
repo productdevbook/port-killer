@@ -39,8 +39,8 @@ struct PortNumberDisplay: View {
                 .fontWeight(fontWeight)
                 .opacity(isActive ? 1 : 0.6)
 
-            if showLabel, let label = appState.portLabel(for: port) {
-                Text(label)
+            if showLabel, let name = appState.customization(for: port)?.name {
+                Text(name)
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .lineLimit(1)
