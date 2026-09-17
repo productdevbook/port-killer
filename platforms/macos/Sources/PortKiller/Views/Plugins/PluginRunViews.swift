@@ -6,53 +6,31 @@ struct PluginRunSheet: View {
     @Environment(\.dismiss) private var dismiss
     let request: PluginRunRequest
     @State private var values: [String: String] = [:]
+    @State private var name = ""
     @State private var runsWhenPortStarts = false
+    @State private var connects = true
     @State private var showsProblems = false
-
-    private var height: CGFloat {
-        let fields = request.inputs.reduce(0) { total, input in total + (input.kind == .multiline ? 100 : 40) + (input.help == nil ? 0 : 20) }
-        return min(180 + CGFloat(fields) + (request.confirmation == nil ? 0 : 30) + (isConnection ? 90 : 0), 720)
-    }
-
-    private var isConnection: Bool {
-        switch request.purpose {
-        case .connect, .edit: true
-        case .run: false
-        }
-    }
-
-    private var buttonTitle: String {
-        switch request.purpose {
-        case .run: request.title.trimmingCharacters(in: ["…"])
-        case .connect:
-            if case .port(_, .some) = request.target { "Connect and Run" } else { "Connect" }
-        case .edit: "Save"
-        }
-    }
-
-    private var navigationTitle: String {
-        switch request.purpose {
-        case .run: request.plugin.manifest.name
-        case .connect: "New Connection"
-        case .edit: "Edit Connection"
-        }
-    }
 
     var body: some View {
         let plugins = model.plugins
-        let problems = request.inputs.problems(in: values)
+        let problems = (isNode && name.trimmingCharacters(in: .whitespaces).isEmpty ? ["Name is required."] : []) + request.inputs.problems(in: values)
         NavigationStack {
             Form {
                 Section {
                     Label {
                         Text(request.title.trimmingCharacters(in: ["…"]))
-                        Text(request.subject)
+                        Text(isNode ? request.plugin.manifest.name : request.subject)
                     } icon: {
                         Image(systemName: request.icon ?? "puzzlepiece.extension")
+                    }
+                    if isNode {
+                        TextField("Name", text: $name, prompt: Text("Health Check"))
                     }
                 } footer: {
                     if let confirmation = request.confirmation {
                         Text(confirmation)
+                    } else if isNode, let summary = request.plugin.manifest.portActions?.first(where: { $0.id == request.actionID })?.summary {
+                        Text(summary)
                     }
                 }
                 if !request.inputs.isEmpty {
@@ -63,18 +41,22 @@ struct PluginRunSheet: View {
                                 set: { values[input.id] = $0 }
                             ))
                         }
-                    } footer: {
-                        if showsProblems, !problems.isEmpty {
-                            Text(problems.joined(separator: "\n"))
-                                .foregroundStyle(.red)
-                        }
                     }
                 }
-                if isConnection, case .port(let port, _) = request.target {
+                if isNode {
                     Section {
-                        Toggle("Run when port \(String(port)) starts listening", isOn: $runsWhenPortStarts)
+                        if case .create(.some(let port)) = request.purpose {
+                            Toggle("Connect to port \(String(port))", isOn: $connects)
+                        }
+                        Toggle("Run when a connected port starts listening", isOn: $runsWhenPortStarts)
                     } footer: {
-                        Text("The connection keeps these values. Run it again from its wire in the graph or from the inspector.")
+                        Text("Drag ports onto the node in the graph to connect them. Run it from its ▶ button, its wires or the inspector.")
+                    }
+                }
+                if showsProblems, !problems.isEmpty {
+                    Section {
+                        Text(problems.joined(separator: "\n"))
+                            .foregroundStyle(.red)
                     }
                 }
             }
@@ -90,7 +72,7 @@ struct PluginRunSheet: View {
                             showsProblems = true
                             return
                         }
-                        plugins.submit(request, inputs: values, runsWhenPortStarts: runsWhenPortStarts)
+                        plugins.submit(request, inputs: values, name: name.trimmingCharacters(in: .whitespaces), runsWhenPortStarts: runsWhenPortStarts, connects: connects)
                         dismiss()
                     }
                 }
@@ -99,9 +81,43 @@ struct PluginRunSheet: View {
         .frame(width: 480, height: height)
         .onAppear {
             values = plugins.initialInputs(for: request)
-            if case .edit(let connection) = request.purpose {
-                runsWhenPortStarts = connection.runsWhenPortStarts
+            switch request.purpose {
+            case .edit(let node):
+                name = node.name
+                runsWhenPortStarts = node.runsWhenPortStarts
+            case .create:
+                name = request.title.trimmingCharacters(in: ["…"])
+            case .run:
+                break
             }
+        }
+    }
+
+    private var isNode: Bool {
+        switch request.purpose {
+        case .create, .edit: true
+        case .run: false
+        }
+    }
+
+    private var height: CGFloat {
+        let fields = request.inputs.reduce(0) { total, input in total + (input.kind == .multiline ? 100 : 40) + (input.help == nil ? 0 : 20) }
+        return min(180 + CGFloat(fields) + (request.confirmation == nil ? 0 : 30) + (isNode ? 170 : 0), 760)
+    }
+
+    private var buttonTitle: String {
+        switch request.purpose {
+        case .run: request.title.trimmingCharacters(in: ["…"])
+        case .create: "Add Node"
+        case .edit: "Save"
+        }
+    }
+
+    private var navigationTitle: String {
+        switch request.purpose {
+        case .run: request.plugin.manifest.name
+        case .create: "New Node"
+        case .edit: "Edit Node"
         }
     }
 }

@@ -23,7 +23,7 @@ public struct GraphNode: Identifiable, Hashable, Sendable {
         case quickTunnel(UUID)
         case namedTunnel(String)
         case autoKill(UUID)
-        case pluginAction(plugin: String, action: String)
+        case pluginNode(UUID)
         case pluginTarget(plugin: String, item: String)
     }
 
@@ -55,7 +55,7 @@ public struct GraphNode: Identifiable, Hashable, Sendable {
         switch kind {
         case .process, .forward, .pluginItem: .providers
         case .port: .ports
-        case .favorites, .watch, .share, .quickTunnel, .namedTunnel, .autoKill, .pluginAction, .pluginTarget: .consumers
+        case .favorites, .watch, .share, .quickTunnel, .namedTunnel, .autoKill, .pluginNode, .pluginTarget: .consumers
         }
     }
 
@@ -65,7 +65,7 @@ public struct GraphNode: Identifiable, Hashable, Sendable {
 
     public var acceptsLinks: Bool {
         switch kind {
-        case .favorites, .watch, .share, .pluginAction: true
+        case .favorites, .watch, .share, .pluginNode: true
         default: false
         }
     }
@@ -97,8 +97,8 @@ public enum GraphChange: Hashable, Sendable {
     case unwatch(Int)
     case share(Int)
     case stopSharing(UUID)
-    case connectPluginAction(plugin: String, action: String, port: Int)
-    case disconnectPluginAction(plugin: String, action: String, port: Int)
+    case connectPluginNode(UUID, port: Int)
+    case disconnectPluginNode(UUID, port: Int)
 }
 
 public struct PortGraph: Hashable, Sendable {
@@ -184,14 +184,12 @@ public struct PortGraph: Hashable, Sendable {
     }
 
     public func change(linking port: Int, to target: GraphNode) -> GraphChange? {
-        if case .pluginAction(let plugin, let action) = target.kind {
-            return .connectPluginAction(plugin: plugin, action: action, port: port)
-        }
         guard !edges.contains(GraphEdge(from: Self.portID(port), to: target.id, origin: .link)) else { return nil }
         switch target.kind {
         case .favorites: return .favorite(port)
         case .watch: return .watch(port)
         case .share: return .share(port)
+        case .pluginNode(let id): return .connectPluginNode(id, port: port)
         default: return nil
         }
     }
@@ -202,7 +200,7 @@ public struct PortGraph: Hashable, Sendable {
         case .favorites: return .unfavorite(port)
         case .watch: return .unwatch(port)
         case .quickTunnel(let id): return .stopSharing(id)
-        case .pluginAction(let plugin, let action): return .disconnectPluginAction(plugin: plugin, action: action, port: port)
+        case .pluginNode(let id): return .disconnectPluginNode(id, port: port)
         default: return nil
         }
     }

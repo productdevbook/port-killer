@@ -6,12 +6,13 @@ struct PluginRunRequest: Identifiable {
     enum Target {
         case port(Int, listener: ListeningPort?)
         case item(PluginItem)
+        case nothing
     }
 
     enum Purpose {
-        case run(connection: PluginConnection?)
-        case connect
-        case edit(PluginConnection)
+        case run(node: PluginNode?)
+        case create(connectTo: Int?)
+        case edit(PluginNode)
     }
 
     let id = UUID()
@@ -23,19 +24,21 @@ struct PluginRunRequest: Identifiable {
     let inputs: [PluginInput]
     let isDestructive: Bool
     let target: Target
-    var purpose: Purpose = .run(connection: nil)
+    var purpose: Purpose = .run(node: nil)
 
     var subject: String {
         switch target {
         case .port(let port, let listener): ["Port \(String(port))", listener?.processName].compactMap { $0 }.joined(separator: " · ")
         case .item(let item): item.title
+        case .nothing: plugin.manifest.name
         }
     }
 
-    var runTarget: PluginRun.Target {
+    var runTarget: PluginRun.Target? {
         switch target {
         case .port(let port, _): .port(port)
         case .item(let item): .item(item.id)
+        case .nothing: nil
         }
     }
 
@@ -62,12 +65,12 @@ final class PluginStore {
     private(set) var loading: Set<Plugin.ID> = []
     private(set) var activity = PluginActivity()
     private(set) var bannerRun: PluginRun.ID?
-    private(set) var connections: PluginConnections
+    private(set) var nodes: PluginNodes
     private(set) var settingValues: [Plugin.ID: [String: String]]
     @ObservationIgnored private var rememberedInputs: [String: [String: String]]
     @ObservationIgnored private var secrets: [String: String] = [:]
     @ObservationIgnored private let ports: PortStore
-    @ObservationIgnored private var connectionMonitor = WatchMonitor()
+    @ObservationIgnored private var nodeMonitor = WatchMonitor()
     var pendingRun: PluginRunRequest?
     var presentedRun: PluginRun?
     var pendingInstall: PluginInstallRequest?
@@ -76,7 +79,7 @@ final class PluginStore {
     init(notifier: Notifier, ports: PortStore) {
         self.notifier = notifier
         self.ports = ports
-        connections = PluginConnections(UserDefaults.standard.decodedValue(of: [PluginConnection].self, forKey: "pluginConnections") ?? [])
+        nodes = PluginNodes(UserDefaults.standard.decodedValue(of: [PluginNode].self, forKey: "pluginNodes") ?? [])
         enabledIDs = Set(UserDefaults.standard.stringArray(forKey: "enabledPlugins") ?? [])
         settingValues = UserDefaults.standard.dictionary(forKey: "pluginSettings") as? [String: [String: String]] ?? [:]
         rememberedInputs = UserDefaults.standard.dictionary(forKey: "pluginInputs") as? [String: [String: String]] ?? [:]
@@ -202,6 +205,10 @@ final class PluginStore {
         activity.isRunning(plugin: plugin.id, action: actionID, target: target)
     }
 
+    var nodeTypes: [(plugin: Plugin, action: PluginManifest.PortAction)] {
+        enabledPlugins.flatMap { plugin in (plugin.manifest.portActions ?? []).map { (plugin, $0) } }
+    }
+
     func run(_ action: PluginManifest.PortAction, on port: ListeningPort, in plugin: Plugin) {
         request(portRequest(action, port: port.port, listener: port, in: plugin))
     }
@@ -219,86 +226,132 @@ final class PluginStore {
         ))
     }
 
-    func connect(_ action: PluginManifest.PortAction, port: Int, in plugin: Plugin) {
-        var request = portRequest(action, port: port, listener: listener(on: port), in: plugin)
-        request.purpose = .connect
-        self.request(request)
+    func addNode(_ action: PluginManifest.PortAction, in plugin: Plugin, connectTo port: Int? = nil) {
+        var request = PluginRunRequest(
+            plugin: plugin,
+            actionID: action.id,
+            title: action.title,
+            icon: action.icon ?? plugin.manifest.icon,
+            confirmation: nil,
+            inputs: action.inputs ?? [],
+            isDestructive: false,
+            target: port.map { .port($0, listener: listener(on: $0)) } ?? .nothing
+        )
+        request.purpose = .create(connectTo: port)
+        pendingRun = request
     }
 
-    func run(_ connection: PluginConnection) {
-        guard let (plugin, action) = portAction(for: connection) else { return }
-        var request = portRequest(action, port: connection.port, listener: listener(on: connection.port), in: plugin)
-        request.purpose = .run(connection: connection)
+    func edit(_ node: PluginNode) {
+        guard let (plugin, action) = pluginAction(for: node) else { return }
+        pendingRun = PluginRunRequest(
+            plugin: plugin,
+            actionID: action.id,
+            title: action.title,
+            icon: action.icon ?? plugin.manifest.icon,
+            confirmation: nil,
+            inputs: action.inputs ?? [],
+            isDestructive: false,
+            target: .nothing,
+            purpose: .edit(node)
+        )
+    }
+
+    func duplicate(_ node: PluginNode) {
+        guard let copy = nodes.duplicate(node.id, named: "\(node.name) Copy") else { return }
+        nodes.save(copy)
+        saveNodes()
+    }
+
+    func delete(_ node: PluginNode) {
+        nodes.remove(node.id)
+        saveNodes()
+    }
+
+    func connect(_ id: PluginNode.ID, to port: Int) {
+        nodes.connect(id, to: port)
+        saveNodes()
+    }
+
+    func disconnect(_ id: PluginNode.ID, from port: Int) {
+        nodes.disconnect(id, from: port)
+        saveNodes()
+    }
+
+    func setRunsWhenPortStarts(_ runs: Bool, for node: PluginNode) {
+        var node = node
+        node.runsWhenPortStarts = runs
+        nodes.save(node)
+        saveNodes()
+    }
+
+    func run(_ node: PluginNode, on port: Int) {
+        guard let (plugin, action) = pluginAction(for: node) else { return }
+        var request = portRequest(action, port: port, listener: listener(on: port), in: plugin)
+        request.purpose = .run(node: node)
         if request.confirmation == nil {
-            start(request, inputs: connection.inputs, connection: connection.id)
+            start(request, inputs: node.inputs, node: node.id)
         } else {
             self.request(request)
         }
     }
 
-    func edit(_ connection: PluginConnection) {
-        guard let (plugin, action) = portAction(for: connection) else { return }
-        var request = portRequest(action, port: connection.port, listener: listener(on: connection.port), in: plugin)
-        request.purpose = .edit(connection)
-        pendingRun = request
+    func run(_ node: PluginNode) {
+        let listening = node.ports.filter { listener(on: $0) != nil }
+        guard !listening.isEmpty else {
+            error = PresentedError(
+                title: "\(node.name) Didn't Run",
+                message: node.ports.isEmpty ? "Drag a port onto the node to connect it first." : "None of its ports are listening right now."
+            )
+            return
+        }
+        for port in listening {
+            run(node, on: port)
+        }
     }
 
-    func disconnect(_ connection: PluginConnection) {
-        connections.remove(connection.id)
-        saveConnections()
-    }
-
-    func disconnect(plugin: String, action: String, port: Int) {
-        connections.removeAll(plugin: plugin, action: action, port: port)
-        saveConnections()
-    }
-
-    func setRunsWhenPortStarts(_ runs: Bool, for connection: PluginConnection) {
-        var connection = connection
-        connection.runsWhenPortStarts = runs
-        connections.save(connection)
-        saveConnections()
-    }
-
-    func portAction(for connection: PluginConnection) -> (plugin: Plugin, action: PluginManifest.PortAction)? {
-        guard let plugin = enabledPlugins.first(where: { $0.id == connection.pluginID }),
-              let action = plugin.manifest.portActions?.first(where: { $0.id == connection.actionID })
+    func pluginAction(for node: PluginNode) -> (plugin: Plugin, action: PluginManifest.PortAction)? {
+        guard let plugin = enabledPlugins.first(where: { $0.id == node.pluginID }),
+              let action = plugin.manifest.portActions?.first(where: { $0.id == node.actionID })
         else { return nil }
         return (plugin, action)
     }
 
     func initialInputs(for request: PluginRunRequest) -> [String: String] {
         switch request.purpose {
-        case .edit(let connection), .run(connection: .some(let connection)):
-            request.inputs.values(remembered: connection.inputs)
-        case .connect, .run(connection: nil):
+        case .edit(let node), .run(node: .some(let node)):
+            request.inputs.values(remembered: node.inputs)
+        case .create, .run(node: nil):
             request.inputs.values(remembered: rememberedInputs[request.inputsKey] ?? [:])
         }
     }
 
-    func submit(_ request: PluginRunRequest, inputs: [String: String], runsWhenPortStarts: Bool) {
+    func submit(_ request: PluginRunRequest, inputs: [String: String], name: String = "", runsWhenPortStarts: Bool = false, connects: Bool = true) {
         switch request.purpose {
-        case .run(let connection):
-            start(request, inputs: inputs, connection: connection?.id)
-        case .connect:
-            guard case .port(let port, let listener) = request.target else { return }
-            let connection = PluginConnection(pluginID: request.plugin.id, actionID: request.actionID, port: port, inputs: inputs, runsWhenPortStarts: runsWhenPortStarts)
-            connections.save(connection)
-            saveConnections()
-            if listener != nil {
-                start(request, inputs: inputs, connection: connection.id)
-            }
-        case .edit(var connection):
-            connection.inputs = inputs
-            connection.runsWhenPortStarts = runsWhenPortStarts
-            connections.save(connection)
-            saveConnections()
+        case .run(let node):
+            start(request, inputs: inputs, node: node?.id)
+        case .create(let port):
+            rememberInputs(inputs, for: request)
+            nodes.save(PluginNode(
+                pluginID: request.plugin.id,
+                actionID: request.actionID,
+                name: name,
+                inputs: inputs,
+                ports: connects ? port.map { [$0] } ?? [] : [],
+                runsWhenPortStarts: runsWhenPortStarts
+            ))
+            saveNodes()
+        case .edit(var node):
+            node.name = name
+            node.inputs = inputs
+            node.runsWhenPortStarts = runsWhenPortStarts
+            nodes.save(node)
+            saveNodes()
         }
     }
 
-    func start(_ request: PluginRunRequest, inputs: [String: String], connection: PluginConnection.ID? = nil) {
+    func start(_ request: PluginRunRequest, inputs: [String: String], node: PluginNode.ID? = nil) {
         let plugin = request.plugin
-        guard isEnabled(plugin), !isRunning(request.actionID, on: request.runTarget, in: plugin) else { return }
+        guard let runTarget = request.runTarget, isEnabled(plugin), !isRunning(request.actionID, on: runTarget, in: plugin) else { return }
         let problems = settingProblems(for: plugin)
         guard problems.isEmpty else {
             error = PresentedError(
@@ -307,12 +360,11 @@ final class PluginStore {
             )
             return
         }
-        if !request.inputs.isEmpty {
-            let secretIDs = Set(request.inputs.filter { $0.kind == .secret }.map(\.id))
-            rememberedInputs[request.inputsKey] = inputs.filter { !secretIDs.contains($0.key) }
-            UserDefaults.standard.set(rememberedInputs, forKey: "pluginInputs")
+        if node == nil {
+            rememberInputs(inputs, for: request)
         }
-        let runID = activity.start(PluginRun(pluginID: plugin.id, actionID: request.actionID, connectionID: connection, title: request.title, target: request.runTarget))
+        let title = node.flatMap { nodes.node($0)?.name } ?? request.title
+        let runID = activity.start(PluginRun(pluginID: plugin.id, actionID: request.actionID, nodeID: node, title: title, target: runTarget))
         let settings = settings(for: plugin)
         Task {
             do {
@@ -322,9 +374,11 @@ final class PluginStore {
                     guard let listener = listener ?? self.listener(on: port) else {
                         throw PluginError.failed(status: 0, message: "Nothing is listening on port \(port) right now.")
                     }
-                    result = try await PluginHost.perform(request.actionID, onPort: PluginPortContext(listener), inputs: inputs, connection: connection, settings: settings, in: plugin)
+                    result = try await PluginHost.perform(request.actionID, onPort: PluginPortContext(listener), inputs: inputs, node: node, settings: settings, in: plugin)
                 case .item(let item):
                     result = try await PluginHost.perform(request.actionID, onItem: item.id, inputs: inputs, settings: settings, in: plugin)
+                case .nothing:
+                    return
                 }
                 activity.finish(runID, as: .succeeded(result))
                 handle(result, of: runID, from: plugin)
@@ -333,7 +387,7 @@ final class PluginStore {
                 }
             } catch {
                 activity.finish(runID, as: .failed(error.localizedDescription))
-                self.error = PresentedError(title: "\(request.title.trimmingCharacters(in: ["…"])) Didn't Work", message: "\(plugin.manifest.name): \(error.localizedDescription)")
+                self.error = PresentedError(title: "\(title.trimmingCharacters(in: ["…"])) Didn't Work", message: "\(plugin.manifest.name): \(error.localizedDescription)")
             }
         }
     }
@@ -359,23 +413,30 @@ final class PluginStore {
         ports.ports.first { $0.port == port }
     }
 
-    private func saveConnections() {
-        UserDefaults.standard.setEncodedValue(connections.all, forKey: "pluginConnections")
+    private func saveNodes() {
+        UserDefaults.standard.setEncodedValue(nodes.all, forKey: "pluginNodes")
+    }
+
+    private func rememberInputs(_ inputs: [String: String], for request: PluginRunRequest) {
+        guard !request.inputs.isEmpty else { return }
+        let secretIDs = Set(request.inputs.filter { $0.kind == .secret }.map(\.id))
+        rememberedInputs[request.inputsKey] = inputs.filter { !secretIDs.contains($0.key) }
+        UserDefaults.standard.set(rememberedInputs, forKey: "pluginInputs")
     }
 
     private func portsScanned(_ scanned: [ListeningPort]) {
-        let events = connectionMonitor.events(watched: connections.watchedPorts, ports: scanned)
-        for connection in connections.triggered(by: events) {
-            guard let (plugin, action) = portAction(for: connection) else { continue }
-            var request = portRequest(action, port: connection.port, listener: scanned.first { $0.port == connection.port }, in: plugin)
-            request.purpose = .run(connection: connection)
-            start(request, inputs: connection.inputs, connection: connection.id)
+        let events = nodeMonitor.events(watched: nodes.watchedPorts, ports: scanned)
+        for (node, port) in nodes.triggered(by: events) {
+            guard let (plugin, action) = pluginAction(for: node) else { continue }
+            var request = portRequest(action, port: port, listener: scanned.first { $0.port == port }, in: plugin)
+            request.purpose = .run(node: node)
+            start(request, inputs: node.inputs, node: node.id)
         }
     }
 
     private func request(_ request: PluginRunRequest) {
         guard isEnabled(request.plugin) else { return }
-        if case .run = request.purpose, isRunning(request.actionID, on: request.runTarget, in: request.plugin) { return }
+        if let target = request.runTarget, isRunning(request.actionID, on: target, in: request.plugin) { return }
         let problems = settingProblems(for: request.plugin)
         guard problems.isEmpty else {
             error = PresentedError(
@@ -385,7 +446,7 @@ final class PluginStore {
             return
         }
         if request.inputs.isEmpty, request.confirmation == nil {
-            submit(request, inputs: [:], runsWhenPortStarts: false)
+            submit(request, inputs: [:])
         } else {
             pendingRun = request
         }

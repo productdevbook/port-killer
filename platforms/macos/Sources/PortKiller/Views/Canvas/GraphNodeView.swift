@@ -78,6 +78,24 @@ struct GraphBlockView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
+            if case .pluginNode(let id) = node.kind, let pluginNode = model.plugins.nodes.node(id), !pluginNode.ports.isEmpty {
+                if model.plugins.activity.isRunning(node: id) {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Button {
+                        model.plugins.run(pluginNode)
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(node.kind.tint.gradient, in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .help(pluginNode.ports.count == 1 ? "Run on port \(String(pluginNode.ports[0]))" : "Run on its \(pluginNode.ports.count) ports")
+                }
+            }
         }
         .padding(.horizontal, 14)
         .frame(height: GraphMetrics.header)
@@ -96,7 +114,7 @@ struct GraphBlockView: View {
     @ViewBuilder
     private var status: some View {
         HStack(spacing: 6) {
-            if case .pluginAction(let plugin, let action) = node.kind, let run = model.plugins.activity.latest(plugin: plugin, action: action) {
+            if case .pluginNode(let id) = node.kind, let run = model.plugins.activity.latest(node: id) {
                 PluginRunStatus(run: run)
                     .controlSize(.mini)
                 Text(run.summary)
@@ -111,7 +129,7 @@ struct GraphBlockView: View {
             } else if node.acceptsLinks {
                 Image(systemName: "arrow.left")
                     .foregroundStyle(.tertiary)
-                Text(node.kind.isPluginAction ? "Drag a port here to connect it" : "Drag a port here")
+                Text(node.kind.isPluginNode ? "Drag ports here to connect them" : "Drag a port here")
                     .foregroundStyle(.tertiary)
             } else {
                 Text("No ports")
@@ -290,8 +308,8 @@ private struct PinCircle: View {
 }
 
 extension GraphNode.Kind {
-    var isPluginAction: Bool {
-        if case .pluginAction = self { true } else { false }
+    var isPluginNode: Bool {
+        if case .pluginNode = self { true } else { false }
     }
 
     var tint: Color {
@@ -300,7 +318,7 @@ extension GraphNode.Kind {
         case .watch: .blue
         case .share, .quickTunnel, .namedTunnel: .orange
         case .autoKill: .red
-        case .pluginItem, .pluginAction, .pluginTarget: .purple
+        case .pluginItem, .pluginNode, .pluginTarget: .purple
         case .process, .forward, .port: .accentColor
         }
     }
@@ -325,11 +343,11 @@ struct GraphNodeMenu: View {
             ItemActions(id: .namedTunnel(id))
         case .pluginTarget(let plugin, let item):
             ItemActions(id: .pluginItem(plugin: plugin, item: item))
-        case .pluginAction(let plugin, let action):
-            if let run = model.plugins.activity.latest(plugin: plugin, action: action) {
-                Button("Show Last Result", systemImage: "doc.text.magnifyingglass") { model.plugins.presentedRun = run }
-                    .disabled(run.isRunning)
+        case .pluginNode(let id):
+            if let pluginNode = model.plugins.nodes.node(id) {
+                PluginNodeMenu(node: pluginNode)
             }
+            DisconnectMenu(node: node, graph: graph)
         case .port(let port):
             if let listener = model.ports.ports.first(where: { $0.port == port }) {
                 PortMenu(port: listener)
@@ -413,6 +431,17 @@ struct PortMenu: View {
                     model.plugins.run(entry.action, on: port, in: entry.plugin)
                 }
             }
+            let unconnected = model.plugins.nodes.all.filter { !$0.ports.contains(port.port) && model.plugins.pluginAction(for: $0) != nil }
+            if !unconnected.isEmpty {
+                Menu("Connect to Node", systemImage: "link") {
+                    ForEach(unconnected) { pluginNode in
+                        Button(pluginNode.name) { model.plugins.connect(pluginNode.id, to: port.port) }
+                    }
+                }
+            }
+            Menu("Add Node", systemImage: "plus.rectangle.on.rectangle") {
+                AddNodeItems(port: port.port)
+            }
         }
         Divider()
         Button("Kill and Close Connections", systemImage: "bolt.horizontal.circle", role: .destructive) {
@@ -420,6 +449,54 @@ struct PortMenu: View {
         }
         Button(siblings > 0 ? "Kill Process to Free Port \(String(port.port))…" : "Kill Process…", systemImage: "xmark.octagon", role: .destructive) {
             model.ports.requestKill([port])
+        }
+    }
+}
+
+struct PluginNodeMenu: View {
+    @Environment(AppModel.self) private var model
+    let node: PluginNode
+
+    var body: some View {
+        let plugins = model.plugins
+        Button("Run", systemImage: "play") { plugins.run(node) }
+            .disabled(node.ports.isEmpty || plugins.activity.isRunning(node: node.id))
+        Button("Edit…", systemImage: "slider.horizontal.3") { plugins.edit(node) }
+        Button("Duplicate", systemImage: "plus.square.on.square") { plugins.duplicate(node) }
+        Toggle("Run When a Connected Port Starts", systemImage: "play.circle", isOn: Binding(
+            get: { node.runsWhenPortStarts },
+            set: { plugins.setRunsWhenPortStarts($0, for: node) }
+        ))
+        if let run = plugins.activity.latest(node: node.id), !run.isRunning {
+            Button("Show Last Result", systemImage: "doc.text.magnifyingglass") { plugins.presentedRun = run }
+        }
+        Divider()
+        Button("Delete Node", systemImage: "trash", role: .destructive) { plugins.delete(node) }
+    }
+}
+
+struct AddNodeItems: View {
+    @Environment(AppModel.self) private var model
+    var port: Int?
+
+    var body: some View {
+        let plugins = model.plugins
+        let types = plugins.nodeTypes
+        if types.isEmpty {
+            Text("Turn on a plugin in Settings to add its nodes.")
+            SettingsLink {
+                Label("Open Settings…", systemImage: "gearshape")
+            }
+        } else {
+            ForEach(plugins.enabledPlugins.filter { !($0.manifest.portActions ?? []).isEmpty }) { plugin in
+                Section(plugin.manifest.name) {
+                    ForEach(plugin.manifest.portActions ?? []) { action in
+                        Button(action.title.hasSuffix("…") ? action.title : "\(action.title)…", systemImage: action.icon ?? plugin.manifest.icon ?? "puzzlepiece.extension") {
+                            plugins.addNode(action, in: plugin, connectTo: port)
+                        }
+                    }
+                }
+            }
         }
     }
 }

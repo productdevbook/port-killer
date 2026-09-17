@@ -188,21 +188,20 @@ extension AppModel {
                 ))
             }
         }
-        for plugin in plugins.enabledPlugins {
-            for action in plugin.manifest.portActions ?? [] {
-                consumers.append(PortGraph.Consumer(
-                    node: GraphNode(
-                        id: "action:\(plugin.id):\(action.id)",
-                        kind: .pluginAction(plugin: plugin.id, action: action.id),
-                        title: action.title,
-                        subtitle: plugin.manifest.name,
-                        symbol: action.icon ?? plugin.manifest.icon ?? "puzzlepiece.extension",
-                        detail: action.summary ?? plugin.manifest.summary ?? ""
-                    ),
-                    ports: plugins.connections.ports(plugin: plugin.id, action: action.id),
-                    origin: .link
-                ))
-            }
+        for node in plugins.nodes.all {
+            guard let (plugin, action) = plugins.pluginAction(for: node) else { continue }
+            consumers.append(PortGraph.Consumer(
+                node: GraphNode(
+                    id: "node:\(node.id)",
+                    kind: .pluginNode(node.id),
+                    title: node.name,
+                    subtitle: "\(action.title.trimmingCharacters(in: ["…"])) · \(plugin.manifest.name)",
+                    symbol: action.icon ?? plugin.manifest.icon ?? "puzzlepiece.extension",
+                    detail: node.summary(using: action.inputs ?? []) ?? action.summary ?? ""
+                ),
+                ports: node.ports,
+                origin: .link
+            ))
         }
         return PortGraph(providers: providers, consumers: consumers, idlePorts: Set(ports.inactivePorts(for: portScope)))
     }
@@ -211,9 +210,22 @@ extension AppModel {
         let graph = overview.focused(on: id)
         let listeners = graph.nodes.compactMap(\.port).map { port in (port, ports.ports.first { $0.port == port }?.processName ?? "") }
         return graph.removing { node in
-            guard case .pluginAction(let pluginID, let actionID) = node.kind, !graph.edges.contains(where: { $0.to == node.id }) else { return false }
-            guard let action = plugins.plugin(id: pluginID)?.manifest.portActions?.first(where: { $0.id == actionID }) else { return true }
+            guard case .pluginNode(let id) = node.kind, !graph.edges.contains(where: { $0.to == node.id }) else { return false }
+            guard let action = plugins.nodes.node(id).flatMap(plugins.pluginAction(for:))?.action else { return true }
             return !listeners.contains { action.applies(toPort: $0.0, processName: $0.1) }
+        }
+    }
+
+    var portForNewNode: Int? {
+        if let focusedPort { return focusedPort }
+        switch selection {
+        case .process(let pid):
+            let numbers = ports.ports.filter { $0.pid == pid }.map(\.port)
+            return numbers.count == 1 ? numbers.first : nil
+        case .inactivePort(let port):
+            return port
+        default:
+            return nil
         }
     }
 
@@ -231,13 +243,10 @@ extension AppModel {
             tunnels.startQuickTunnel(port: port)
         case .stopSharing(let id):
             if let tunnel = tunnels.quickTunnels.first(where: { $0.id == id }) { tunnels.stopQuickTunnel(tunnel) }
-        case .connectPluginAction(let pluginID, let actionID, let port):
-            guard let plugin = plugins.enabledPlugins.first(where: { $0.id == pluginID }),
-                  let action = plugin.manifest.portActions?.first(where: { $0.id == actionID })
-            else { return }
-            plugins.connect(action, port: port, in: plugin)
-        case .disconnectPluginAction(let plugin, let action, let port):
-            plugins.disconnect(plugin: plugin, action: action, port: port)
+        case .connectPluginNode(let id, let port):
+            plugins.connect(id, to: port)
+        case .disconnectPluginNode(let id, let port):
+            plugins.disconnect(id, from: port)
         }
     }
 
@@ -250,8 +259,8 @@ extension AppModel {
             } else {
                 selection = .inactivePort(port)
             }
-        case .pluginAction(let plugin, let action):
-            if let run = plugins.activity.latest(plugin: plugin, action: action), !run.isRunning {
+        case .pluginNode(let id):
+            if let run = plugins.activity.latest(node: id), !run.isRunning {
                 plugins.presentedRun = run
             }
         default:
@@ -294,7 +303,7 @@ extension GraphNode.Kind {
         case .port(let port): .inactivePort(port)
         case .quickTunnel(let id): .quickTunnel(id)
         case .namedTunnel(let id): .namedTunnel(id)
-        case .favorites, .watch, .share, .autoKill, .pluginAction: nil
+        case .favorites, .watch, .share, .autoKill, .pluginNode: nil
         }
     }
 }

@@ -23,7 +23,7 @@ struct PluginTests {
       port-action)
         echo "port action log" >&2
         if [ -n "$(value method)" ]; then
-          echo "{\"details\":{\"title\":\"$(value path)\",\"fields\":[{\"label\":\"Method\",\"value\":\"$(value method)\"},{\"label\":\"Connection\",\"value\":\"$(value connection)\"}],\"text\":\"port $(value port)\"}}"
+          echo "{\"details\":{\"title\":\"$(value path)\",\"fields\":[{\"label\":\"Method\",\"value\":\"$(value method)\"},{\"label\":\"Node\",\"value\":\"$(value node)\"}],\"text\":\"port $(value port)\"}}"
         else
           echo "{\"copy\":\"$(value port)\",\"refresh\":false}"
         fi
@@ -132,11 +132,11 @@ struct PluginTests {
         let portResult = try await PluginHost.perform("open", onPort: PluginPortContext(listener), in: plugin)
         #expect(portResult == PluginActionResult(copy: "3000", refresh: false, log: "port action log"))
 
-        let connection = UUID()
-        let detailed = try await PluginHost.perform("inspect", onPort: PluginPortContext(listener), inputs: ["method": "POST", "path": "/users"], connection: connection, in: plugin)
+        let node = UUID()
+        let detailed = try await PluginHost.perform("inspect", onPort: PluginPortContext(listener), inputs: ["method": "POST", "path": "/users"], node: node, in: plugin)
         #expect(detailed.details == PluginDetails(
             title: "/users",
-            fields: [PluginField(label: "Method", value: "POST"), PluginField(label: "Connection", value: connection.uuidString)],
+            fields: [PluginField(label: "Method", value: "POST"), PluginField(label: "Node", value: node.uuidString)],
             text: "port 3000"
         ))
     }

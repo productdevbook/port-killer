@@ -49,6 +49,15 @@ private struct CanvasToolbar: ToolbarContent {
         }
         ToolbarItem {
             Menu {
+                AddNodeItems(port: model.portForNewNode)
+            } label: {
+                Label("Add Node", systemImage: "plus.rectangle.on.rectangle")
+            }
+            .menuIndicator(.hidden)
+            .help("Add Node")
+        }
+        ToolbarItem {
+            Menu {
                 if let selection = model.selection, selection != .overview {
                     ItemActions(id: selection)
                     Divider()

@@ -15,18 +15,18 @@ public struct PluginRun: Identifiable, Sendable, Hashable {
     public let id: UUID
     public var pluginID: String
     public var actionID: String
-    public var connectionID: PluginConnection.ID?
+    public var nodeID: PluginNode.ID?
     public var title: String
     public var target: Target
     public var started: Date
     public var finished: Date?
     public var state: State
 
-    public init(id: UUID = UUID(), pluginID: String, actionID: String, connectionID: PluginConnection.ID? = nil, title: String, target: Target, started: Date = .now) {
+    public init(id: UUID = UUID(), pluginID: String, actionID: String, nodeID: PluginNode.ID? = nil, title: String, target: Target, started: Date = .now) {
         self.id = id
         self.pluginID = pluginID
         self.actionID = actionID
-        self.connectionID = connectionID
+        self.nodeID = nodeID
         self.title = title
         self.target = target
         self.started = started
@@ -85,8 +85,12 @@ public struct PluginActivity: Sendable, Hashable {
         runs.first { $0.pluginID == plugin && $0.actionID == action }
     }
 
-    public func latest(connection: PluginConnection.ID) -> PluginRun? {
-        runs.first { $0.connectionID == connection }
+    public func latest(node: PluginNode.ID, port: Int? = nil) -> PluginRun? {
+        runs.first { $0.nodeID == node && (port == nil || $0.target == .port(port ?? 0)) }
+    }
+
+    public func isRunning(node: PluginNode.ID) -> Bool {
+        runs.contains { $0.nodeID == node && $0.isRunning }
     }
 
     public func isRunning(plugin: String, action: String, target: PluginRun.Target) -> Bool {

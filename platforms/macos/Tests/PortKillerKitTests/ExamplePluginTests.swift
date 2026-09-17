@@ -52,7 +52,7 @@ struct ExamplePluginTests {
             "headers": "Content-Type: application/json\nX-Extra: \"quoted\"",
             "body": #"{"name": "Ada", "note": "line\nbreak"}"#,
         ]
-        let post = try await PluginHost.perform("send", onPort: target, inputs: request, connection: UUID(), in: plugin)
+        let post = try await PluginHost.perform("send", onPort: target, inputs: request, node: UUID(), in: plugin)
         #expect(post.message?.hasPrefix("POST localhost:\(port)/users?role=admin → 201 · ") == true)
         let posted = try echo(post)
         #expect(posted["path"] == "/users?role=admin")

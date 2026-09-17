@@ -3,7 +3,7 @@
 Plugins add your own tools to PortKiller. A plugin can:
 
 - **Add a sidebar section** listing anything with a status, such as Docker containers, saved HTTP requests or dev servers, with actions for each item.
-- **Add actions to ports**, shown in a port's menu, in the inspector and as nodes in the graph. Dragging a port onto an action connects them, and each [connection](#connections) keeps its own settings.
+- **Add node types** that people add to the graph with their own settings and connect to ports, and that also run once from a port's menu and the inspector. See [Nodes](#nodes).
 - **Ask for input** with a native form before an action runs, and ask for confirmation before destructive ones.
 - **Show results** as a message, a copied value, an opened URL, or a details window with fields and text.
 - **Have settings**, such as an editor name or an API token, that people fill in under **Settings › Plugins**.
@@ -23,7 +23,7 @@ Three examples live in [`Plugins`](Plugins):
 
 - **Docker** lists your containers with their logs, and starts, stops, restarts or removes them. It has a setting for the Docker context.
 - **Open in Editor** opens the folder a dev server runs from in the editor you choose in its settings.
-- **HTTP Requests** sends requests to a port and shows the response. Each connection keeps its own method, path, headers and body, so a port can have a health check and an API call side by side.
+- **HTTP Requests** adds an HTTP Request node. Each node keeps its own method, path, headers and body, so a port can have a health check and an API call side by side.
 
 ## Layout
 
@@ -85,7 +85,7 @@ MyTool.portkillerplugin/
 | `icon` | No | An [SF Symbol](https://developer.apple.com/sf-symbols/) name. |
 | `items` | No | Adds a sidebar section. `title` names it; `refreshInterval` is in seconds, at least 2, 10 by default. |
 | `settings` | No | [Inputs](#inputs) shown under the plugin in Settings › Plugins. Every command gets their values. |
-| `portActions` | No | Actions for ports. `description` is a sentence shown on the action's node in the graph. `processes` takes process names with `*` wildcards and `ports` takes port numbers; leave both out to offer the action on every port. `confirmation` and `inputs` work as they do for [item actions](#items). |
+| `portActions` | No | Actions for ports, which are also the plugin's [node](#nodes) types. `description` is a sentence shown when adding the node and on nodes without a summary. `processes` takes process names with `*` wildcards and `ports` takes port numbers; leave both out to offer the action on every port. `confirmation` and `inputs` work as they do for [item actions](#items). |
 
 A title that ends in `…` tells people the action asks for something first.
 
@@ -110,16 +110,17 @@ Settings, `portActions` and item actions describe their fields the same way. Bef
 
 Values always reach the plugin as strings: toggles are `"true"` or `"false"`, and numbers are what was typed. Secret settings are stored in the Keychain.
 
-## Connections
+## Nodes
 
-Dragging a port onto one of a plugin's `portActions` in the graph connects them. If the action has inputs, PortKiller asks for them once and keeps them with the connection; the plugin doesn't need to store anything.
+Each of a plugin's `portActions` is a kind of node people add to the graph with **Add Node**, and as many times as they like. A node has a name and its own values for the action's inputs, so HTTP Requests can have a "Health Check" node that sends `GET /health` and a "Create User" node that sends `POST /users`.
 
-- The connection runs right away if the port is listening, and runs again from its wire in the graph, or from the port's Plugins tab in the inspector, without asking for the inputs again.
-- **Edit** changes a connection's values. A port can have several connections to the same action with different values.
-- A connection can **run when the port starts listening**, such as sending a health check or opening an editor when a dev server starts.
-- Menus and the inspector's **Run** still run an action once without connecting it.
+- Dragging a port onto a node connects them, and a node can connect to several ports. The plugin doesn't need to store anything.
+- A node runs from its ▶ button on every connected port that's listening, from a wire on that port, or from the port's Plugins tab in the inspector.
+- **Edit** changes a node's name and values, and **Duplicate** copies it.
+- A node can **run when a connected port starts listening**, such as sending a health check or opening an editor when a dev server starts.
+- A port's menu and the inspector's **Run** still run an action once without adding a node.
 
-The `port-action` request carries the connection's `id` in `connection`, which a plugin can use to keep data per connection.
+The `port-action` request carries the node's `id` in `node`, which a plugin can use to keep data per node.
 
 ## Protocol
 
@@ -192,7 +193,7 @@ Called when someone runs one of an item's actions. `inputs` is present when the 
 
 ### `port-action`
 
-Called when someone runs one of the plugin's `portActions` on a port from a menu or the inspector, and when a [connection](#connections) runs.
+Called when someone runs one of the plugin's `portActions` on a port from a menu or the inspector, and when a [node](#nodes) runs.
 
 ```json
 {
@@ -207,11 +208,11 @@ Called when someone runs one of the plugin's `portActions` on a port from a menu
     "addresses": ["127.0.0.1"]
   },
   "inputs": { "branch": "main" },
-  "connection": "6F1C2A9E-4B5D-4E8F-9A7B-2C3D4E5F6A7B"
+  "node": "6F1C2A9E-4B5D-4E8F-9A7B-2C3D4E5F6A7B"
 }
 ```
 
-`inputs` is present when the action has inputs, and `connection` when the run belongs to a [connection](#connections).
+`inputs` is present when the action has inputs, and `node` when a [node](#nodes) runs.
 
 ### Action Results
 

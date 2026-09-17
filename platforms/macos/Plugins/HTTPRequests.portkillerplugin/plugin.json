@@ -27,7 +27,7 @@
     {
       "id": "send",
       "title": "HTTP Request…",
-      "description": "Sends the request each connection sets up, such as GET /health or POST /users, and shows the response.",
+      "description": "Sends a request you set up, such as GET /health or POST /users, and shows the response.",
       "icon": "paperplane",
       "inputs": [
         { "id": "method", "label": "Method", "type": "choice", "options": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },

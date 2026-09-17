@@ -115,6 +115,10 @@ struct GraphCanvas: View {
                     )
                     .offset(x: frame.minX, y: frame.minY)
                 }
+                if let addNodeOrigin = addNodeOrigin(frames: frames) {
+                    AddNodeCard()
+                        .offset(x: addNodeOrigin.x, y: addNodeOrigin.y)
+                }
                 if let chosenWire, let connection = chosenWire.connection {
                     ConnectionControls(connection: connection) { selectedWire = nil }
                         .position(chosenWire.midpoint)
@@ -182,9 +186,15 @@ struct GraphCanvas: View {
         }
     }
 
+    private func addNodeOrigin(frames: [String: CGRect]) -> CGPoint? {
+        let consumers = graph.blocks.filter { $0.column == .consumers }.compactMap { frames[$0.id] }
+        guard let bottom = consumers.map(\.maxY).max(), let left = consumers.map(\.minX).min() else { return nil }
+        return CGPoint(x: left, y: bottom + GraphMetrics.gap)
+    }
+
     private func connectionKey(edge: GraphEdge, target: GraphNode) -> GraphWire.Connection? {
-        guard case .pluginAction(let plugin, let action) = target.kind, let port = graph.node(id: edge.from)?.port else { return nil }
-        return GraphWire.Connection(plugin: plugin, action: action, port: port)
+        guard case .pluginNode(let id) = target.kind, let port = graph.node(id: edge.from)?.port else { return nil }
+        return GraphWire.Connection(node: id, port: port)
     }
 
     private func linkState(for node: GraphNode) -> GraphBlockView.LinkState {
@@ -203,8 +213,7 @@ struct GraphLink: Equatable {
 
 nonisolated struct GraphWire: Hashable {
     struct Connection: Hashable {
-        var plugin: String
-        var action: String
+        var node: UUID
         var port: Int
     }
 
@@ -250,38 +259,20 @@ private struct ConnectionControls: View {
 
     var body: some View {
         let plugins = model.plugins
-        let list = plugins.connections.connections(plugin: connection.plugin, action: connection.action, port: connection.port)
-        let definitions = list.first.flatMap(plugins.portAction(for:))?.action.inputs ?? []
+        let node = plugins.nodes.node(connection.node)
         HStack(spacing: 2) {
-            if list.count == 1, let only = list.first {
-                control("Run", symbol: "play.fill") { plugins.run(only) }
-                control("Edit", symbol: "slider.horizontal.3") { plugins.edit(only) }
-            } else {
-                Menu {
-                    ForEach(list) { item in
-                        Button(item.summary(using: definitions) ?? "Connection") { plugins.run(item) }
-                    }
-                } label: {
-                    Image(systemName: "play.fill")
+            if let node {
+                if plugins.activity.isRunning(node: node.id) {
+                    ProgressView()
+                        .controlSize(.small)
                         .frame(width: 30, height: 30)
+                } else {
+                    control("Run on port \(String(connection.port))", symbol: "play.fill") { plugins.run(node, on: connection.port) }
                 }
-                .menuIndicator(.hidden)
-                .buttonStyle(.plain)
-                .help("Run")
-                Menu {
-                    ForEach(list) { item in
-                        Button(item.summary(using: definitions) ?? "Connection") { plugins.edit(item) }
-                    }
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .frame(width: 30, height: 30)
-                }
-                .menuIndicator(.hidden)
-                .buttonStyle(.plain)
-                .help("Edit")
+                control("Edit \(node.name)", symbol: "slider.horizontal.3") { plugins.edit(node) }
             }
-            control(list.count > 1 ? "Disconnect All" : "Disconnect", symbol: "xmark", tint: .red) {
-                plugins.disconnect(plugin: connection.plugin, action: connection.action, port: connection.port)
+            control("Disconnect", symbol: "xmark", tint: .red) {
+                plugins.disconnect(connection.node, from: connection.port)
                 onDisconnect()
             }
         }
@@ -302,6 +293,40 @@ private struct ConnectionControls: View {
         .buttonStyle(.plain)
         .help(title)
         .accessibilityLabel(title)
+    }
+}
+
+private struct AddNodeCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Menu {
+            AddNodeItems(port: model.portForNewNode)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("Add Node")
+                    .font(.headline)
+                Spacer(minLength: 0)
+                Text("From your plugins")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .frame(width: GraphMetrics.width, height: 56)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+            }
+            .contentShape(.rect)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
     }
 }
 
@@ -377,6 +402,10 @@ private struct GraphViewport<Content: View>: View {
             )
             .onTapGesture { onBackgroundTap() }
             .contextMenu {
+                Menu("Add Node", systemImage: "plus.rectangle.on.rectangle") {
+                    AddNodeItems(port: model.portForNewNode)
+                }
+                Divider()
                 Button(GraphZoomRequest.Kind.fit.title, systemImage: GraphZoomRequest.Kind.fit.symbol) { model.graphZoomRequest = GraphZoomRequest(kind: .fit) }
                 Button("Reset Layout", systemImage: "rectangle.3.group") { model.resetGraphLayout(layoutKey) }
             }

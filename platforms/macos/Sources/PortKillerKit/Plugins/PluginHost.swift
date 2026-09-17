@@ -159,11 +159,11 @@ public enum PluginHost {
         _ action: String,
         onPort port: PluginPortContext,
         inputs: [String: String] = [:],
-        connection: UUID? = nil,
+        node: UUID? = nil,
         settings: [String: String] = [:],
         in plugin: Plugin
     ) async throws(PluginError) -> PluginActionResult {
-        let request = PluginPortActionRequest(action: action, port: port, inputs: inputs.isEmpty ? nil : inputs, connection: connection)
+        let request = PluginPortActionRequest(action: action, port: port, inputs: inputs.isEmpty ? nil : inputs, node: node)
         return try await act(plugin, command: "port-action", request: request, settings: settings)
     }
 

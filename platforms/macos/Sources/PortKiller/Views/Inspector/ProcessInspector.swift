@@ -205,8 +205,8 @@ struct ProcessPluginsInspector: View {
         let ports = model.focusedPorts(in: item)
         let entries = ports.flatMap { port in plugins.portActions(for: port).map { (port: port, plugin: $0.plugin, action: $0.action) } }
         let runs = ports.flatMap { plugins.activity.runs(for: .port($0.port)) }.sorted { $0.started > $1.started }
-        let connections = ports.flatMap { plugins.connections.connections(port: $0.port) }
-        if entries.isEmpty, runs.isEmpty, connections.isEmpty {
+        let connected = ports.flatMap { port in plugins.nodes.nodes(port: port.port).map { (node: $0, port: port.port) } }
+        if entries.isEmpty, runs.isEmpty, connected.isEmpty {
             ContentUnavailableView {
                 Label("No Plugin Actions", systemImage: InspectorTab.plugins.symbol)
             } description: {
@@ -218,15 +218,15 @@ struct ProcessPluginsInspector: View {
             }
         } else {
             Form {
-                if !connections.isEmpty {
+                if !connected.isEmpty {
                     Section {
-                        ForEach(connections) { connection in
-                            PluginConnectionRow(connection: connection)
+                        ForEach(connected, id: \.node.id) { entry in
+                            PluginNodeRow(node: entry.node, port: entry.port)
                         }
                     } header: {
-                        Text("Connections")
+                        Text("Nodes")
                     } footer: {
-                        Text("Drag a port onto a plugin action in the graph to add a connection with its own settings.")
+                        Text("Nodes keep their own settings. Add one with Add Node and drag ports onto it in the graph.")
                     }
                 }
                 ForEach(ports) { port in
@@ -239,7 +239,7 @@ struct ProcessPluginsInspector: View {
                                     subtitle: entry.plugin.manifest.name,
                                     icon: entry.action.icon ?? entry.plugin.manifest.icon,
                                     isRunning: plugins.isRunning(entry.action.id, on: .port(port.port), in: entry.plugin),
-                                    connect: { plugins.connect(entry.action, port: port.port, in: entry.plugin) }
+                                    addNode: { plugins.addNode(entry.action, in: entry.plugin, connectTo: port.port) }
                                 ) {
                                     plugins.run(entry.action, on: port, in: entry.plugin)
                                 }
@@ -265,7 +265,7 @@ struct PluginActionRow: View {
     let subtitle: String
     let icon: String?
     let isRunning: Bool
-    var connect: (() -> Void)?
+    var addNode: (() -> Void)?
     let action: () -> Void
 
     var body: some View {
@@ -273,14 +273,14 @@ struct PluginActionRow: View {
             if isRunning {
                 ProgressView()
                     .controlSize(.small)
-            } else if let connect {
+            } else if let addNode {
                 Menu(title.hasSuffix("…") ? "Run…" : "Run") {
-                    Button("Connect…", systemImage: "link", action: connect)
+                    Button("Add as Node…", systemImage: "plus.rectangle.on.rectangle", action: addNode)
                 } primaryAction: {
                     action()
                 }
                 .fixedSize()
-                .help("Run once, or connect to keep this action on the port with its own settings")
+                .help("Run once, or add a node that keeps its settings and stays connected to the port")
             } else {
                 Button(title.hasSuffix("…") ? "Run…" : "Run", action: action)
             }
@@ -369,18 +369,19 @@ private struct ExplanationSection: View {
     }
 }
 
-struct PluginConnectionRow: View {
+struct PluginNodeRow: View {
     @Environment(AppModel.self) private var model
-    let connection: PluginConnection
+    let node: PluginNode
+    let port: Int
 
     var body: some View {
         let plugins = model.plugins
-        let pair = plugins.portAction(for: connection)
-        let run = plugins.activity.latest(connection: connection.id)
+        let pair = plugins.pluginAction(for: node)
+        let run = plugins.activity.latest(node: node.id, port: port)
         let details = [
-            "Port \(String(connection.port))",
-            connection.summary(using: pair?.action.inputs ?? []),
-            connection.runsWhenPortStarts ? "Runs when the port starts" : nil,
+            pair?.action.title.trimmingCharacters(in: ["…"]),
+            node.summary(using: pair?.action.inputs ?? []),
+            node.runsWhenPortStarts ? "Runs when the port starts" : nil,
         ]
         LabeledContent {
             HStack(spacing: 6) {
@@ -388,21 +389,12 @@ struct PluginConnectionRow: View {
                     ProgressView()
                         .controlSize(.small)
                 } else {
-                    Button("Run") { plugins.run(connection) }
+                    Button("Run") { plugins.run(node, on: port) }
                         .disabled(pair == nil)
                 }
                 Menu {
-                    Button("Edit…", systemImage: "slider.horizontal.3") { plugins.edit(connection) }
-                        .disabled(pair == nil)
-                    Toggle("Run When the Port Starts", systemImage: "play.circle", isOn: Binding(
-                        get: { connection.runsWhenPortStarts },
-                        set: { plugins.setRunsWhenPortStarts($0, for: connection) }
-                    ))
-                    if let run, !run.isRunning {
-                        Button("Show Last Result", systemImage: "doc.text.magnifyingglass") { plugins.presentedRun = run }
-                    }
-                    Divider()
-                    Button("Disconnect", systemImage: "xmark", role: .destructive) { plugins.disconnect(connection) }
+                    PluginNodeMenu(node: node)
+                    Button("Disconnect from Port \(String(port))", systemImage: "xmark") { plugins.disconnect(node.id, from: port) }
                 } label: {
                     Image(systemName: "ellipsis")
                 }
@@ -411,7 +403,7 @@ struct PluginConnectionRow: View {
             }
         } label: {
             Label {
-                Text(pair?.action.title.trimmingCharacters(in: ["…"]) ?? connection.actionID)
+                Text(node.name)
                 Text(details.compactMap { $0 }.joined(separator: " · "))
                 if let run {
                     HStack(spacing: 4) {
