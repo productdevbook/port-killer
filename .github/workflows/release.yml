@@ -68,7 +68,7 @@ jobs:
     name: Build macOS
     needs: create-release
     if: ${{ always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped') }}
-    runs-on: macos-latest
+    runs-on: xcode-27
 
     defaults:
       run:
@@ -81,10 +81,10 @@ jobs:
           ref: ${{ inputs.ref || '' }}
           fetch-depth: 0
 
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Import Code Signing Certificate
         env:
@@ -105,25 +105,15 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security list-keychain -d user -s $KEYCHAIN_PATH
 
-      - name: Update version in Info.plist
-        run: |
-          VERSION="${RELEASE_VERSION#v}"  # Remove 'v' prefix (v1.2.4 -> 1.2.4)
-          BUILD_NUMBER=$(git rev-list --count HEAD)
-
-          # Update version strings using PlistBuddy
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" Resources/Info.plist
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" Resources/Info.plist
-
-          echo "Updated version to ${VERSION} (build ${BUILD_NUMBER})"
-
       - name: Build app bundle
-        run: ./scripts/build-app.sh
+        run: |
+          VERSION="${RELEASE_VERSION#v}" BUILD_NUMBER="$(git rev-list --count HEAD)" Scripts/build-app.sh
 
       - name: Sign app with Developer ID
         env:
           DEVELOPER_ID_NAME: ${{ secrets.DEVELOPER_ID_NAME }}
         run: |
-          APP_PATH=".build/apple/Products/Release/PortKiller.app"
+          APP_PATH="build/PortKiller.app"
           FRAMEWORKS_PATH="$APP_PATH/Contents/Frameworks"
           SPARKLE="$FRAMEWORKS_PATH/Sparkle.framework/Versions/B"
 
@@ -162,7 +152,7 @@ jobs:
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          APP_PATH=".build/apple/Products/Release/PortKiller.app"
+          APP_PATH="build/PortKiller.app"
 
           # Create ZIP for notarization
           ditto -c -k --keepParent "$APP_PATH" "PortKiller.zip"
@@ -208,7 +198,7 @@ jobs:
           # Create temporary directory for DMG contents
           mkdir -p dmg_contents
           # Use ditto to preserve symlinks and extended attributes
-          ditto .build/apple/Products/Release/PortKiller.app dmg_contents/PortKiller.app
+          ditto build/PortKiller.app dmg_contents/PortKiller.app
 
           # Create Applications symlink
           ln -s /Applications dmg_contents/Applications
@@ -254,15 +244,9 @@ jobs:
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
-          # Download Sparkle tools
-          curl -L -o sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.8.1/Sparkle-2.8.1.tar.xz"
-          mkdir -p sparkle_tools
-          tar -xf sparkle.tar.xz -C sparkle_tools
-
           echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_private_key
 
-          # Generate signature
-          SIGN_OUTPUT=$(sparkle_tools/bin/sign_update "$DMG_NAME" -f /tmp/sparkle_private_key)
+          SIGN_OUTPUT=$(.build/artifacts/sparkle/Sparkle/bin/sign_update "$DMG_NAME" -f /tmp/sparkle_private_key)
           SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | sed 's/edSignature="//;s/"$//')
           echo "SPARKLE_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
 
@@ -319,7 +303,7 @@ jobs:
                 <pubDate>DATEPLACEHOLDER</pubDate>
                 <sparkle:version>BUILDPLACEHOLDER</sparkle:version>
                 <sparkle:shortVersionString>VERSIONPLACEHOLDER</sparkle:shortVersionString>
-                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                <sparkle:minimumSystemVersion>27.0</sparkle:minimumSystemVersion>
                 <enclosure
                   url="URLPLACEHOLDER"
                   length="SIZEPLACEHOLDER"
@@ -377,13 +361,13 @@ jobs:
             desc "Menu bar app to find and kill processes running on open ports"
             homepage "https://github.com/productdevbook/port-killer"
 
-            depends_on macos: :sequoia
+            depends_on macos: :golden_gate
 
             app "PortKiller.app"
 
             zap trash: [
-              "~/Library/Preferences/com.productdevbook.PortKiller.plist",
-              "~/Library/Caches/com.productdevbook.PortKiller",
+              "~/Library/Preferences/com.portkiller.app.plist",
+              "~/Library/Caches/com.portkiller.app",
             ]
           end
           EOF

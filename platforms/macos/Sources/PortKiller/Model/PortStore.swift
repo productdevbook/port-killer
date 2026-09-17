@@ -1,0 +1,262 @@
+import AppKit
+import Observation
+import OrderedCollections
+import PortKillerKit
+
+enum PortScope: String, CaseIterable, Identifiable {
+    case all
+    case favorites
+    case watched
+
+    var id: String { rawValue }
+}
+
+nonisolated enum ItemID: Hashable {
+    case overview
+    case process(Int32)
+    case inactivePort(Int)
+    case forward(UUID)
+    case quickTunnel(UUID)
+    case namedTunnel(String)
+    case pluginItem(plugin: String, item: String)
+}
+
+enum KillMode: Hashable {
+    case graceful
+    case force
+    case deep
+    case tree
+}
+
+struct PresentedError: LocalizedError {
+    var title: String
+    var message: String
+
+    var errorDescription: String? { title }
+    var recoverySuggestion: String? { message }
+}
+
+struct ProcessItem: Identifiable, Hashable {
+    var process: ProcessSnapshot
+    var ports: [ListeningPort]
+    var category: ProcessCategory
+    var label: String?
+    var isFavorite: Bool
+
+    var id: ItemID { .process(process.pid) }
+    var portList: String { ports.map { String($0.port) }.joined(separator: ", ") }
+}
+
+@Observable
+final class PortStore {
+    let preferences: Preferences
+    let notifier: Notifier
+
+    private(set) var ports: [ListeningPort] = []
+    private(set) var isScanning = false
+    private(set) var terminating: Set<Int32> = []
+    var filter = PortFilter()
+    var pendingKill: [ListeningPort] = []
+    var error: PresentedError?
+
+    @ObservationIgnored private var loop: Task<Void, Never>?
+    @ObservationIgnored private var pendingRefresh = false
+    @ObservationIgnored var onScan: (([ListeningPort]) -> Void)?
+    @ObservationIgnored private var watchMonitor = WatchMonitor()
+    @ObservationIgnored private var autoKillMonitor = AutoKillMonitor()
+    @ObservationIgnored private var arrivalMonitor = ArrivalMonitor()
+    @ObservationIgnored private var detectedCategories: [String: ProcessCategory] = [:]
+
+    init(preferences: Preferences, notifier: Notifier) {
+        self.preferences = preferences
+        self.notifier = notifier
+    }
+
+    func start() {
+        guard loop == nil else { return }
+        notifier.onKill = { [weak self] request in
+            guard let self, let port = ports.first(where: { $0.port == request.port && $0.pid == request.pid }) else { return }
+            Task(name: "Kill from notification") { await self.kill([port]) }
+        }
+        loop = Task(name: "Port scan loop") { [weak self] in
+            var unchangedScans = 0
+            while !Task.isCancelled {
+                let changed = await self?.refresh() ?? false
+                unchangedScans = changed ? 0 : min(unchangedScans + 1, 60)
+                let base = Double(max(1, self?.preferences.refreshInterval ?? 3))
+                let backoff = unchangedScans < 20 ? 1.0 : unchangedScans < 40 ? 1.5 : 2.0
+                try? await Task.sleep(for: .seconds(min(base * backoff, 30)))
+            }
+        }
+    }
+
+    @discardableResult
+    func refresh() async -> Bool {
+        guard !isScanning else {
+            pendingRefresh = true
+            return false
+        }
+        isScanning = true
+        defer { isScanning = false }
+        var changed = false
+        repeat {
+            pendingRefresh = false
+            let scanned = await PortScanner.scan()
+            if scanned != ports {
+                ports = scanned
+                changed = true
+            }
+            evaluateRules(scanned)
+            onScan?(scanned)
+        } while pendingRefresh
+        return changed
+    }
+
+    func category(for port: ListeningPort) -> ProcessCategory {
+        if let override = preferences.categoryOverride(for: port.processName) { return override }
+        if let detected = detectedCategories[port.processName] { return detected }
+        let detected = ProcessCategory.detect(port.processName)
+        detectedCategories[port.processName] = detected
+        return detected
+    }
+
+    func listeners(for scope: PortScope, filter: PortFilter? = nil) -> [ListeningPort] {
+        let filter = filter ?? self.filter
+        return ports.filter { port in
+            let category = category(for: port)
+            guard !(preferences.hideSystemProcesses && category == .system) else { return false }
+            switch scope {
+            case .all: break
+            case .favorites: guard preferences.favorites.contains(port.port) else { return false }
+            case .watched: guard preferences.isWatching(port.port) else { return false }
+            }
+            return filter.matches(port, category: category, label: preferences.label(for: port.port))
+        }
+    }
+
+    func processes(for scope: PortScope) -> [ProcessItem] {
+        OrderedDictionary(grouping: listeners(for: scope), by: \.pid).values.map { members in
+            let first = members[0]
+            return ProcessItem(
+                process: first.process,
+                ports: members,
+                category: category(for: first),
+                label: members.lazy.compactMap { self.preferences.label(for: $0.port) }.first,
+                isFavorite: members.contains { preferences.favorites.contains($0.port) }
+            )
+        }
+    }
+
+    func inactivePorts(for scope: PortScope) -> [Int] {
+        let wanted: Set<Int> = switch scope {
+        case .all: []
+        case .favorites: preferences.favorites
+        case .watched: Set(preferences.watchedPorts.map(\.port))
+        }
+        let active = Set(ports.map(\.port))
+        let query = filter.searchText.trimmingCharacters(in: .whitespaces)
+        return wanted.subtracting(active).sorted().filter { query.isEmpty || String($0).contains(query) }
+    }
+
+    func process(pid: Int32) -> ProcessItem? {
+        let members = ports.filter { $0.pid == pid }
+        guard let first = members.first else { return nil }
+        return ProcessItem(
+            process: first.process,
+            ports: members,
+            category: category(for: first),
+            label: members.lazy.compactMap { self.preferences.label(for: $0.port) }.first,
+            isFavorite: members.contains { preferences.favorites.contains($0.port) }
+        )
+    }
+
+    func parent(of process: ProcessSnapshot) async -> ProcessSnapshot? {
+        await PortScanner.parent(of: process)
+    }
+
+    func requestKill(_ targets: [ListeningPort]) {
+        guard !targets.isEmpty else { return }
+        if preferences.skipKillConfirmation {
+            Task { await kill(targets) }
+        } else {
+            pendingKill = targets
+        }
+    }
+
+    func kill(_ targets: [ListeningPort], mode: KillMode = .graceful) async {
+        await withDiscardingTaskGroup { group in
+            for (pid, members) in Dictionary(grouping: targets, by: \.pid) {
+                group.addTask(name: "Kill \(pid)") { await self.terminate(pid: pid, ports: members, mode: mode) }
+            }
+        }
+        await refresh()
+    }
+
+    private func terminate(pid: Int32, ports members: [ListeningPort], mode: KillMode) async {
+        terminating.insert(pid)
+        defer { terminating.remove(pid) }
+        do {
+            switch mode {
+            case .graceful:
+                try await ProcessTerminator.terminate(pid)
+            case .force:
+                try await ProcessTerminator.terminate(pid, force: true)
+            case .tree:
+                try await ProcessTerminator.terminateTree(pid)
+            case .deep:
+                try await ProcessTerminator.terminate(pid)
+                let ownPID = ProcessInfo.processInfo.processIdentifier
+                for port in Set(members.map(\.port)) {
+                    for other in await PortScanner.establishedPIDs(port: port) where other != pid && other != ownPID {
+                        try? await ProcessTerminator.terminate(other)
+                    }
+                }
+            }
+        } catch {
+            self.error = PresentedError(title: "Couldn't Kill \(members.first?.processName ?? "PID \(pid)")", message: error.localizedDescription)
+        }
+    }
+
+    func removeInactive(_ port: Int) {
+        preferences.favorites.remove(port)
+        preferences.watchedPorts.removeAll { $0.port == port }
+    }
+
+    private func evaluateRules(_ scanned: [ListeningPort]) {
+        for event in watchMonitor.events(watched: preferences.watchedPorts, ports: scanned) {
+            switch event {
+            case .started(let port, let processName):
+                let listener = scanned.first { $0.port == port }
+                notifier.post(
+                    title: "Port \(port) In Use",
+                    body: "Used by \(processName).",
+                    killing: listener.map { Notifier.KillRequest(port: port, pid: $0.pid) }
+                )
+            case .stopped(let port):
+                notifier.post(title: "Port \(port) Available", body: "Port \(port) is free again.")
+            }
+        }
+
+        let arrivals = arrivalMonitor.arrivals(in: scanned)
+        let categories = preferences.notifyCategories
+        for port in arrivals where categories.contains(category(for: port).rawValue) {
+            notifier.post(
+                title: "New \(category(for: port).rawValue) on Port \(port.port)",
+                body: "\(port.processName) started listening.",
+                killing: Notifier.KillRequest(port: port.port, pid: port.pid)
+            )
+        }
+
+        for match in autoKillMonitor.due(ports: scanned, rules: preferences.autoKillRules) {
+            if match.rule.notifyBeforeKill {
+                notifier.post(
+                    title: "Auto-Kill: \(match.port.processName)",
+                    body: "Port \(match.port.port) stopped after \(match.rule.timeoutMinutes) min (rule: \(match.rule.name.isEmpty ? "Unnamed" : match.rule.name))."
+                )
+            }
+            Task(name: "Auto-kill \(match.port.id)") { [weak self] in
+                await self?.kill([match.port])
+            }
+        }
+    }
+}

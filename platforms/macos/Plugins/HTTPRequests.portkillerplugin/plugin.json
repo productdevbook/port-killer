@@ -1,0 +1,40 @@
+{
+  "apiVersion": 1,
+  "id": "dev.portkiller.http-requests",
+  "name": "HTTP Requests",
+  "version": "1.3.0",
+  "description": "Sends HTTP requests to your ports and shows the responses.",
+  "author": "PortKiller",
+  "homepage": "https://github.com/productdevbook/port-killer/tree/main/platforms/macos/Plugins",
+  "icon": "paperplane",
+  "executable": "http.sh",
+  "settings": [
+    {
+      "id": "timeout",
+      "label": "Timeout in Seconds",
+      "type": "number",
+      "default": 10,
+      "help": "How long a request may take, up to 14 seconds."
+    },
+    {
+      "id": "insecure",
+      "label": "Accept Self-Signed Certificates",
+      "type": "toggle",
+      "default": true
+    }
+  ],
+  "portActions": [
+    {
+      "id": "send",
+      "title": "HTTP Request…",
+      "description": "Sends a request you set up, such as GET /health or POST /users, and shows the response.",
+      "icon": "paperplane",
+      "inputs": [
+        { "id": "method", "label": "Method", "type": "choice", "options": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+        { "id": "path", "label": "Path", "default": "/", "placeholder": "/api/health", "required": true },
+        { "id": "headers", "label": "Headers", "type": "multiline", "placeholder": "Accept: application/json", "help": "One header per line." },
+        { "id": "body", "label": "Body", "type": "multiline", "placeholder": "{\"name\": \"Ada\"}" }
+      ]
+    }
+  ]
+}

@@ -1,48 +1,60 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.4
 import PackageDescription
+
+let swiftSettings: [SwiftSetting] = [
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableUpcomingFeature("InternalImportsByDefault"),
+    .enableUpcomingFeature("ImmutableWeakCaptures"),
+    .strictMemorySafety(),
+]
 
 let package = Package(
     name: "PortKiller",
-    platforms: [
-        .macOS(.v15)
-    ],
+    platforms: [.macOS(.v27)],
     products: [
-        .executable(name: "PortKiller", targets: ["PortKiller"])
+        .library(name: "PortKillerKit", targets: ["PortKillerKit"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "2.4.0"),
-        .package(url: "https://github.com/sindresorhus/Defaults", from: "9.0.0"),
-        .package(url: "https://github.com/sindresorhus/LaunchAtLogin-Modern", from: "1.1.0"),
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.8.1")
+        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
     ],
     targets: [
-        .executableTarget(
-            name: "PortKiller",
+        .target(
+            name: "PortKillerKit",
             dependencies: [
-                "KeyboardShortcuts",
-                "Defaults",
-                .product(name: "LaunchAtLogin", package: "LaunchAtLogin-Modern"),
-                .product(name: "Sparkle", package: "Sparkle")
+                .product(name: "Subprocess", package: "swift-subprocess"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
             ],
-            path: "Sources",
-            resources: [
-                .process("Resources")
-            ],
-            swiftSettings: [
-                // Swift 6.2 performance optimizations
-                .enableExperimentalFeature("NonisolatedNonsendingByDefault"),
-                .enableExperimentalFeature("InlineArrayTypeSugar"),
-                // Default MainActor isolation - reduces boilerplate, prevents actor hops
-                .enableUpcomingFeature("DefaultIsolationMainActor"),
-                // Enable Span types for zero-copy memory access (Swift 6.2+)
-                .enableExperimentalFeature("LifetimeDependence"),
-                .enableExperimentalFeature("Span")
-            ]
+            swiftSettings: swiftSettings
         ),
         .testTarget(
-            name: "PortKillerTests",
-            dependencies: ["PortKiller"],
-            path: "Tests"
-        )
+            name: "PortKillerKitTests",
+            dependencies: ["PortKillerKit"],
+            swiftSettings: swiftSettings
+        ),
     ]
 )
+
+#if os(macOS)
+package.products.append(.executable(name: "PortKiller", targets: ["PortKiller"]))
+package.dependencies += [
+    .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "1.1.5"),
+    .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.0"),
+]
+package.targets.append(
+    .executableTarget(
+        name: "PortKiller",
+        dependencies: [
+            "PortKillerKit",
+            .product(name: "DequeModule", package: "swift-collections"),
+            .product(name: "OrderedCollections", package: "swift-collections"),
+            .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            .product(name: "Sparkle", package: "Sparkle"),
+        ],
+        swiftSettings: swiftSettings + [.defaultIsolation(MainActor.self)]
+    )
+)
+#endif

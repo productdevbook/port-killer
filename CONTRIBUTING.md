@@ -2,11 +2,11 @@
 
 ## Requirements
 
-- **macOS 15.0+** / **Windows 10+** / **Linux**
-- **Xcode 16+** with Swift 6.0 (for macOS)
+- **macOS 27** on Apple silicon / **Windows 10+** / **Linux**
+- **Xcode 27** with Swift 6.4 (for macOS)
 - **.NET 9 SDK** (for Windows)
 - **Python 3.9+**, PyGObject (GTK 3) and libayatana-appindicator (for Linux)
-- **Rust stable** (for `portkiller-core`, used by the Linux app only)
+- **Swift 6.4** on Linux (for `PortKillerKit`, the Swift core shared with macOS)
 
 ## Setup
 
@@ -21,16 +21,11 @@ cd port-killer
 
 ```bash
 cd platforms/macos
-
-# Option 1: Xcode (recommended)
-open Package.swift
-# Press ▶️ to run
-
-# Option 2: Build script
-./scripts/build-app.sh && open .build/apple/Products/Release/PortKiller.app
+Scripts/build-app.sh
+open build/PortKiller.app
 ```
 
-> ⚠️ `swift run` doesn't work for menu bar apps - use Xcode or the build script.
+Notifications, login items and Sparkle updates only work from the app bundle. Set `CONFIGURATION=debug` for a debug bundle.
 
 ### Windows
 
@@ -71,9 +66,9 @@ sudo pacman -S python python-gobject libayatana-appindicator
 
 ```bash
 cd platforms/macos
-swift build              # Debug
-swift build -c release   # Release
-./scripts/build-app.sh   # App bundle
+swift build              # Debug build of the app and PortKillerKit
+swift test               # PortKillerKit tests
+Scripts/build-app.sh     # Release app bundle, ad-hoc signed, in build/PortKiller.app
 ```
 
 ### Windows
@@ -86,13 +81,13 @@ dotnet publish -c Release -r win-x64  # Release
 
 ### Linux
 
-The tray app is plain Python, so there is no build step. The Rust core is
-built separately:
+The tray app is plain Python, so there is no build step. The Swift core,
+`PortKillerKit`, builds on Linux from the same package as the macOS app; outside
+macOS only the Kit and its tests are part of the package:
 
 ```bash
-cd portkiller-core
-cargo build              # Debug
-cargo build --release    # Release
+cd platforms/macos
+swift build
 ```
 
 Releases ship an AppImage, produced by the `build-linux` job in
@@ -107,8 +102,8 @@ cd platforms/macos && swift test
 # Linux tray app (parser tests, no GTK needed)
 python3 -m unittest discover -s platforms/linux/tests
 
-# Rust core (Linux only)
-cd portkiller-core && cargo test
+# Swift core on Linux
+cd platforms/macos && swift test
 ```
 
 ## Pull Requests
@@ -122,10 +117,9 @@ cd portkiller-core && cargo test
 ## Code Style
 
 ### macOS
-- Swift 6.0 with strict concurrency
-- SwiftUI for UI
-- `@Observable` for state management
-- Keep files under 300 lines
+- Swift 6.4, macOS 27 only; see [STYLE_GUIDE.md](STYLE_GUIDE.md)
+- `PortKiller` defaults to `MainActor` isolation; `PortKillerKit` holds the nonisolated, tested logic
+- SwiftUI with `@Observable` stores
 
 ### Windows
 - C# with WPF
@@ -142,12 +136,13 @@ cd portkiller-core && cargo test
 platforms/
 ├── macos/
 │   ├── Sources/
-│   │   ├── PortKillerApp.swift    # Entry point
-│   │   ├── Managers/              # State & scanning
-│   │   ├── Models/                # Data models
-│   │   └── Views/                 # SwiftUI views
-│   ├── Resources/                 # Assets, Info.plist
-│   └── scripts/                   # Build scripts
+│   │   ├── PortKiller/            # App: @Observable stores (Model/) and SwiftUI views (Views/)
+│   │   └── PortKillerKit/         # Swift core for macOS and Linux: scanning, process control, kubectl, cloudflared, rules, plugins
+│   ├── Tests/PortKillerKitTests/  # Swift Testing
+│   ├── Plugins/                   # Example plugins
+│   ├── PLUGINS.md                 # Plugin guide
+│   ├── Resources/                 # Icon, menu bar icon, Info.plist
+│   └── Scripts/build-app.sh       # App bundle
 ├── windows/
 │   └── PortKiller/                # .NET WPF project
 └── linux/
@@ -159,8 +154,4 @@ platforms/
     │   ├── services/              # Clipboard, Cloudflare, k8s
     │   └── ui/                    # Tray, window, dialogs
     └── tests/                     # Parser tests
-
-portkiller-core/                   # Rust core (Linux only)
-├── src/scanner/                   # Port scanning
-└── src/process/                   # Process termination
 ```

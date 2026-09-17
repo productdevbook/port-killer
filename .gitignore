@@ -62,9 +62,6 @@ bun.lockb
 .vs/
 *.DotSettings.user
 
-# Rust
-**/target/
-
 # Python (Linux tray app)
 __pycache__/
 *.py[cod]
