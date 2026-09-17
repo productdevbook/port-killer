@@ -61,6 +61,8 @@ final class AppModel {
         didSet { UserDefaults.standard.set(portScope.rawValue, forKey: "portScope") }
     }
     var searchFocusRequest = 0
+    var graphZoomRequest: GraphZoomRequest?
+    var graphLayouts: [String: [String: GraphPoint]]
     var showingOnboarding: Bool
     @ObservationIgnored var openWindow: OpenWindowAction?
 
@@ -76,6 +78,7 @@ final class AppModel {
         installer = ToolInstaller(preferences: preferences)
         plugins = PluginStore(notifier: notifier)
         showingOnboarding = !preferences.hasCompletedOnboarding
+        graphLayouts = UserDefaults.standard.decodedValue(of: [String: [String: GraphPoint]].self, forKey: "graphLayouts") ?? [:]
         portScope = UserDefaults.standard.string(forKey: "portScope").flatMap(PortScope.init(rawValue:)) ?? .all
         inspectorVisible = UserDefaults.standard.object(forKey: "inspectorVisible") as? Bool ?? true
         inspectorTab = UserDefaults.standard.string(forKey: "inspectorTab").flatMap(InspectorTab.init(rawValue:)) ?? .info
@@ -132,30 +135,9 @@ final class AppModel {
         show()
     }
 
-    var selectedPorts: [Int] {
-        switch selection {
-        case .process(let pid):
-            let numbers = ports.ports.filter { $0.pid == pid }.map(\.port)
-            return focusedPort.flatMap { numbers.contains($0) ? [$0] : nil } ?? numbers
-        case .inactivePort(let port): return [port]
-        default: return []
-        }
-    }
-
     func focusedPorts(in item: ProcessItem) -> [ListeningPort] {
         let focused = item.ports.filter { $0.port == focusedPort }
         return focused.isEmpty ? item.ports : focused
-    }
-
-    var selectedURL: URL? {
-        switch selection {
-        case .process(let pid): ports.ports.first { $0.pid == pid && (focusedPort == nil || $0.port == focusedPort) }?.localURL ?? ports.ports.first { $0.pid == pid }?.localURL
-        case .inactivePort, nil: nil
-        case .forward(let id): forwards.sessions.first { $0.id == id }?.configuration.localURL
-        case .quickTunnel(let id): tunnels.quickTunnels.first { $0.id == id }?.url
-        case .namedTunnel(let id): tunnels.namedTunnels.first { $0.id == id }?.publicURLs.first.flatMap(URL.init(string:))
-        case .pluginItem(let plugin, let item): plugins.items[plugin]?.first { $0.id == item }?.url
-        }
     }
 
     func addForward(_ configuration: PortForwardConfiguration, start: Bool = false) {

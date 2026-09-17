@@ -30,6 +30,12 @@ struct SidebarView: View {
             + pluginSections.flatMap { section in section.items.map { ItemID.pluginItem(plugin: section.plugin.id, item: $0.id) } }
 
         List(selection: $model.selection) {
+            if query.isEmpty {
+                ItemRow(title: "Overview", subtitle: model.ports.ports.count == 1 ? "1 listening port" : "\(model.ports.ports.count) listening ports") {
+                    ItemIcon(symbol: "point.3.filled.connected.trianglepath.dotted")
+                }
+                .tag(ItemID.overview)
+            }
             if !processes.isEmpty || !inactive.isEmpty {
                 Section(model.portScope.sectionTitle) {
                     ForEach(processes) { item in
@@ -99,8 +105,8 @@ struct SidebarView: View {
         .searchFocused($searchFocused)
         .onChange(of: model.searchFocusRequest) { searchFocused = true }
         .onChange(of: ids, initial: true) { _, ids in
-            if let selection = model.selection, ids.contains(selection) { return }
-            model.selection = ids.first
+            if let selection = model.selection, selection == .overview || ids.contains(selection) { return }
+            model.selection = .overview
         }
         .contextMenu(forSelectionType: ItemID.self) { selection in
             if let id = selection.first {

@@ -139,6 +139,11 @@ struct PortKillerCommands: Commands {
             Button(model.inspectorVisible ? "Hide Inspector" : "Show Inspector") { model.inspectorVisible.toggle() }
                 .keyboardShortcut("i")
             Divider()
+            ForEach(GraphZoomRequest.Kind.allCases.reversed(), id: \.self) { kind in
+                Button(kind.title) { model.graphZoomRequest = GraphZoomRequest(kind: kind) }
+                    .keyboardShortcut(kind.shortcut)
+            }
+            Divider()
         }
         CommandGroup(replacing: .help) {
             Button("PortKiller on GitHub") { open(AppInfo.repository) }

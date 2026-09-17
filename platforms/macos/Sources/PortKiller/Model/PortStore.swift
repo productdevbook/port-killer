@@ -12,6 +12,7 @@ enum PortScope: String, CaseIterable, Identifiable {
 }
 
 nonisolated enum ItemID: Hashable {
+    case overview
     case process(Int32)
     case inactivePort(Int)
     case forward(UUID)

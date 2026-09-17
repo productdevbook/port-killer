@@ -28,10 +28,11 @@ PortKiller for macOS targets macOS 27 on Apple silicon and Swift 6.4. There is n
 
 ## Views
 
-- The window follows Liman: a searchable sidebar with one row per process, port forward, tunnel and plugin item; a canvas in the middle with the item's artwork, name, one primary capsule button and a floating glass control bar; and an inspector whose tabs are toolbar toggles.
+- The window follows Liman: a searchable sidebar with Overview and one row per process, port forward, tunnel and plugin item; a node graph in the middle; and an inspector whose tabs are toolbar toggles.
+- The graph is built by `PortGraph` in the Kit: providers (processes, port forwards, plugin items) connect to port nodes, and port nodes connect to consumers (Favorites, Watch, Quick Tunnel, tunnels, auto-kill rules, plugin actions). Overview shows everything; selecting an item shows `PortGraph.focused(on:)`. Dragging from a port onto a consumer goes through `PortGraph.change(linking:to:)` and `AppModel.apply(_:)`, so new node kinds are added in the Kit first.
 - Keep the toolbar the same for every selection and disable what doesn't apply, so switching items doesn't move controls.
 - Sidebar rows use `ItemRow` and `ItemIcon`. Inspector tabs are grouped `Form`s; use `InfoRow` for read-only values and `Label` with an SF Symbol for controls. A tab that doesn't apply shows `ContentUnavailableView` with the tab's symbol.
-- Use Liquid Glass only for controls that float over content, such as `ControlsBar` and the menu bar footer. Don't draw custom materials or shadows.
+- Use Liquid Glass only for controls that float over content, such as the menu bar footer. Don't draw custom materials or shadows.
 - Use `ContentUnavailableView` for empty, missing and error states.
 - Keep view structs small and put actions in the stores. Views don't run processes or call the scanner; persisted settings go through `Preferences`, and `@AppStorage` is only for view state such as the selected settings tab.
 - Use `.safeAreaBar` for status and action bars, `.alert(error:)` and `.confirmationDialog` for errors and destructive actions.

@@ -8,6 +8,8 @@ struct ItemActions: View {
 
     var body: some View {
         switch id {
+        case .overview:
+            EmptyView()
         case .process(let pid):
             if let item = model.ports.process(pid: pid) {
                 ProcessActions(ports: item.ports)

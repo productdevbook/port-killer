@@ -67,7 +67,7 @@ struct InspectorView: View {
                 } else {
                     noSelection
                 }
-            case nil:
+            case .overview, nil:
                 noSelection
             }
         }
