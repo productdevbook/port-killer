@@ -24,6 +24,7 @@ public struct GraphNode: Identifiable, Hashable, Sendable {
         case namedTunnel(String)
         case autoKill(UUID)
         case pluginAction(plugin: String, action: String)
+        case pluginTarget(plugin: String, item: String)
     }
 
     public enum Column: Int, Hashable, Sendable, CaseIterable {
@@ -52,7 +53,7 @@ public struct GraphNode: Identifiable, Hashable, Sendable {
         switch kind {
         case .process, .forward, .pluginItem: .providers
         case .port: .ports
-        case .favorites, .watch, .share, .quickTunnel, .namedTunnel, .autoKill, .pluginAction: .consumers
+        case .favorites, .watch, .share, .quickTunnel, .namedTunnel, .autoKill, .pluginAction, .pluginTarget: .consumers
         }
     }
 

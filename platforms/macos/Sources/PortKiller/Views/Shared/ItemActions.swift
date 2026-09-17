@@ -49,8 +49,9 @@ struct ItemActions: View {
                 }
                 ForEach(item.actions ?? []) { action in
                     Button(action.title, systemImage: action.icon ?? "circle", role: action.destructive == true ? .destructive : nil) {
-                        Task { await model.plugins.perform(action, on: item, in: plugin) }
+                        model.plugins.run(action, on: item, in: plugin)
                     }
+                    .disabled(model.plugins.isRunning(action.id, on: .item(item.id), in: plugin))
                 }
             }
         }
@@ -123,7 +124,7 @@ struct ProcessActions: View {
                 Divider()
                 ForEach(Array(pluginActions.enumerated()), id: \.offset) { _, entry in
                     Button(entry.2.title, systemImage: entry.2.icon ?? entry.1.manifest.icon ?? "puzzlepiece.extension") {
-                        Task { await model.plugins.perform(entry.2, on: entry.0, in: entry.1) }
+                        model.plugins.run(entry.2, on: entry.0, in: entry.1)
                     }
                 }
             }

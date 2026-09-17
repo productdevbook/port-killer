@@ -17,13 +17,25 @@ public struct PluginManifest: Codable, Sendable, Hashable {
         public var icon: String?
         public var processes: [String]?
         public var ports: [Int]?
+        public var confirmation: String?
+        public var inputs: [PluginInput]?
 
-        public init(id: String, title: String, icon: String? = nil, processes: [String]? = nil, ports: [Int]? = nil) {
+        public init(
+            id: String,
+            title: String,
+            icon: String? = nil,
+            processes: [String]? = nil,
+            ports: [Int]? = nil,
+            confirmation: String? = nil,
+            inputs: [PluginInput]? = nil
+        ) {
             self.id = id
             self.title = title
             self.icon = icon
             self.processes = processes
             self.ports = ports
+            self.confirmation = confirmation
+            self.inputs = inputs
         }
 
         public func applies(toPort port: Int, processName: String) -> Bool {
@@ -44,6 +56,7 @@ public struct PluginManifest: Codable, Sendable, Hashable {
     public var executable: String
     public var items: Items?
     public var portActions: [PortAction]?
+    public var settings: [PluginInput]?
 
     enum CodingKeys: String, CodingKey {
         case apiVersion
@@ -57,5 +70,22 @@ public struct PluginManifest: Codable, Sendable, Hashable {
         case executable
         case items
         case portActions
+        case settings
+    }
+
+    var problem: String? {
+        guard id.wholeMatch(of: /[A-Za-z0-9][A-Za-z0-9._-]*/) != nil else {
+            return "id may only contain letters, digits, dots, dashes and underscores."
+        }
+        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return "name is empty." }
+        if let problem = (settings ?? []).definitionProblem(in: "settings") { return problem }
+        var actionIDs: Set<String> = []
+        for action in portActions ?? [] {
+            guard !action.id.isEmpty, actionIDs.insert(action.id).inserted else {
+                return "portActions has an empty or repeated id."
+            }
+            if let problem = (action.inputs ?? []).definitionProblem(in: "Port action \(action.id)") { return problem }
+        }
+        return nil
     }
 }

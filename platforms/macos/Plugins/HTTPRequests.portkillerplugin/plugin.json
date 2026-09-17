@@ -2,8 +2,8 @@
   "apiVersion": 1,
   "id": "dev.portkiller.http-requests",
   "name": "HTTP Requests",
-  "version": "1.0.0",
-  "description": "Sends HTTP requests to your ports and keeps the requests you save in requests.json.",
+  "version": "1.1.0",
+  "description": "Sends HTTP requests to your ports and saves the ones you reuse.",
   "author": "PortKiller",
   "homepage": "https://github.com/productdevbook/port-killer/tree/main/platforms/macos/Plugins",
   "icon": "paperplane",
@@ -12,6 +12,21 @@
     "title": "HTTP Requests",
     "refreshInterval": 10
   },
+  "settings": [
+    {
+      "id": "timeout",
+      "label": "Timeout in Seconds",
+      "type": "number",
+      "default": 10,
+      "help": "How long a request may take, up to 14 seconds."
+    },
+    {
+      "id": "insecure",
+      "label": "Accept Self-Signed Certificates",
+      "type": "toggle",
+      "default": true
+    }
+  ],
   "portActions": [
     {
       "id": "get",
@@ -19,9 +34,27 @@
       "icon": "paperplane"
     },
     {
-      "id": "copy",
-      "title": "Copy GET Response",
-      "icon": "doc.on.doc"
+      "id": "send",
+      "title": "Send Request…",
+      "icon": "paperplane.circle",
+      "inputs": [
+        { "id": "method", "label": "Method", "type": "choice", "options": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+        { "id": "path", "label": "Path", "default": "/", "placeholder": "/api/health", "required": true },
+        { "id": "headers", "label": "Headers", "type": "multiline", "placeholder": "Accept: application/json", "help": "One header per line." },
+        { "id": "body", "label": "Body", "type": "multiline", "placeholder": "{\"name\": \"Ada\"}" }
+      ]
+    },
+    {
+      "id": "save",
+      "title": "Save Request…",
+      "icon": "square.and.arrow.down",
+      "inputs": [
+        { "id": "name", "label": "Name", "placeholder": "Health Check", "required": true },
+        { "id": "method", "label": "Method", "type": "choice", "options": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+        { "id": "path", "label": "Path", "default": "/", "placeholder": "/api/health", "required": true },
+        { "id": "headers", "label": "Headers", "type": "multiline", "placeholder": "Accept: application/json", "help": "One header per line." },
+        { "id": "body", "label": "Body", "type": "multiline", "placeholder": "{\"name\": \"Ada\"}" }
+      ]
     }
   ]
 }

@@ -96,6 +96,9 @@ struct GraphBlockView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
+            if case .pluginAction(let plugin, let action) = node.kind, let run = model.plugins.activity.latest(plugin: plugin, action: action) {
+                PluginRunStatus(run: run)
+            }
         }
         .padding(.horizontal, 12)
     }
@@ -107,6 +110,9 @@ struct GraphBlockView: View {
     private var subtitle: String {
         if let port = node.port {
             return model.preferences.label(for: port) ?? node.subtitle
+        }
+        if case .pluginAction(let plugin, let action) = node.kind, let run = model.plugins.activity.latest(plugin: plugin, action: action) {
+            return run.summary
         }
         guard node.acceptsLinks else { return node.subtitle }
         return switch connections {
@@ -231,7 +237,7 @@ extension GraphNode.Kind {
         case .watch: .blue
         case .share, .quickTunnel, .namedTunnel: .orange
         case .autoKill: .red
-        case .pluginItem, .pluginAction: .purple
+        case .pluginItem, .pluginAction, .pluginTarget: .purple
         case .process, .forward, .port: .accentColor
         }
     }
@@ -254,6 +260,13 @@ struct GraphNodeMenu: View {
             ItemActions(id: .quickTunnel(id))
         case .namedTunnel(let id):
             ItemActions(id: .namedTunnel(id))
+        case .pluginTarget(let plugin, let item):
+            ItemActions(id: .pluginItem(plugin: plugin, item: item))
+        case .pluginAction(let plugin, let action):
+            if let run = model.plugins.activity.latest(plugin: plugin, action: action) {
+                Button("Show Last Result", systemImage: "doc.text.magnifyingglass") { model.plugins.presentedRun = run }
+                    .disabled(run.isRunning)
+            }
         case .port(let port):
             if let listener = model.ports.ports.first(where: { $0.port == port }) {
                 PortMenu(port: listener)
@@ -267,7 +280,7 @@ struct GraphNodeMenu: View {
                 }
             }
             DisconnectMenu(node: node, graph: graph)
-        case .favorites, .watch, .share, .autoKill, .pluginAction:
+        case .favorites, .watch, .share, .autoKill:
             DisconnectMenu(node: node, graph: graph)
         }
     }
@@ -334,7 +347,7 @@ struct PortMenu: View {
             Divider()
             ForEach(Array(actions.enumerated()), id: \.offset) { _, entry in
                 Button(entry.action.title, systemImage: entry.action.icon ?? entry.plugin.manifest.icon ?? "puzzlepiece.extension") {
-                    Task { await model.plugins.perform(entry.action, on: port, in: entry.plugin) }
+                    model.plugins.run(entry.action, on: port, in: entry.plugin)
                 }
             }
         }

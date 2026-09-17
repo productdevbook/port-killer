@@ -140,6 +140,23 @@ extension AppModel {
                 origin: .system
             )
         }
+        for plugin in plugins.itemPlugins {
+            for item in plugins.items[plugin.id] ?? [] {
+                guard let targets = item.targetPorts, !targets.isEmpty else { continue }
+                consumers.append(PortGraph.Consumer(
+                    node: GraphNode(
+                        id: "target:\(plugin.id):\(item.id)",
+                        kind: .pluginTarget(plugin: plugin.id, item: item.id),
+                        title: item.title,
+                        subtitle: item.subtitle ?? plugin.manifest.name,
+                        symbol: plugin.manifest.icon ?? "puzzlepiece.extension",
+                        isActive: item.status != .stopped
+                    ),
+                    ports: targets,
+                    origin: .system
+                ))
+            }
+        }
         for plugin in plugins.enabledPlugins {
             for action in plugin.manifest.portActions ?? [] {
                 consumers.append(PortGraph.Consumer(
@@ -177,19 +194,12 @@ extension AppModel {
                   let action = plugin.manifest.portActions?.first(where: { $0.id == actionID }),
                   let listener = ports.ports.first(where: { $0.port == port })
             else { return }
-            Task { await plugins.perform(action, on: listener, in: plugin) }
+            plugins.run(action, on: listener, in: plugin)
         }
     }
 
     func select(_ node: GraphNode) {
         switch node.kind {
-        case .process(let pid):
-            selection = .process(pid)
-            focusedPort = nil
-        case .forward(let id):
-            selection = .forward(id)
-        case .pluginItem(let plugin, let item):
-            selection = .pluginItem(plugin: plugin, item: item)
         case .port(let port):
             if let listener = ports.ports.first(where: { $0.port == port }) {
                 selection = .process(listener.pid)
@@ -197,18 +207,21 @@ extension AppModel {
             } else {
                 selection = .inactivePort(port)
             }
-        case .quickTunnel(let id):
-            selection = .quickTunnel(id)
-        case .namedTunnel(let id):
-            selection = .namedTunnel(id)
-        case .favorites, .watch, .share, .autoKill, .pluginAction:
-            break
+        case .pluginAction(let plugin, let action):
+            if let run = plugins.activity.latest(plugin: plugin, action: action), !run.isRunning {
+                plugins.presentedRun = run
+            }
+        default:
+            if let item = node.kind.itemID {
+                selection = item
+                focusedPort = nil
+            }
         }
     }
 
     func isSelected(_ node: GraphNode) -> Bool {
         if let focusedPort { return node.kind == .port(focusedPort) }
-        return selection?.graphKind == node.kind
+        return node.kind.itemID.map { $0 == selection } ?? false
     }
 
     func graphLayout(_ key: String) -> [String: GraphPoint] {
@@ -227,16 +240,16 @@ extension AppModel {
     }
 }
 
-extension ItemID {
-    var graphKind: GraphNode.Kind? {
+extension GraphNode.Kind {
+    var itemID: ItemID? {
         switch self {
-        case .overview: nil
-        case .process(let pid): .process(pid: pid)
-        case .inactivePort(let port): .port(port)
+        case .process(let pid): .process(pid)
         case .forward(let id): .forward(id)
+        case .pluginItem(let plugin, let item), .pluginTarget(let plugin, let item): .pluginItem(plugin: plugin, item: item)
+        case .port(let port): .inactivePort(port)
         case .quickTunnel(let id): .quickTunnel(id)
         case .namedTunnel(let id): .namedTunnel(id)
-        case .pluginItem(let plugin, let item): .pluginItem(plugin: plugin, item: item)
+        case .favorites, .watch, .share, .autoKill, .pluginAction: nil
         }
     }
 }

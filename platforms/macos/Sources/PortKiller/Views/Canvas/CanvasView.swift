@@ -6,7 +6,7 @@ struct CanvasView: View {
 
     var body: some View {
         let overview = model.portGraph
-        let centerID = model.selection?.graphKind.flatMap { kind in overview.nodes.first { $0.kind == kind }?.id }
+        let centerID = model.selection.flatMap { selection in overview.nodes.first { $0.kind.itemID == selection }?.id }
         let graph = centerID.map(overview.focused(on:)) ?? (model.selection == .overview || model.selection == nil ? overview : PortGraph(providers: [], consumers: []))
         let layoutKey = centerID ?? "overview"
         let center = centerID.flatMap(graph.node(id:))
@@ -23,6 +23,11 @@ struct CanvasView: View {
         .background(Color(nsColor: .textBackgroundColor), ignoresSafeAreaEdges: .all)
         .navigationTitle(center?.title ?? "Overview")
         .navigationSubtitle(portCount == 1 ? "1 port" : "\(portCount) ports")
+        .safeAreaBar(edge: .bottom) {
+            if let run = model.plugins.bannerRun.flatMap(model.plugins.activity.run) {
+                PluginRunBanner(run: run)
+            }
+        }
         .toolbar { CanvasToolbar(model: model, layoutKey: layoutKey) }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     }

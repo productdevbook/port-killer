@@ -42,6 +42,32 @@ struct MainView: View {
                     Text(error.message)
                 }
         }
+        .background {
+            Color.clear
+                .sheet(item: $plugins.pendingRun) { request in
+                    PluginRunSheet(request: request)
+                }
+        }
+        .background {
+            Color.clear
+                .sheet(item: $plugins.presentedRun) { run in
+                    PluginRunDetails(run: run)
+                }
+        }
+        .background {
+            Color.clear
+                .alert(
+                    "Install “\(plugins.pendingInstall?.plugin.manifest.name ?? "Plugin")”?",
+                    isPresented: Binding(get: { plugins.pendingInstall != nil }, set: { if !$0 { plugins.pendingInstall = nil } }),
+                    presenting: plugins.pendingInstall
+                ) { request in
+                    Button("Install and Turn On") { plugins.install(from: request.source, enable: true) }
+                    Button("Install") { plugins.install(from: request.source, enable: false) }
+                    Button("Cancel", role: .cancel) {}
+                } message: { request in
+                    Text([request.plugin.manifest.summary, "Plugins run with your user account. Install only plugins you trust."].compactMap { $0 }.joined(separator: "\n\n"))
+                }
+        }
         .confirmationDialog(killTitle, isPresented: Binding(get: { !ports.pendingKill.isEmpty }, set: { if !$0 { ports.pendingKill = [] } }), presenting: ports.pendingKill) { targets in
             Button("Kill", role: .destructive) { kill(targets, .graceful) }
             Button("Force Kill") { kill(targets, .force) }

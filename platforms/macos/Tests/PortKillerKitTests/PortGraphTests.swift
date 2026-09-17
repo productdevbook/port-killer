@@ -87,4 +87,17 @@ struct PortGraphTests {
         #expect(positions["watch"] == GraphPoint(x: 900, y: -40))
         #expect(positions["share"] == GraphPoint(x: 300, y: 120))
     }
+
+    @Test func connectsPluginItemsThatTargetPorts() {
+        let graph = PortGraph(
+            providers: [.init(node: GraphNode(id: "process:node", kind: .process(pid: 10), title: "node", subtitle: "", symbol: "hammer"), ports: [3000])],
+            consumers: [.init(node: GraphNode(id: "target:http:home", kind: .pluginTarget(plugin: "http", item: "home"), title: "Home", subtitle: "", symbol: "paperplane"), ports: [3000], origin: .system)]
+        )
+        let target = graph.node(id: "target:http:home")
+        #expect(target?.column == .consumers)
+        #expect(target?.acceptsLinks == false)
+        #expect(graph.edges.contains(GraphEdge(from: "port:3000", to: "target:http:home", origin: .system)))
+        #expect(graph.change(unlinking: GraphEdge(from: "port:3000", to: "target:http:home", origin: .system)) == nil)
+        #expect(graph.focused(on: "target:http:home").nodes.map(\.id) == ["process:node", "port:3000", "target:http:home"])
+    }
 }

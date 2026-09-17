@@ -62,6 +62,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
     }
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let plugin = urls.first(where: { $0.pathExtension == PluginHost.bundleExtension }) else { return }
+        model.show()
+        model.plugins.requestInstall(from: plugin)
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }

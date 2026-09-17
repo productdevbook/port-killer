@@ -201,8 +201,11 @@ struct ProcessPluginsInspector: View {
     let item: ProcessItem
 
     var body: some View {
-        let entries = model.focusedPorts(in: item).flatMap { port in model.plugins.portActions(for: port).map { (port: port, plugin: $0.plugin, action: $0.action) } }
-        if entries.isEmpty {
+        let plugins = model.plugins
+        let ports = model.focusedPorts(in: item)
+        let entries = ports.flatMap { port in plugins.portActions(for: port).map { (port: port, plugin: $0.plugin, action: $0.action) } }
+        let runs = ports.flatMap { plugins.activity.runs(for: .port($0.port)) }.sorted { $0.started > $1.started }
+        if entries.isEmpty, runs.isEmpty {
             ContentUnavailableView {
                 Label("No Plugin Actions", systemImage: InspectorTab.plugins.symbol)
             } description: {
@@ -214,29 +217,58 @@ struct ProcessPluginsInspector: View {
             }
         } else {
             Form {
-                ForEach(model.focusedPorts(in: item)) { port in
+                ForEach(ports) { port in
                     let actions = entries.filter { $0.port == port }
                     if !actions.isEmpty {
                         Section("Port \(String(port.port))") {
                             ForEach(Array(actions.enumerated()), id: \.offset) { _, entry in
-                                LabeledContent {
-                                    Button("Run") {
-                                        Task { await model.plugins.perform(entry.action, on: port, in: entry.plugin) }
-                                    }
-                                } label: {
-                                    Label {
-                                        Text(entry.action.title)
-                                        Text(entry.plugin.manifest.name)
-                                    } icon: {
-                                        Image(systemName: entry.action.icon ?? entry.plugin.manifest.icon ?? "puzzlepiece.extension")
-                                    }
+                                PluginActionRow(
+                                    title: entry.action.title,
+                                    subtitle: entry.plugin.manifest.name,
+                                    icon: entry.action.icon ?? entry.plugin.manifest.icon,
+                                    isRunning: plugins.isRunning(entry.action.id, on: .port(port.port), in: entry.plugin)
+                                ) {
+                                    plugins.run(entry.action, on: port, in: entry.plugin)
                                 }
                             }
                         }
                     }
                 }
+                if !runs.isEmpty {
+                    Section("Recent") {
+                        ForEach(runs.prefix(20)) { run in
+                            PluginRunRow(run: run)
+                        }
+                    }
+                }
             }
             .formStyle(.grouped)
+        }
+    }
+}
+
+struct PluginActionRow: View {
+    let title: String
+    let subtitle: String
+    let icon: String?
+    let isRunning: Bool
+    let action: () -> Void
+
+    var body: some View {
+        LabeledContent {
+            if isRunning {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Button(title.hasSuffix("…") ? "Run…" : "Run", action: action)
+            }
+        } label: {
+            Label {
+                Text(title)
+                Text(subtitle)
+            } icon: {
+                Image(systemName: icon ?? "puzzlepiece.extension")
+            }
         }
     }
 }

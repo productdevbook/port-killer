@@ -62,7 +62,8 @@ struct InspectorView: View {
                    let item = model.plugins.items[pluginID]?.first(where: { $0.id == itemID }) {
                     switch tab {
                     case .info: PluginItemInfoInspector(plugin: plugin, item: item)
-                    default: unavailable("Not Available", "\(plugin.manifest.name) only provides info and actions for this item.")
+                    case .plugins: PluginItemActionsInspector(plugin: plugin, item: item)
+                    default: unavailable("Not Available", "\(plugin.manifest.name) provides info and actions for this item.")
                     }
                 } else {
                     noSelection

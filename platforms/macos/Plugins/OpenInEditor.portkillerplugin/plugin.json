@@ -2,16 +2,26 @@
   "apiVersion": 1,
   "id": "dev.portkiller.open-in-editor",
   "name": "Open in Editor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Opens the folder a development server runs from.",
   "author": "PortKiller",
   "homepage": "https://github.com/productdevbook/port-killer/tree/main/platforms/macos/Plugins",
   "icon": "chevron.left.forwardslash.chevron.right",
   "executable": "open-in-editor.sh",
+  "settings": [
+    {
+      "id": "editor",
+      "label": "Editor",
+      "default": "Visual Studio Code",
+      "placeholder": "Visual Studio Code",
+      "required": true,
+      "help": "The app's name as it appears in Applications, such as Cursor, Zed or Xcode."
+    }
+  ],
   "portActions": [
     {
       "id": "code",
-      "title": "Open Folder in VS Code",
+      "title": "Open Folder in Editor",
       "icon": "chevron.left.forwardslash.chevron.right",
       "processes": ["node", "bun", "deno", "python*", "ruby", "php*", "java", "go", "dotnet", "next-server", "vite"]
     },

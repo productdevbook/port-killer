@@ -20,7 +20,13 @@ if [ -z "$folder" ]; then
 fi
 
 case "$(field action)" in
-  code) open -a "Visual Studio Code" "$folder" ;;
+  code)
+    editor=${PORTKILLER_SETTING_EDITOR:-Visual Studio Code}
+    if ! open -a "$editor" "$folder" 2>/dev/null; then
+      echo "Couldn't open $editor. Check the editor's name in Settings › Plugins." >&2
+      exit 1
+    fi
+    ;;
   finder) open "$folder" ;;
   *) echo "Unknown action." >&2; exit 1 ;;
 esac

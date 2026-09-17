@@ -1,6 +1,7 @@
 import AppKit
 import PortKillerKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @AppStorage("settingsTab") private var tab = "general"
@@ -272,29 +273,21 @@ private struct CloudflareSettings: View {
 
 private struct PluginSettings: View {
     @Environment(AppModel.self) private var model
+    @State private var importing = false
 
     var body: some View {
         let plugins = model.plugins
         Form {
-            Section {
-                if plugins.plugins.isEmpty {
+            if plugins.plugins.isEmpty {
+                Section {
                     Text("No plugins installed")
                         .foregroundStyle(.secondary)
+                } footer: {
+                    Text("Plugins run on this Mac with your user account. Turn on only plugins you trust.")
                 }
-                ForEach(plugins.plugins) { plugin in
-                    Toggle(isOn: Binding(get: { plugins.isEnabled(plugin) }, set: { plugins.setEnabled($0, for: plugin) })) {
-                        Label {
-                            Text(plugin.manifest.name)
-                            Text([plugin.manifest.version, plugin.manifest.author, plugin.manifest.summary].compactMap { $0 }.joined(separator: " · "))
-                        } icon: {
-                            Image(systemName: plugin.manifest.icon ?? "puzzlepiece.extension")
-                        }
-                    }
-                }
-            } header: {
-                Text("Installed Plugins")
-            } footer: {
-                Text("Plugins run on this Mac with your user account. Turn on only plugins you trust.")
+            }
+            ForEach(plugins.plugins) { plugin in
+                PluginSection(plugin: plugin)
             }
             if !plugins.failures.isEmpty {
                 Section("Couldn't Load") {
@@ -316,14 +309,88 @@ private struct PluginSettings: View {
                     Spacer()
                     Button("Reload") { plugins.reload() }
                     Button("Open Plugins Folder") { plugins.openFolder() }
+                    Button("Install Plugin…") { importing = true }
                 }
             } footer: {
-                Text("Put .portkillerplugin folders in ~/Library/Application Support/PortKiller/Plugins.")
+                Text("Install a .portkillerplugin folder, or put it in ~/Library/Application Support/PortKiller/Plugins.")
             }
         }
         .formStyle(.grouped)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear { plugins.reload() }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.directory]) { result in
+            if case .success(let url) = result {
+                plugins.install(from: url, enable: false)
+            }
+        }
+        .alert(error: Binding(get: { plugins.error }, set: { plugins.error = $0 })) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { error in
+            Text(error.message)
+        }
+    }
+}
+
+private struct PluginSection: View {
+    @Environment(AppModel.self) private var model
+    let plugin: Plugin
+
+    var body: some View {
+        let plugins = model.plugins
+        let manifest = plugin.manifest
+        let isEnabled = plugins.isEnabled(plugin)
+        let problems = plugins.settingProblems(for: plugin)
+        Section {
+            Toggle(isOn: Binding(get: { isEnabled }, set: { plugins.setEnabled($0, for: plugin) })) {
+                Label {
+                    Text(manifest.name)
+                    Text([manifest.version, manifest.author, manifest.summary].compactMap { $0 }.joined(separator: " · "))
+                } icon: {
+                    Image(systemName: manifest.icon ?? "puzzlepiece.extension")
+                }
+            }
+            if isEnabled {
+                ForEach(manifest.settings ?? []) { input in
+                    PluginInputField(input: input, value: Binding(
+                        get: { plugins.setting(input, of: plugin) },
+                        set: { plugins.setSetting($0, for: input, of: plugin) }
+                    ))
+                }
+                if !problems.isEmpty {
+                    Label(problems.joined(separator: " "), systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
+                if let error = plugins.itemErrors[plugin.id] {
+                    Label(error, systemImage: "exclamationmark.octagon")
+                        .foregroundStyle(.red)
+                }
+            }
+        } footer: {
+            HStack {
+                Text(capabilities)
+                Spacer()
+                if let homepage = manifest.homepage {
+                    Link("Website", destination: homepage)
+                }
+                Button("Show in Finder") { plugins.showInFinder(plugin) }
+                    .buttonStyle(.link)
+            }
+        }
+    }
+
+    private var capabilities: String {
+        let manifest = plugin.manifest
+        var parts: [String] = []
+        if let items = manifest.items {
+            parts.append("Adds \(items.title) to the sidebar")
+        }
+        if let actions = manifest.portActions, !actions.isEmpty {
+            parts.append(actions.count == 1 ? "1 port action" : "\(actions.count) port actions")
+        }
+        if let settings = manifest.settings, !settings.isEmpty {
+            parts.append(settings.count == 1 ? "1 setting" : "\(settings.count) settings")
+        }
+        return parts.joined(separator: " · ")
     }
 }
 

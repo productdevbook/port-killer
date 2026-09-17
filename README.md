@@ -68,7 +68,7 @@ Download `.zip` from [GitHub Releases](https://github.com/productdevbook/port-ki
 - 🌐 Quick access to tunnel status
 
 ### Plugins (macOS)
-- 🧩 Add tabs and port actions with plugins written in any language, see [PLUGINS.md](platforms/macos/PLUGINS.md)
+- 🧩 Add sidebar sections, port actions with forms, results and settings with plugins written in any language, see [PLUGINS.md](platforms/macos/PLUGINS.md)
 
 ### Cross-Platform
 - 📍 Menu bar integration (macOS)
