@@ -113,9 +113,6 @@ fi
 action=$(field action)
 port=$(field port.port)
 case $action in
-  get)
-    method=GET path=/ headers="" body=""
-    ;;
   send)
     method=$(field inputs.method || echo GET)
     path=$(field inputs.path || echo /)

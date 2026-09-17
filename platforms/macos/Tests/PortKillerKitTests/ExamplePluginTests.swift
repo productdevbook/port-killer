@@ -36,9 +36,9 @@ struct ExamplePluginTests {
         let plugin = try PluginHost.load(examples.appending(path: "HTTPRequests.portkillerplugin"), dataRoot: dataRoot)
         let target = context(port: port)
         #expect(plugin.manifest.items == nil)
-        #expect(plugin.manifest.portActions?.map(\.id) == ["get", "send"])
+        #expect(plugin.manifest.portActions?.map(\.id) == ["send"])
 
-        let get = try await PluginHost.perform("get", onPort: target, in: plugin)
+        let get = try await PluginHost.perform("send", onPort: target, inputs: ["method": "GET", "path": "/"], in: plugin)
         #expect(get.message?.hasPrefix("GET localhost:\(port)/ → 200 · ") == true)
         #expect(get.details?.title == "GET localhost:\(port)/")
         #expect(get.details?.fields?.first == PluginField(label: "Status", value: "HTTP/1.1 200 OK"))
@@ -72,7 +72,7 @@ struct ExamplePluginTests {
         let plugin = try PluginHost.load(examples.appending(path: "HTTPRequests.portkillerplugin"), dataRoot: dataRoot)
         let closed = try await EchoServer.unusedPort()
         do {
-            _ = try await PluginHost.perform("get", onPort: context(port: closed), in: plugin)
+            _ = try await PluginHost.perform("send", onPort: context(port: closed), inputs: ["method": "GET", "path": "/"], in: plugin)
             Issue.record("A closed port answered.")
         } catch {
             guard case .failed(1, let message) = error else {

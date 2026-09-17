@@ -2,7 +2,7 @@
   "apiVersion": 1,
   "id": "dev.portkiller.http-requests",
   "name": "HTTP Requests",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Sends HTTP requests to your ports and shows the responses.",
   "author": "PortKiller",
   "homepage": "https://github.com/productdevbook/port-killer/tree/main/platforms/macos/Plugins",
@@ -25,16 +25,10 @@
   ],
   "portActions": [
     {
-      "id": "get",
-      "title": "Send GET Request",
-      "description": "Requests the port's home page and shows the status, headers and body.",
-      "icon": "paperplane"
-    },
-    {
       "id": "send",
       "title": "HTTP Request…",
-      "description": "Sends the request you set up for each connection, such as a health check or an API call.",
-      "icon": "paperplane.circle",
+      "description": "Sends the request each connection sets up, such as GET /health or POST /users, and shows the response.",
+      "icon": "paperplane",
       "inputs": [
         { "id": "method", "label": "Method", "type": "choice", "options": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
         { "id": "path", "label": "Path", "default": "/", "placeholder": "/api/health", "required": true },
