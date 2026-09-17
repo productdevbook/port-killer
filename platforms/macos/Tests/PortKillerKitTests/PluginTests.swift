@@ -6,18 +6,18 @@ struct PluginTests {
     static let script = #"""
     #!/bin/bash
     input=$(cat)
+    value() {
+      printf '%s' "$input" | sed -n 's/.*"'"$1"'":"\{0,1\}\([^",}]*\).*/\1/p'
+    }
     case "$1" in
       items)
         echo '{"items":[{"id":"web","title":"web","subtitle":"nginx","status":"running","port":8080,"url":"http://localhost:8080","fields":[{"label":"Image","value":"nginx"}],"actions":[{"id":"stop","title":"Stop","destructive":true}]}]}'
         ;;
       perform)
-        action=$(printf '%s' "$input" | plutil -extract action raw -o - -)
-        item=$(printf '%s' "$input" | plutil -extract item raw -o - -)
-        echo "{\"message\":\"$action $item $PORTKILLER_API_VERSION\"}"
+        echo "{\"message\":\"$(value action) $(value item) $PORTKILLER_API_VERSION\"}"
         ;;
       port-action)
-        port=$(printf '%s' "$input" | plutil -extract port.port raw -o - -)
-        echo "{\"copy\":\"$port\",\"refresh\":false}"
+        echo "{\"copy\":\"$(value port)\",\"refresh\":false}"
         ;;
       slow)
         sleep 5

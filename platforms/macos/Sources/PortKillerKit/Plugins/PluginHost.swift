@@ -47,7 +47,8 @@ public enum PluginHost {
     static let timeout = Duration.seconds(15)
 
     public static var directory: URL {
-        URL.applicationSupportDirectory.appending(path: "PortKiller/Plugins", directoryHint: .isDirectory)
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
+        return base.appending(path: "PortKiller/Plugins", directoryHint: .isDirectory)
     }
 
     public static func discover(in directory: URL = directory) -> (plugins: [Plugin], failures: [PluginLoadFailure]) {

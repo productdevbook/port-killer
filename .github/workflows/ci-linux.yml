@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - 'platforms/linux/**'
-      - 'portkiller-core/**'
+      - 'platforms/macos/Package.swift'
+      - 'platforms/macos/Sources/PortKillerKit/**'
+      - 'platforms/macos/Tests/**'
       - '.github/workflows/ci-linux.yml'
     tags-ignore:
       - 'v*'
@@ -13,7 +15,9 @@ on:
     branches: [main]
     paths:
       - 'platforms/linux/**'
-      - 'portkiller-core/**'
+      - 'platforms/macos/Package.swift'
+      - 'platforms/macos/Sources/PortKillerKit/**'
+      - 'platforms/macos/Tests/**'
       - '.github/workflows/ci-linux.yml'
 
 concurrency:
@@ -21,50 +25,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  rust:
-    name: Rust Core (Linux)
+  swift:
+    name: Swift Core (Linux)
     runs-on: ubuntu-latest
+    # Swift 6.4 has no official Docker image yet; switch to swift:6.4-noble once it's published.
+    container: swiftlang/swift:nightly-6.4.x-noble
+    defaults:
+      run:
+        shell: bash
+        working-directory: platforms/macos
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
+      - name: Show toolchain
+        run: swift --version
 
-      - name: Cache cargo
+      - name: Cache Swift Package Manager
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            portkiller-core/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('portkiller-core/Cargo.toml') }}
+          path: platforms/macos/.build
+          key: ${{ runner.os }}-swift64-spm-${{ hashFiles('platforms/macos/Package.swift') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Install scan tools
-        # The scanner shells out to these; without them the integration
-        # tests fail rather than exercising the real code paths.
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq procps iproute2 lsof
+            ${{ runner.os }}-swift64-spm-
 
       - name: Build
-        working-directory: portkiller-core
-        run: cargo build --verbose
+        run: swift build --build-tests 2>&1 | tee build.log
+
+      - name: Report warnings
+        run: |
+          if grep -E "^/.*warning:" build.log | grep -v "/.build/"; then
+            echo "::warning::Compiler warnings found"
+          else
+            echo "No compiler warnings."
+          fi
 
       - name: Test
-        working-directory: portkiller-core
-        run: cargo test --verbose
-
-      - name: Clippy
-        working-directory: portkiller-core
-        run: cargo clippy -- -D warnings
-
-      - name: Format check
-        working-directory: portkiller-core
-        run: cargo fmt --check
+        run: swift test --parallel
 
   python:
     name: Linux Tray App

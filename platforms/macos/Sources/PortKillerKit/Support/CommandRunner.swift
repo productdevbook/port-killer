@@ -1,6 +1,10 @@
 public import Foundation
 import Subprocess
+#if canImport(System)
 import System
+#else
+import SystemPackage
+#endif
 
 public struct CommandResult: Sendable {
     public var status: Int32

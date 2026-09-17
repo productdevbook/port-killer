@@ -6,7 +6,7 @@
 - **Xcode 27** with Swift 6.4 (for macOS)
 - **.NET 9 SDK** (for Windows)
 - **Python 3.9+**, PyGObject (GTK 3) and libayatana-appindicator (for Linux)
-- **Rust stable** (for `portkiller-core`, used by the Linux app only)
+- **Swift 6.4** on Linux (for `PortKillerKit`, the Swift core shared with macOS)
 
 ## Setup
 
@@ -81,13 +81,13 @@ dotnet publish -c Release -r win-x64  # Release
 
 ### Linux
 
-The tray app is plain Python, so there is no build step. The Rust core is
-built separately:
+The tray app is plain Python, so there is no build step. The Swift core,
+`PortKillerKit`, builds on Linux from the same package as the macOS app; outside
+macOS only the Kit and its tests are part of the package:
 
 ```bash
-cd portkiller-core
-cargo build              # Debug
-cargo build --release    # Release
+cd platforms/macos
+swift build
 ```
 
 Releases ship an AppImage, produced by the `build-linux` job in
@@ -102,8 +102,8 @@ cd platforms/macos && swift test
 # Linux tray app (parser tests, no GTK needed)
 python3 -m unittest discover -s platforms/linux/tests
 
-# Rust core (Linux only)
-cd portkiller-core && cargo test
+# Swift core on Linux
+cd platforms/macos && swift test
 ```
 
 ## Pull Requests
@@ -137,7 +137,7 @@ platforms/
 ├── macos/
 │   ├── Sources/
 │   │   ├── PortKiller/            # App: @Observable stores (Model/) and SwiftUI views (Views/)
-│   │   └── PortKillerKit/         # Scanning, process control, kubectl, cloudflared, rules, plugins
+│   │   └── PortKillerKit/         # Swift core for macOS and Linux: scanning, process control, kubectl, cloudflared, rules, plugins
 │   ├── Tests/PortKillerKitTests/  # Swift Testing
 │   ├── Plugins/                   # Example plugins
 │   ├── PLUGINS.md                 # Plugin guide
@@ -154,8 +154,4 @@ platforms/
     │   ├── services/              # Clipboard, Cloudflare, k8s
     │   └── ui/                    # Tray, window, dialogs
     └── tests/                     # Parser tests
-
-portkiller-core/                   # Rust core (Linux only)
-├── src/scanner/                   # Port scanning
-└── src/process/                   # Process termination
 ```

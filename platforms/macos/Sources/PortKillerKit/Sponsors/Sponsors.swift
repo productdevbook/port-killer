@@ -1,4 +1,7 @@
 public import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public struct Sponsor: Identifiable, Codable, Hashable, Sendable {
     public var name: String?
