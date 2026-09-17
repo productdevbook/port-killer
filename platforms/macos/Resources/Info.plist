@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
     <key>CFBundleIdentifier</key>
     <string>com.portkiller.app</string>
     <key>CFBundleName</key>
@@ -14,23 +16,26 @@
     <string>AppIcon</string>
     <key>CFBundleIconName</key>
     <string>AppIcon</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.2.1</string>
+    <string>4.0.0</string>
     <key>CFBundleVersion</key>
-    <string>13</string>
+    <string>1</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.developer-tools</string>
     <key>LSMinimumSystemVersion</key>
-    <string>15.0</string>
+    <string>27.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <key>NSUserNotificationAlertStyle</key>
-    <string>alert</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2025 PortKiller Contributors</string>
-    <!-- Sparkle Configuration -->
+    <string>Copyright © 2026 PortKiller Contributors</string>
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/productdevbook/port-killer/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
