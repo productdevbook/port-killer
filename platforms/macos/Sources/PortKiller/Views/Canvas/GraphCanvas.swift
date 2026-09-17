@@ -3,15 +3,17 @@ import PortKillerKit
 import SwiftUI
 
 enum GraphMetrics {
-    static let width: CGFloat = 270
-    static let header: CGFloat = 60
-    static let pin: CGFloat = 34
-    static let footer: CGFloat = 6
-    static let gap: CGFloat = 20
-    static let columnSpacing: CGFloat = 400
+    static let width: CGFloat = 330
+    static let header: CGFloat = 68
+    static let detail: CGFloat = 44
+    static let status: CGFloat = 36
+    static let pin: CGFloat = 38
+    static let footer: CGFloat = 8
+    static let gap: CGFloat = 24
+    static let columnSpacing: CGFloat = 480
 
     static func height(pins: Int) -> CGFloat {
-        pins == 0 ? header : header + CGFloat(pins) * pin + footer
+        pins == 0 ? header + detail + status : header + CGFloat(pins) * pin + footer
     }
 
     static func pinCenter(_ index: Int) -> CGFloat {
@@ -41,7 +43,7 @@ struct GraphCanvas: View {
             case .consumers: nil
             }
         })
-        let positions = graph.layout(saved: model.graphLayout(layoutKey), columnSpacing: GraphMetrics.columnSpacing, gap: GraphMetrics.gap) { node in
+        let positions = graph.layout(offsets: model.graphLayout(layoutKey), columnSpacing: GraphMetrics.columnSpacing, gap: GraphMetrics.gap) { node in
             GraphMetrics.height(pins: pins[node.id]?.count ?? 0)
         }
         let placed = Dictionary(blocks.map { node in
@@ -107,8 +109,7 @@ struct GraphCanvas: View {
                         },
                         onMoveChanged: { moving = (node.id, $0) },
                         onMoveEnded: { translation in
-                            let point = positions[node.id] ?? GraphPoint(x: 0, y: 0)
-                            model.saveGraphPosition(GraphPoint(x: point.x + translation.width, y: point.y + translation.height), for: node.id, in: layoutKey)
+                            model.moveGraphNode(node.id, by: translation, in: layoutKey)
                             moving = nil
                         }
                     )

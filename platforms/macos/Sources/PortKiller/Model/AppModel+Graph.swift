@@ -51,7 +51,7 @@ extension AppModel {
                     id: duplicateNames[item.process.name] == nil ? "process:\(item.process.name)" : "process:\(item.process.name):\(item.process.pid)",
                     kind: .process(pid: item.process.pid),
                     title: item.process.name,
-                    subtitle: item.label ?? item.category.rawValue,
+                    subtitle: [item.label ?? item.category.rawValue, "PID \(String(item.process.pid))"].joined(separator: " · "),
                     symbol: item.category.symbolName
                 ),
                 ports: item.ports.map(\.port)
@@ -89,19 +89,40 @@ extension AppModel {
 
         var consumers = [
             PortGraph.Consumer(
-                node: GraphNode(id: "favorites", kind: .favorites, title: "Favorites", subtitle: "Keep ports at hand", symbol: "star"),
+                node: GraphNode(
+                    id: "favorites",
+                    kind: .favorites,
+                    title: "Favorites",
+                    subtitle: "PortKiller",
+                    symbol: "star.fill",
+                    detail: "Stars a port so the sidebar's Favorites filter shows it."
+                ),
                 ports: preferences.favorites.sorted(),
                 origin: .link
             ),
             PortGraph.Consumer(
-                node: GraphNode(id: "watch", kind: .watch, title: "Watch", subtitle: "Notify on start and stop", symbol: "eye"),
+                node: GraphNode(
+                    id: "watch",
+                    kind: .watch,
+                    title: "Watch",
+                    subtitle: "PortKiller",
+                    symbol: "eye.fill",
+                    detail: "Notifies you when something starts or stops listening on a port."
+                ),
                 ports: preferences.watchedPorts.map(\.port),
                 origin: .link
             ),
         ]
         if tunnels.isInstalled {
             consumers.append(PortGraph.Consumer(
-                node: GraphNode(id: "share", kind: .share, title: "Quick Tunnel", subtitle: "Share on a public URL", symbol: "bolt"),
+                node: GraphNode(
+                    id: "share",
+                    kind: .share,
+                    title: "Quick Tunnel",
+                    subtitle: "cloudflared",
+                    symbol: "bolt.fill",
+                    detail: "Shares a port on a random trycloudflare.com address until PortKiller quits."
+                ),
                 ports: [],
                 origin: .link
             ))
@@ -114,6 +135,7 @@ extension AppModel {
                     title: tunnel.host ?? "Quick Tunnel",
                     subtitle: tunnel.status.title,
                     symbol: "bolt.fill",
+                    detail: tunnel.host.map { "Shares localhost:\(String(tunnel.port)) at \($0)." } ?? "Getting a public address for localhost:\(String(tunnel.port)).",
                     isActive: tunnel.status == .active
                 ),
                 ports: [tunnel.port],
@@ -122,7 +144,14 @@ extension AppModel {
         }
         consumers += tunnels.namedTunnels.filter(\.isRunningHere).map { tunnel in
             PortGraph.Consumer(
-                node: GraphNode(id: "tunnel:\(tunnel.id)", kind: .namedTunnel(tunnel.id), title: tunnel.name, subtitle: tunnel.statusTitle, symbol: "cloud"),
+                node: GraphNode(
+                    id: "tunnel:\(tunnel.id)",
+                    kind: .namedTunnel(tunnel.id),
+                    title: tunnel.name,
+                    subtitle: tunnel.statusTitle,
+                    symbol: "cloud.fill",
+                    detail: "Routes this Cloudflare Tunnel's public hostnames to local ports."
+                ),
                 ports: tunnel.ingressRules.compactMap(\.localPort),
                 origin: .system
             )
@@ -133,8 +162,9 @@ extension AppModel {
                     id: "rule:\(rule.id)",
                     kind: .autoKill(rule.id),
                     title: rule.name.isEmpty ? "Auto-Kill" : rule.name,
-                    subtitle: "Stops after \(rule.timeoutMinutes) min",
-                    symbol: "timer"
+                    subtitle: "Auto-Kill Rule",
+                    symbol: "timer",
+                    detail: "Stops a matching port's process after it listens for \(rule.timeoutMinutes) min."
                 ),
                 ports: ports.ports.filter { rule.matches(port: $0.port, processName: $0.processName) }.map(\.port),
                 origin: .system
@@ -148,8 +178,9 @@ extension AppModel {
                         id: "target:\(plugin.id):\(item.id)",
                         kind: .pluginTarget(plugin: plugin.id, item: item.id),
                         title: item.title,
-                        subtitle: item.subtitle ?? plugin.manifest.name,
+                        subtitle: plugin.manifest.name,
                         symbol: plugin.manifest.icon ?? "puzzlepiece.extension",
+                        detail: item.subtitle ?? "",
                         isActive: item.status != .stopped
                     ),
                     ports: targets,
@@ -165,7 +196,8 @@ extension AppModel {
                         kind: .pluginAction(plugin: plugin.id, action: action.id),
                         title: action.title,
                         subtitle: plugin.manifest.name,
-                        symbol: action.icon ?? plugin.manifest.icon ?? "puzzlepiece.extension"
+                        symbol: action.icon ?? plugin.manifest.icon ?? "puzzlepiece.extension",
+                        detail: action.summary ?? plugin.manifest.summary ?? ""
                     ),
                     ports: [],
                     origin: .link
@@ -225,17 +257,19 @@ extension AppModel {
     }
 
     func graphLayout(_ key: String) -> [String: GraphPoint] {
-        graphLayouts[key] ?? [:]
+        graphOffsets[key] ?? [:]
     }
 
-    func saveGraphPosition(_ point: GraphPoint, for id: String, in key: String) {
-        graphLayouts[key, default: [:]][id] = point
-        UserDefaults.standard.setEncodedValue(graphLayouts, forKey: "graphLayouts")
+    func moveGraphNode(_ id: String, by translation: CGSize, in key: String) {
+        guard hypot(translation.width, translation.height) >= 12 else { return }
+        let offset = graphOffsets[key]?[id] ?? GraphPoint(x: 0, y: 0)
+        graphOffsets[key, default: [:]][id] = GraphPoint(x: offset.x + translation.width, y: offset.y + translation.height)
+        UserDefaults.standard.setEncodedValue(graphOffsets, forKey: "graphOffsets")
     }
 
     func resetGraphLayout(_ key: String) {
-        graphLayouts[key] = nil
-        UserDefaults.standard.setEncodedValue(graphLayouts, forKey: "graphLayouts")
+        graphOffsets[key] = nil
+        UserDefaults.standard.setEncodedValue(graphOffsets, forKey: "graphOffsets")
         graphZoomRequest = GraphZoomRequest(kind: .fit)
     }
 }

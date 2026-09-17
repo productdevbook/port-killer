@@ -22,12 +22,14 @@
     {
       "id": "code",
       "title": "Open Folder in Editor",
+      "description": "Opens the folder a dev server runs from in the editor you chose.",
       "icon": "chevron.left.forwardslash.chevron.right",
       "processes": ["node", "bun", "deno", "python*", "ruby", "php*", "java", "go", "dotnet", "next-server", "vite"]
     },
     {
       "id": "finder",
       "title": "Show Folder in Finder",
+      "description": "Shows the folder a server runs from in Finder.",
       "icon": "folder"
     }
   ]

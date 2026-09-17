@@ -22,31 +22,21 @@ struct GraphBlockView: View {
     let onMoveEnded: (CGSize) -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        let tint = node.kind.tint
-        VStack(spacing: 0) {
-            header
-                .frame(height: GraphMetrics.header)
-                .background(tint.opacity(0.08), in: UnevenRoundedRectangle(
-                    topLeadingRadius: 14,
-                    bottomLeadingRadius: pins.isEmpty ? 14 : 0,
-                    bottomTrailingRadius: pins.isEmpty ? 14 : 0,
-                    topTrailingRadius: 14,
-                    style: .continuous
-                ))
-                .overlay(alignment: .bottom) {
-                    if !pins.isEmpty { Divider() }
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            if pins.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                    description
+                    Divider()
+                        .padding(.horizontal, 14)
+                    status
                 }
-                .contentShape(.rect)
-                .pointerStyle(.grabIdle)
-                .gesture(
-                    DragGesture(minimumDistance: 3, coordinateSpace: .named(GraphCanvas.space))
-                        .onChanged { onMoveChanged($0.translation) }
-                        .onEnded { onMoveEnded($0.translation) }
-                )
-                .onTapGesture { model.select(node) }
-                .contextMenu { GraphNodeMenu(node: node, graph: graph) }
-            if !pins.isEmpty {
+                .modifier(NodeInteraction(node: node, graph: graph, onMoveChanged: onMoveChanged, onMoveEnded: onMoveEnded))
+            } else {
+                header
+                    .modifier(NodeInteraction(node: node, graph: graph, onMoveChanged: onMoveChanged, onMoveEnded: onMoveEnded))
+                Divider()
                 ForEach(pins) { pin in
                     PinRow(
                         pin: pin,
@@ -65,7 +55,7 @@ struct GraphBlockView: View {
         .overlay { shape.strokeBorder(borderColor, lineWidth: borderWidth) }
         .overlay(alignment: .topLeading) {
             if node.column == .consumers {
-                PinCircle(tint: connections > 0 ? tint : Color(nsColor: .tertiaryLabelColor), isFilled: connections > 0 || linkState == .target, isEmphasized: linkState == .target)
+                PinCircle(tint: connections > 0 ? node.kind.tint : Color(nsColor: .tertiaryLabelColor), isFilled: connections > 0 || linkState == .target, isEmphasized: linkState == .target)
                     .offset(x: -GraphMetrics.pin / 2, y: (GraphMetrics.header - GraphMetrics.pin) / 2)
                     .allowsHitTesting(false)
             }
@@ -74,52 +64,80 @@ struct GraphBlockView: View {
         .animation(.snappy(duration: 0.2), value: linkState)
     }
 
-    @ViewBuilder
     private var header: some View {
-        HStack(spacing: 10) {
-            switch node.kind {
-            case .process(let pid):
-                ItemIcon(symbol: node.symbol, process: model.ports.process(pid: pid)?.process)
-            case .port:
-                ItemIcon(symbol: node.isActive ? "dot.radiowaves.left.and.right" : "moon.zzz", tint: .secondary)
-            default:
-                ItemIcon(symbol: node.symbol, tint: node.kind.tint)
-            }
-            VStack(alignment: .leading, spacing: 1) {
+        HStack(spacing: 12) {
+            NodeIcon(node: node)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(node.port.map { "Port \(String($0))" } ?? node.title)
-                    .font(.title3.weight(.semibold))
+                    .font(.headline)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text(subtitle)
-                    .font(.callout)
+                Text(kindTitle)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: GraphMetrics.header)
+    }
+
+    private var description: some View {
+        Text(node.detail)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: GraphMetrics.detail, maxHeight: GraphMetrics.detail, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        HStack(spacing: 6) {
             if case .pluginAction(let plugin, let action) = node.kind, let run = model.plugins.activity.latest(plugin: plugin, action: action) {
                 PluginRunStatus(run: run)
+                    .controlSize(.mini)
+                Text(run.summary)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else if connections > 0 {
+                Image(systemName: "link")
+                    .foregroundStyle(node.kind.tint)
+                Text(connectedPorts)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else if node.acceptsLinks {
+                Image(systemName: "arrow.left")
+                    .foregroundStyle(.tertiary)
+                Text(node.kind.isPluginAction ? "Drag a port here to run it" : "Drag a port here")
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text("No ports")
+                    .foregroundStyle(.tertiary)
             }
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
+        .font(.caption)
+        .padding(.horizontal, 14)
+        .frame(height: GraphMetrics.status)
+    }
+
+    private var kindTitle: String {
+        if let port = node.port {
+            return model.preferences.label(for: port) ?? node.subtitle
+        }
+        return node.subtitle
     }
 
     private var connections: Int {
         graph.edges.count { $0.to == node.id }
     }
 
-    private var subtitle: String {
-        if let port = node.port {
-            return model.preferences.label(for: port) ?? node.subtitle
-        }
-        if case .pluginAction(let plugin, let action) = node.kind, let run = model.plugins.activity.latest(plugin: plugin, action: action) {
-            return run.summary
-        }
-        guard node.acceptsLinks else { return node.subtitle }
-        return switch connections {
-        case 0: "Drag a port here"
-        case 1: "1 port"
-        default: "\(connections) ports"
-        }
+    private var connectedPorts: String {
+        let ports = graph.edges.filter { $0.to == node.id }.compactMap { graph.node(id: $0.from)?.port }.map(String.init)
+        return ports.count == 1 ? "Port \(ports[0])" : "Ports \(ports.prefix(4).joined(separator: ", "))\(ports.count > 4 ? " +\(ports.count - 4)" : "")"
     }
 
     private var borderColor: Color {
@@ -132,6 +150,47 @@ struct GraphBlockView: View {
 
     private var borderWidth: CGFloat {
         linkState == .target || linkState == .candidate || selected.contains(node.id) ? 2 : 1
+    }
+}
+
+private struct NodeInteraction: ViewModifier {
+    @Environment(AppModel.self) private var model
+    let node: GraphNode
+    let graph: PortGraph
+    let onMoveChanged: (CGSize) -> Void
+    let onMoveEnded: (CGSize) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .contentShape(.rect)
+            .pointerStyle(.grabIdle)
+            .gesture(
+                DragGesture(minimumDistance: 3, coordinateSpace: .named(GraphCanvas.space))
+                    .onChanged { onMoveChanged($0.translation) }
+                    .onEnded { onMoveEnded($0.translation) }
+            )
+            .onTapGesture { model.select(node) }
+            .contextMenu { GraphNodeMenu(node: node, graph: graph) }
+    }
+}
+
+private struct NodeIcon: View {
+    @Environment(AppModel.self) private var model
+    let node: GraphNode
+
+    var body: some View {
+        if case .process(let pid) = node.kind, let image = AppIcons.shared.image(for: model.ports.process(pid: pid)?.process, pixels: 64) {
+            Image(decorative: image, scale: 2)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 38, height: 38)
+        } else {
+            Image(systemName: node.port == nil ? node.symbol : "moon.zzz.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 38, height: 38)
+                .background(node.port == nil ? node.kind.tint.gradient : Color.gray.gradient, in: .rect(cornerRadius: 10, style: .continuous))
+        }
     }
 }
 
@@ -231,6 +290,10 @@ private struct PinCircle: View {
 }
 
 extension GraphNode.Kind {
+    var isPluginAction: Bool {
+        if case .pluginAction = self { true } else { false }
+    }
+
     var tint: Color {
         switch self {
         case .favorites: .yellow

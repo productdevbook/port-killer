@@ -38,14 +38,16 @@ public struct GraphNode: Identifiable, Hashable, Sendable {
     public var title: String
     public var subtitle: String
     public var symbol: String
+    public var detail: String
     public var isActive: Bool
 
-    public init(id: String, kind: Kind, title: String, subtitle: String, symbol: String, isActive: Bool = true) {
+    public init(id: String, kind: Kind, title: String, subtitle: String, symbol: String, detail: String = "", isActive: Bool = true) {
         self.id = id
         self.kind = kind
         self.title = title
         self.subtitle = subtitle
         self.symbol = symbol
+        self.detail = detail
         self.isActive = isActive
     }
 
@@ -211,12 +213,13 @@ public struct PortGraph: Hashable, Sendable {
         return edges.first { $0.to == portID && providers.contains($0.from) }?.from
     }
 
-    public func layout(saved: [String: GraphPoint], columnSpacing: Double, gap: Double, height: (GraphNode) -> Double) -> [String: GraphPoint] {
+    public func layout(offsets: [String: GraphPoint], columnSpacing: Double, gap: Double, height: (GraphNode) -> Double) -> [String: GraphPoint] {
         var positions: [String: GraphPoint] = [:]
         var bottoms = [0.0, 0.0]
         for node in blocks {
             let column = node.column == .consumers ? 1 : 0
-            positions[node.id] = saved[node.id] ?? GraphPoint(x: Double(column) * columnSpacing, y: bottoms[column])
+            let offset = offsets[node.id] ?? GraphPoint(x: 0, y: 0)
+            positions[node.id] = GraphPoint(x: Double(column) * columnSpacing + offset.x, y: bottoms[column] + offset.y)
             bottoms[column] += height(node) + gap
         }
         return positions

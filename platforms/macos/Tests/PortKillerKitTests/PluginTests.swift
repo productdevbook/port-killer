@@ -61,6 +61,7 @@ struct PluginTests {
         {
           "id": "inspect",
           "title": "Inspect",
+          "description": "Looks inside the database.",
           "ports": [5432],
           "confirmation": "Inspect the database?",
           "inputs": [
@@ -99,6 +100,7 @@ struct PluginTests {
         #expect(plugin.manifest.settings?.last?.defaultValue == "true")
         let inspect = try #require(plugin.manifest.portActions?.last)
         #expect(inspect.confirmation == "Inspect the database?")
+        #expect(inspect.summary == "Looks inside the database.")
         #expect(inspect.inputs?.map(\.id) == ["method", "path"])
         #expect(plugin.dataURL == dataRoot.appending(path: "dev.example.test", directoryHint: .isDirectory))
     }

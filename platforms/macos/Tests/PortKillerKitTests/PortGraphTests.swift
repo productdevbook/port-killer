@@ -74,9 +74,9 @@ struct PortGraphTests {
         #expect(graph.blocks.map(\.id) == ["process:node", "process:vite", "port:8080", "favorites", "watch", "share", "quick:\(tunnelID)", "tunnel:dev", "action:editor:code"])
     }
 
-    @Test func stacksBlocksInTwoColumnsAndKeepsMovedOnes() {
+    @Test func stacksBlocksInTwoColumnsAndOffsetsMovedOnes() {
         let graph = graph
-        let positions = graph.layout(saved: ["watch": GraphPoint(x: 900, y: -40)], columnSpacing: 300, gap: 10) { node in
+        let positions = graph.layout(offsets: ["watch": GraphPoint(x: 900, y: -40)], columnSpacing: 300, gap: 10) { node in
             node.column == .providers ? 100 : 50
         }
         #expect(positions.count == graph.blocks.count)
@@ -84,7 +84,7 @@ struct PortGraphTests {
         #expect(positions["process:vite"] == GraphPoint(x: 0, y: 110))
         #expect(positions["port:8080"] == GraphPoint(x: 0, y: 220))
         #expect(positions["favorites"] == GraphPoint(x: 300, y: 0))
-        #expect(positions["watch"] == GraphPoint(x: 900, y: -40))
+        #expect(positions["watch"] == GraphPoint(x: 1200, y: 20))
         #expect(positions["share"] == GraphPoint(x: 300, y: 120))
     }
 

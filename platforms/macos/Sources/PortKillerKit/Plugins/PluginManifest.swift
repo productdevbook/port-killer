@@ -14,6 +14,7 @@ public struct PluginManifest: Codable, Sendable, Hashable {
     public struct PortAction: Codable, Sendable, Hashable, Identifiable {
         public var id: String
         public var title: String
+        public var summary: String?
         public var icon: String?
         public var processes: [String]?
         public var ports: [Int]?
@@ -23,6 +24,7 @@ public struct PluginManifest: Codable, Sendable, Hashable {
         public init(
             id: String,
             title: String,
+            summary: String? = nil,
             icon: String? = nil,
             processes: [String]? = nil,
             ports: [Int]? = nil,
@@ -31,11 +33,23 @@ public struct PluginManifest: Codable, Sendable, Hashable {
         ) {
             self.id = id
             self.title = title
+            self.summary = summary
             self.icon = icon
             self.processes = processes
             self.ports = ports
             self.confirmation = confirmation
             self.inputs = inputs
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case title
+            case summary = "description"
+            case icon
+            case processes
+            case ports
+            case confirmation
+            case inputs
         }
 
         public func applies(toPort port: Int, processName: String) -> Bool {

@@ -57,6 +57,7 @@ MyTool.portkillerplugin/
     {
       "id": "open",
       "title": "Open in My Tool",
+      "description": "Opens the project in My Tool.",
       "icon": "arrow.up.forward.app",
       "processes": ["node", "python*"],
       "ports": [3000, 5173]
@@ -84,7 +85,7 @@ MyTool.portkillerplugin/
 | `icon` | No | An [SF Symbol](https://developer.apple.com/sf-symbols/) name. |
 | `items` | No | Adds a sidebar section. `title` names it; `refreshInterval` is in seconds, at least 2, 10 by default. |
 | `settings` | No | [Inputs](#inputs) shown under the plugin in Settings › Plugins. Every command gets their values. |
-| `portActions` | No | Actions for ports. `processes` takes process names with `*` wildcards and `ports` takes port numbers; leave both out to offer the action on every port. `confirmation` and `inputs` work as they do for [item actions](#items). |
+| `portActions` | No | Actions for ports. `description` is a sentence shown on the action's node in the graph. `processes` takes process names with `*` wildcards and `ports` takes port numbers; leave both out to offer the action on every port. `confirmation` and `inputs` work as they do for [item actions](#items). |
 
 A title that ends in `…` tells people the action asks for something first.
 

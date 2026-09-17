@@ -31,11 +31,13 @@
     {
       "id": "get",
       "title": "Send GET Request",
+      "description": "Requests the port's home page and shows the status, headers and body.",
       "icon": "paperplane"
     },
     {
       "id": "send",
       "title": "Send Request…",
+      "description": "Sends a request with the method, path, headers and body you choose.",
       "icon": "paperplane.circle",
       "inputs": [
         { "id": "method", "label": "Method", "type": "choice", "options": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
@@ -47,6 +49,7 @@
     {
       "id": "save",
       "title": "Save Request…",
+      "description": "Saves a request to send again later from the sidebar.",
       "icon": "square.and.arrow.down",
       "inputs": [
         { "id": "name", "label": "Name", "placeholder": "Health Check", "required": true },

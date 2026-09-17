@@ -62,7 +62,7 @@ final class AppModel {
     }
     var searchFocusRequest = 0
     var graphZoomRequest: GraphZoomRequest?
-    var graphLayouts: [String: [String: GraphPoint]]
+    var graphOffsets: [String: [String: GraphPoint]]
     var showingOnboarding: Bool
     @ObservationIgnored var openWindow: OpenWindowAction?
 
@@ -78,7 +78,7 @@ final class AppModel {
         installer = ToolInstaller(preferences: preferences)
         plugins = PluginStore(notifier: notifier)
         showingOnboarding = !preferences.hasCompletedOnboarding
-        graphLayouts = UserDefaults.standard.decodedValue(of: [String: [String: GraphPoint]].self, forKey: "graphLayouts") ?? [:]
+        graphOffsets = UserDefaults.standard.decodedValue(of: [String: [String: GraphPoint]].self, forKey: "graphOffsets") ?? [:]
         portScope = UserDefaults.standard.string(forKey: "portScope").flatMap(PortScope.init(rawValue:)) ?? .all
         inspectorVisible = UserDefaults.standard.object(forKey: "inspectorVisible") as? Bool ?? true
         inspectorTab = UserDefaults.standard.string(forKey: "inspectorTab").flatMap(InspectorTab.init(rawValue:)) ?? .info
