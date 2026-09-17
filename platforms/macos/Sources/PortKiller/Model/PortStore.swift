@@ -80,7 +80,6 @@ nonisolated struct PortRow: Identifiable, Hashable {
     var user: String { listener?.process.user ?? "" }
     var startDate: Date { listener?.process.startDate ?? .distantFuture }
     var categoryName: String { listener == nil ? "" : category.rawValue }
-    var pinRank: Int { isFavorite ? 0 : isWatched ? 1 : 2 }
 }
 
 @Observable
@@ -90,7 +89,6 @@ final class PortStore {
 
     private(set) var ports: [ListeningPort] = []
     private(set) var isScanning = false
-    private(set) var lastScan: Date?
     private(set) var terminating: Set<String> = []
     var filter = PortFilter()
     var selection: Set<PortRow.ID> = []
@@ -144,7 +142,6 @@ final class PortStore {
                 ports = scanned
                 changed = true
             }
-            lastScan = Date()
             evaluateRules(scanned)
         } while pendingRefresh
         return changed

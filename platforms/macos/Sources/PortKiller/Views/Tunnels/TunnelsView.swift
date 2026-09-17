@@ -1,4 +1,3 @@
-import AppKit
 import PortKillerKit
 import SwiftUI
 
@@ -17,23 +16,13 @@ struct TunnelsView: View {
         List(selection: $tunnels.selection) {
             if !isInstalled {
                 Section {
-                    MissingToolBanner(tool: .cloudflared, message: "Share local ports on a public URL and run your named tunnels.")
+                    ToolNotice(tool: .cloudflared, message: "Share local ports on a public URL and run your named tunnels.")
                 }
             } else if !tunnels.isLoggedIn {
                 Section {
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Not signed in to Cloudflare")
-                                .fontWeight(.medium)
-                            Text("Run cloudflared tunnel login in Terminal to list your account's tunnels. Quick tunnels work without an account.")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "person.crop.circle.badge.exclamationmark")
-                            .foregroundStyle(.orange)
+                    NoticeRow(symbol: "person.crop.circle.badge.exclamationmark", title: "Not Signed In to Cloudflare", message: "Run cloudflared tunnel login to list your account's tunnels. Quick tunnels work without an account.") {
+                        Button("Copy Login Command") { Pasteboard.copy("cloudflared tunnel login") }
                     }
-                    .padding(.vertical, 4)
                 }
             }
 
@@ -66,7 +55,7 @@ struct TunnelsView: View {
         .overlay {
             if isInstalled, named.isEmpty, tunnels.quickTunnels.isEmpty {
                 if tunnels.isDiscovering {
-                    ProgressView("Looking for tunnels…")
+                    ProgressView()
                 } else {
                     ContentUnavailableView {
                         Label("No Tunnels", systemImage: "cloud")
@@ -83,10 +72,10 @@ struct TunnelsView: View {
                 Menu {
                     Button("Stop Quick Tunnels", systemImage: "bolt.slash") { tunnels.stopAllQuickTunnels() }
                         .disabled(tunnels.quickTunnels.isEmpty)
-                    Button("Stop Named Tunnels", systemImage: "stop.fill") { tunnels.stopAllNamedTunnels() }
+                    Button("Stop Named Tunnels", systemImage: "stop") { tunnels.stopAllNamedTunnels() }
                         .disabled(running.isEmpty)
                 } label: {
-                    Label("Stop", systemImage: "stop.circle")
+                    Label("Stop", systemImage: "stop")
                 }
                 .menuIndicator(.hidden)
                 .disabled(tunnels.quickTunnels.isEmpty && running.isEmpty)
@@ -113,32 +102,22 @@ struct TunnelsView: View {
     }
 }
 
-struct QuickTunnelRow: View {
+private struct QuickTunnelRow: View {
     @Environment(AppModel.self) private var model
     let tunnel: QuickTunnel
 
     var body: some View {
         HStack(spacing: 10) {
-            StatusDot(color: tunnel.status.tint)
-            VStack(alignment: .leading, spacing: 2) {
+            RowIcon(symbol: "bolt", tint: tunnel.status.tint)
+            VStack(alignment: .leading, spacing: 1) {
                 Text("Port \(String(tunnel.port))")
-                    .fontWeight(.medium)
+                    .lineLimit(1)
                 Text(tunnel.host ?? tunnel.lastError ?? tunnel.status.title)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(tunnel.status == .failed ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
                     .lineLimit(1)
             }
-            Spacer()
-            if let url = tunnel.url {
-                Button("Copy URL", systemImage: "doc.on.doc") { Pasteboard.copy(url.absoluteString) }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-            }
-            Button("Stop", systemImage: "stop.fill") { model.tunnels.stopQuickTunnel(tunnel) }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+            Spacer(minLength: 4)
         }
         .padding(.vertical, 4)
         .contextMenu {
@@ -151,29 +130,24 @@ struct QuickTunnelRow: View {
     }
 }
 
-struct NamedTunnelRow: View {
+private struct NamedTunnelRow: View {
     @Environment(AppModel.self) private var model
     let tunnel: NamedTunnel
 
     var body: some View {
         HStack(spacing: 10) {
-            StatusDot(color: tunnel.tint)
-            VStack(alignment: .leading, spacing: 2) {
+            RowIcon(symbol: "cloud", tint: tunnel.tint)
+            VStack(alignment: .leading, spacing: 1) {
                 Text(tunnel.name)
-                    .fontWeight(.medium)
+                    .lineLimit(1)
                 subtitle
-                    .font(.caption)
+                    .font(.subheadline)
                     .lineLimit(1)
             }
-            Spacer()
-            if tunnel.status == .running {
-                Text("\(tunnel.activeConnections) conn")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-            control
+            Spacer(minLength: 4)
         }
         .padding(.vertical, 4)
+        .opacity(tunnel.runSafety == .managedElsewhere && !tunnel.isRunningHere ? 0.55 : 1)
         .contextMenu {
             if tunnel.isRunningHere {
                 Button("Stop Tunnel", role: .destructive) { model.tunnels.stop(tunnel) }
@@ -191,74 +165,13 @@ struct NamedTunnelRow: View {
     private var subtitle: some View {
         if tunnel.status == .failed, let error = tunnel.lastError {
             Text(error).foregroundStyle(.red)
-        } else if tunnel.runSafety == .managedElsewhere {
-            Label("Managed elsewhere", systemImage: "lock.fill").foregroundStyle(.orange)
+        } else if tunnel.isRunningHere || tunnel.runSafety == .managedElsewhere {
+            Text(tunnel.statusTitle).foregroundStyle(.secondary)
         } else if let first = tunnel.publicURLs.first {
             Text(tunnel.publicURLs.count > 1 ? "\(first) +\(tunnel.publicURLs.count - 1)" : first)
                 .foregroundStyle(.secondary)
         } else {
-            Text("No ingress rules").foregroundStyle(.tertiary)
-        }
-    }
-
-    @ViewBuilder
-    private var control: some View {
-        switch tunnel.status {
-        case .starting, .stopping:
-            ProgressView().controlSize(.small)
-        case .running:
-            Button("Stop", systemImage: "stop.fill") { model.tunnels.stop(tunnel) }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-        case .stopped, .failed:
-            if tunnel.runSafety != .managedElsewhere {
-                Button("Run", systemImage: "play.fill") { model.tunnels.run(tunnel) }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-                    .disabled(!model.tunnels.isInstalled)
-            }
-        }
-    }
-}
-
-extension QuickTunnel.Status {
-    var title: String {
-        switch self {
-        case .starting: "Starting…"
-        case .active: "Active"
-        case .stopping: "Stopping…"
-        case .failed: "Failed"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .starting, .stopping: .orange
-        case .active: .green
-        case .failed: .red
-        }
-    }
-}
-
-extension NamedTunnel {
-    var statusTitle: String {
-        switch status {
-        case .stopped: runSafety == .managedElsewhere ? "Managed Elsewhere" : "Stopped"
-        case .starting: "Starting…"
-        case .running: "Running"
-        case .stopping: "Stopping…"
-        case .failed: "Failed"
-        }
-    }
-
-    var tint: Color {
-        switch status {
-        case .running: .green
-        case .starting, .stopping: .orange
-        case .failed: .red
-        case .stopped: runSafety == .managedElsewhere ? .orange : .secondary
+            Text("No ingress rules").foregroundStyle(.secondary)
         }
     }
 }

@@ -12,7 +12,7 @@ struct SponsorsView: View {
                 HStack(spacing: 16) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 30))
-                        .foregroundStyle(.pink.gradient)
+                        .foregroundStyle(.pink)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Sponsors")
                             .font(.largeTitle.weight(.bold))
@@ -24,8 +24,7 @@ struct SponsorsView: View {
                         Link(destination: url) {
                             Label("Become a Sponsor", systemImage: "heart")
                         }
-                        .buttonStyle(.glassProminent)
-                        .tint(.pink)
+                        .buttonStyle(.bordered)
                         .controlSize(.large)
                     }
                 }
@@ -129,7 +128,7 @@ private struct PersonCard: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-            .glassEffect(hovering ? .regular.interactive() : .clear, in: .rect(cornerRadius: 14, style: .continuous))
+            .background(hovering ? AnyShapeStyle(.fill.quaternary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }

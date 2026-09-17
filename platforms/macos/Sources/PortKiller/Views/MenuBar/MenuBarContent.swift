@@ -18,70 +18,56 @@ struct MenuBarContent: View {
         let quick = model.tunnels.quickTunnels
         let named = model.tunnels.namedTunnels.filter { $0.isRunningHere || $0.runSafety == .safe }
         VStack(spacing: 0) {
-            header(count: ports.count)
-            Divider()
+            searchField(count: ports.count)
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     if ports.isEmpty, forwards.isEmpty, quick.isEmpty, named.isEmpty {
                         ContentUnavailableView(query.isEmpty ? "No Listening Ports" : "No Results", systemImage: "network.slash")
                             .padding(.vertical, 60)
                     }
                     if !ports.isEmpty {
-                        Section {
-                            if model.preferences.useTreeView {
-                                ForEach(groups(ports), id: \.name) { group in
-                                    MenuProcessGroup(name: group.name, ports: group.ports, sharedPorts: sharedPorts, expanded: $expanded, confirmingKill: $confirmingKill)
-                                }
-                            } else {
-                                ForEach(ports) { port in
-                                    MenuPortRow(port: port, isShared: sharedPorts.contains(port.port), confirmingKill: $confirmingKill)
-                                }
+                        MenuSectionHeader(title: "Ports")
+                        if model.preferences.useTreeView {
+                            ForEach(groups(ports), id: \.name) { group in
+                                MenuProcessGroup(name: group.name, ports: group.ports, sharedPorts: sharedPorts, expanded: $expanded, confirmingKill: $confirmingKill)
                             }
-                        } header: {
-                            MenuSectionHeader(title: "Local Ports", symbol: "network", tint: .green)
+                        } else {
+                            ForEach(ports) { port in
+                                MenuPortRow(port: port, isShared: sharedPorts.contains(port.port), confirmingKill: $confirmingKill)
+                            }
                         }
                     }
                     if !forwards.isEmpty {
-                        Section {
-                            ForEach(forwards) { MenuForwardRow(session: $0) }
-                        } header: {
-                            MenuSectionHeader(title: "Port Forwards", symbol: "point.3.connected.trianglepath.dotted", tint: .indigo)
-                        }
+                        MenuSectionHeader(title: "Port Forwards")
+                        ForEach(forwards) { MenuForwardRow(session: $0) }
                     }
                     if !quick.isEmpty {
-                        Section {
-                            ForEach(quick) { MenuQuickTunnelRow(tunnel: $0) }
-                        } header: {
-                            MenuSectionHeader(title: "Quick Tunnels", symbol: "bolt.fill", tint: .yellow)
-                        }
+                        MenuSectionHeader(title: "Quick Tunnels")
+                        ForEach(quick) { MenuQuickTunnelRow(tunnel: $0) }
                     }
                     if !named.isEmpty {
-                        Section {
-                            ForEach(named) { MenuNamedTunnelRow(tunnel: $0) }
-                        } header: {
-                            MenuSectionHeader(title: "My Tunnels", symbol: "cloud.fill", tint: .orange)
-                        }
+                        MenuSectionHeader(title: "Tunnels")
+                        ForEach(named) { MenuNamedTunnelRow(tunnel: $0) }
                     }
                 }
                 .padding(.horizontal, 6)
                 .padding(.bottom, 6)
             }
             .frame(height: 420)
-            Divider()
             footer(ports)
         }
-        .frame(width: 390)
+        .frame(width: 380)
         .task {
             await model.ports.refresh()
             model.tunnels.discoverIfNeeded()
         }
     }
 
-    private func header(count: Int) -> some View {
-        HStack(spacing: 8) {
+    private func searchField(count: Int) -> some View {
+        HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("Search ports and processes", text: $query)
+            TextField("Search", text: $query)
                 .textFieldStyle(.plain)
             if !query.isEmpty {
                 Button("Clear", systemImage: "xmark.circle.fill") { query = "" }
@@ -90,72 +76,75 @@ struct MenuBarContent: View {
                     .foregroundStyle(.secondary)
             }
             Text("\(count)")
-                .font(.caption.monospacedDigit().weight(.semibold))
+                .font(.callout.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .background(.quaternary, in: .capsule)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .glassEffect(.regular, in: .capsule)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(.fill.tertiary, in: .capsule)
         .padding(10)
     }
 
+    @ViewBuilder
     private func footer(_ ports: [ListeningPort]) -> some View {
-        HStack(spacing: 6) {
-            if confirmingKillAll {
-                Text("Kill all \(ports.count) processes?")
-                    .font(.callout)
+        if confirmingKillAll {
+            HStack(spacing: 8) {
+                Text("Kill \(ports.count) processes?")
                 Spacer()
                 Button("Cancel") { confirmingKillAll = false }
-                    .buttonStyle(.glass)
                 Button("Kill All", role: .destructive) {
                     confirmingKillAll = false
                     Task { await model.ports.kill(ports) }
                 }
-                .buttonStyle(.glassProminent)
-                .tint(.red)
-            } else {
-                footerButton("Refresh", "arrow.clockwise", key: "r") {
-                    Task { await model.ports.refresh() }
-                }
-                footerButton(model.preferences.useTreeView ? "Show as List" : "Group by Process", model.preferences.useTreeView ? "list.bullet" : "list.bullet.indent", key: "t") {
-                    model.preferences.useTreeView.toggle()
-                }
-                footerButton("Kill All", "xmark.octagon", key: "k", tint: .red) {
-                    if model.preferences.skipKillConfirmation {
-                        Task { await model.ports.kill(ports) }
-                    } else {
-                        confirmingKillAll = true
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(12)
+        } else {
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    HStack(spacing: 0) {
+                        MenuControlButton(title: "Refresh", symbol: "arrow.clockwise", key: "r") {
+                            Task { await model.ports.refresh() }
+                        }
+                        MenuControlButton(
+                            title: model.preferences.useTreeView ? "Show as List" : "Group by Process",
+                            symbol: model.preferences.useTreeView ? "list.bullet" : "list.bullet.indent",
+                            key: "t"
+                        ) {
+                            model.preferences.useTreeView.toggle()
+                        }
+                        MenuControlButton(title: "Kill All", symbol: "xmark.octagon", key: "k", tint: .red) {
+                            if model.preferences.skipKillConfirmation {
+                                Task { await model.ports.kill(ports) }
+                            } else {
+                                confirmingKillAll = true
+                            }
+                        }
+                        .disabled(ports.isEmpty)
                     }
-                }
-                .disabled(ports.isEmpty)
-                Spacer()
-                footerButton("Open PortKiller", "macwindow", key: "o") {
-                    model.show()
-                }
-                footerButton("Settings", "gearshape", key: ",") {
-                    NSApp.activate()
-                    openSettings()
-                }
-                footerButton("Quit PortKiller", "power", key: "q") {
-                    NSApp.terminate(nil)
+                    .padding(.horizontal, 4)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+
+                    Spacer()
+
+                    HStack(spacing: 0) {
+                        MenuControlButton(title: "Open PortKiller", symbol: "macwindow", key: "o") {
+                            model.show()
+                        }
+                        MenuControlButton(title: "Settings", symbol: "gearshape", key: ",") {
+                            NSApp.activate()
+                            openSettings()
+                        }
+                        MenuControlButton(title: "Quit PortKiller", symbol: "power", key: "q") {
+                            NSApp.terminate(nil)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                    .glassEffect(.regular.interactive(), in: .capsule)
                 }
             }
+            .padding(10)
         }
-        .controlSize(.large)
-        .padding(10)
-    }
-
-    private func footerButton(_ title: String, _ symbol: String, key: KeyEquivalent, tint: Color? = nil, action: @escaping () -> Void) -> some View {
-        Button(title, systemImage: symbol, action: action)
-            .labelStyle(.iconOnly)
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .foregroundStyle(tint ?? .primary)
-            .keyboardShortcut(key)
-            .help(title)
     }
 
     private var visiblePorts: [ListeningPort] {
@@ -179,47 +168,74 @@ struct MenuBarContent: View {
     }
 }
 
-struct MenuSectionHeader: View {
+private struct MenuControlButton: View {
     let title: String
     let symbol: String
-    let tint: Color
+    let key: KeyEquivalent
+    var tint: Color?
+    let action: () -> Void
 
     var body: some View {
-        Label {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-        } icon: {
+        Button(action: action) {
             Image(systemName: symbol)
-                .font(.caption2)
-                .foregroundStyle(tint)
+                .font(.system(size: 14))
+                .foregroundStyle(tint ?? .primary)
+                .frame(width: 32, height: 32)
+                .contentShape(.rect)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(.bar)
+        .buttonStyle(.plain)
+        .keyboardShortcut(key)
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 
-struct MenuRowBackground: ViewModifier {
+private struct MenuSectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.top, 10)
+            .padding(.bottom, 3)
+    }
+}
+
+private struct MenuRowBackground: ViewModifier {
     @State private var hovering = false
 
     func body(content: Content) -> some View {
         content
             .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(hovering ? AnyShapeStyle(.fill.quaternary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 8, style: .continuous))
+            .frame(minHeight: 28)
+            .background(hovering ? AnyShapeStyle(.fill.tertiary) : AnyShapeStyle(.clear), in: .rect(cornerRadius: 6, style: .continuous))
             .contentShape(.rect)
             .onHover { hovering = $0 }
             .environment(\.isRowHovered, hovering)
     }
 }
 
-extension EnvironmentValues {
+private extension EnvironmentValues {
     @Entry var isRowHovered = false
 }
 
-struct MenuKillConfirmRow: View {
+private struct RowActionButton: View {
+    let title: String
+    let symbol: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(title, systemImage: symbol, action: action)
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .help(title)
+    }
+}
+
+private struct MenuKillConfirmRow: View {
     let title: String
     @Binding var confirmingKill: PortRow.ID?
     let onKill: () -> Void
@@ -230,20 +246,17 @@ struct MenuKillConfirmRow: View {
                 .lineLimit(1)
             Spacer()
             Button("Cancel") { confirmingKill = nil }
-                .buttonStyle(.glass)
             Button("Kill", role: .destructive) {
                 confirmingKill = nil
                 onKill()
             }
-            .buttonStyle(.glassProminent)
-            .tint(.red)
         }
         .controlSize(.small)
         .modifier(MenuRowBackground())
     }
 }
 
-struct MenuPortRow: View {
+private struct MenuPortRow: View {
     @Environment(AppModel.self) private var model
     let port: ListeningPort
     var nested = false
@@ -275,67 +288,56 @@ private struct MenuPortRowContent: View {
     @Binding var confirmingKill: PortRow.ID?
 
     var body: some View {
-        let category = model.ports.category(for: port)
+        let preferences = model.preferences
         let terminating = model.ports.terminating.contains(port.id)
         HStack(spacing: 8) {
             if nested {
-                Color.clear.frame(width: 14)
-            }
-            StatusDot(color: terminating ? .orange : .green, size: 6)
-            HStack(spacing: 3) {
-                Text(":\(String(port.port))")
-                    .font(.body.monospacedDigit().weight(.semibold))
-                if model.preferences.favorites.contains(port.port) {
-                    Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow)
-                }
-                if model.preferences.isWatching(port.port) {
-                    Image(systemName: "eye.fill").font(.caption2).foregroundStyle(.blue)
-                }
-                if isShared {
-                    Image(systemName: "globe").font(.caption2).foregroundStyle(.orange)
-                }
-            }
-            .frame(width: 92, alignment: .leading)
-            if !nested {
-                ProcessIcon(process: port.process, category: category, size: 16)
-                Text(port.processName)
-                    .lineLimit(1)
-            } else {
+                Color.clear.frame(width: 18)
                 Text(port.address)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-            }
-            if let label = model.preferences.label(for: port.port) {
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+            } else {
+                ProcessIcon(process: port.process, category: model.ports.category(for: port))
+                Text(port.processName)
                     .lineLimit(1)
             }
-            Spacer(minLength: 4)
+            Group {
+                if preferences.favorites.contains(port.port) {
+                    Image(systemName: "star.fill").foregroundStyle(.yellow)
+                }
+                if preferences.isWatching(port.port) {
+                    Image(systemName: "eye.fill").foregroundStyle(.secondary)
+                }
+                if isShared {
+                    Image(systemName: "globe").foregroundStyle(.orange)
+                }
+            }
+            .font(.caption2)
+            if let label = preferences.label(for: port.port) {
+                Text(label)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 6)
             if terminating {
                 ProgressView().controlSize(.mini)
             } else if hovered {
-                Button("Kill", systemImage: "xmark.circle.fill") {
-                    if model.preferences.skipKillConfirmation {
+                RowActionButton(title: "Kill \(port.processName)", symbol: "xmark.circle.fill") {
+                    if preferences.skipKillConfirmation {
                         Task { await model.ports.kill(port) }
                     } else {
                         confirmingKill = .listener(port.id)
                     }
                 }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
-                .foregroundStyle(.red)
-                .help("Kill \(port.processName)")
-            } else {
-                Text(verbatim: "\(port.pid)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.tertiary)
             }
+            Text(verbatim: ":\(port.port)")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
     }
 }
 
-struct MenuProcessGroup: View {
+private struct MenuProcessGroup: View {
     @Environment(AppModel.self) private var model
     let name: String
     let ports: [ListeningPort]
@@ -388,59 +390,48 @@ struct MenuProcessGroup: View {
 
         var body: some View {
             HStack(spacing: 8) {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .frame(width: 14)
                 if let first = ports.first {
-                    ProcessIcon(process: first.process, category: model.ports.category(for: first), size: 16)
+                    ProcessIcon(process: first.process, category: model.ports.category(for: first))
                 }
                 Text(name)
-                    .fontWeight(.medium)
                     .lineLimit(1)
-                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                Spacer(minLength: 6)
                 if hovered {
-                    Button("Kill All", systemImage: "xmark.circle.fill", action: onKill)
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                        .foregroundStyle(.red)
-                } else {
-                    Text("\(ports.count) ports")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    RowActionButton(title: "Kill All", symbol: "xmark.circle.fill", action: onKill)
                 }
+                Text("\(ports.count) ports")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
+            .contentShape(.rect)
             .onTapGesture(perform: toggle)
         }
     }
 }
 
-struct MenuForwardRow: View {
+private struct MenuForwardRow: View {
+    @Environment(\.isRowHovered) private var hovered
     let session: PortForwardSession
 
     var body: some View {
         HStack(spacing: 8) {
-            StatusDot(color: session.status.tint, size: 6)
-            Text(":\(String(session.configuration.effectivePort))")
-                .font(.body.monospacedDigit().weight(.semibold))
-                .frame(width: 64, alignment: .leading)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(session.configuration.name)
-                    .lineLimit(1)
-                Text(session.configuration.namespace)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            StatusDot(color: session.status.tint)
+                .frame(width: 18)
+            Text(session.configuration.name)
+                .lineLimit(1)
+            Spacer(minLength: 6)
+            if hovered {
+                RowActionButton(title: session.isActive ? "Stop" : "Start", symbol: session.isActive ? "stop.fill" : "play.fill") {
+                    session.toggle()
+                }
             }
-            Spacer()
-            Button(session.isActive ? "Stop" : "Start", systemImage: session.isActive ? "stop.fill" : "play.fill") {
-                session.toggle()
-            }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .controlSize(.small)
-            .foregroundStyle(session.isActive ? .red : .green)
+            Text(verbatim: ":\(session.configuration.effectivePort)")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
         .modifier(MenuRowBackground())
         .contextMenu {
@@ -449,70 +440,61 @@ struct MenuForwardRow: View {
     }
 }
 
-struct MenuQuickTunnelRow: View {
+private struct MenuQuickTunnelRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.isRowHovered) private var hovered
     let tunnel: QuickTunnel
 
     var body: some View {
         HStack(spacing: 8) {
-            StatusDot(color: tunnel.status.tint, size: 6)
-            Text(":\(String(tunnel.port))")
-                .font(.body.monospacedDigit().weight(.semibold))
-                .frame(width: 64, alignment: .leading)
+            StatusDot(color: tunnel.status.tint)
+                .frame(width: 18)
             Text(tunnel.host ?? tunnel.status.title)
-                .font(.callout)
                 .foregroundStyle(tunnel.url == nil ? .secondary : .primary)
                 .lineLimit(1)
-            Spacer()
-            if let url = tunnel.url {
-                Button("Copy URL", systemImage: "doc.on.doc") { Pasteboard.copy(url.absoluteString) }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
+            Spacer(minLength: 6)
+            if hovered {
+                if let url = tunnel.url {
+                    RowActionButton(title: "Copy URL", symbol: "doc.on.doc") { Pasteboard.copy(url.absoluteString) }
+                }
+                RowActionButton(title: "Stop", symbol: "xmark.circle.fill") { model.tunnels.stopQuickTunnel(tunnel) }
             }
-            Button("Stop", systemImage: "xmark.circle.fill") { model.tunnels.stopQuickTunnel(tunnel) }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.borderless)
-                .foregroundStyle(.red)
+            Text(verbatim: ":\(tunnel.port)")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
         .modifier(MenuRowBackground())
     }
 }
 
-struct MenuNamedTunnelRow: View {
+private struct MenuNamedTunnelRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.isRowHovered) private var hovered
     let tunnel: NamedTunnel
 
     var body: some View {
         HStack(spacing: 8) {
-            StatusDot(color: tunnel.tint, size: 6)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(tunnel.name)
-                    .lineLimit(1)
-                Text(tunnel.status == .running ? "\(tunnel.activeConnections) connections" : tunnel.publicURLs.first ?? tunnel.statusTitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer()
+            StatusDot(color: tunnel.tint)
+                .frame(width: 18)
+            Text(tunnel.name)
+                .lineLimit(1)
+            Spacer(minLength: 6)
             switch tunnel.status {
             case .starting, .stopping:
                 ProgressView().controlSize(.mini)
             case .running:
-                Button("Stop", systemImage: "stop.fill") { model.tunnels.stop(tunnel) }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-                    .controlSize(.small)
-                    .foregroundStyle(.red)
+                if hovered {
+                    RowActionButton(title: "Stop", symbol: "stop.fill") { model.tunnels.stop(tunnel) }
+                }
             case .stopped, .failed:
-                Button("Run", systemImage: "play.fill") { model.tunnels.run(tunnel) }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-                    .controlSize(.small)
-                    .foregroundStyle(.green)
-                    .disabled(!model.tunnels.isInstalled)
+                if hovered, model.tunnels.isInstalled {
+                    RowActionButton(title: "Run", symbol: "play.fill") { model.tunnels.run(tunnel) }
+                }
             }
+            Text(tunnel.status == .running ? "\(tunnel.activeConnections) conn" : tunnel.statusTitle)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
         .modifier(MenuRowBackground())
     }

@@ -2,66 +2,28 @@ import AppKit
 import PortKillerKit
 import SwiftUI
 
-extension ProcessCategory {
-    var tint: Color {
-        switch self {
-        case .webServer: .blue
-        case .database: .purple
-        case .development: .orange
-        case .system: .gray
-        case .other: .teal
-        }
-    }
-}
+struct RowIcon: View {
+    let symbol: String
+    let tint: Color
 
-extension SidebarItem {
-    var title: String {
-        switch self {
-        case .allPorts: "All Ports"
-        case .favorites: "Favorites"
-        case .watched: "Watched"
-        case .category(let category): category.rawValue
-        case .portForwards: "Port Forwards"
-        case .tunnels: "Cloudflare Tunnels"
-        case .sponsors: "Sponsors"
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .allPorts: "network"
-        case .favorites: "star"
-        case .watched: "eye"
-        case .category(let category): category.symbolName
-        case .portForwards: "point.3.connected.trianglepath.dotted"
-        case .tunnels: "cloud"
-        case .sponsors: "heart"
-        }
+    var body: some View {
+        Image(systemName: symbol)
+            .symbolRenderingMode(.hierarchical)
+            .font(.system(size: 15))
+            .foregroundStyle(tint)
+            .frame(width: 32, height: 32)
+            .background(.fill.quaternary, in: .circle)
     }
 }
 
 struct StatusDot: View {
     var color: Color
-    var size: CGFloat = 8
+    var size: CGFloat = 7
 
     var body: some View {
         Circle()
-            .fill(color.gradient)
+            .fill(color)
             .frame(width: size, height: size)
-            .shadow(color: color.opacity(0.45), radius: size / 3)
-    }
-}
-
-struct CategoryBadge: View {
-    let category: ProcessCategory
-
-    var body: some View {
-        Text(category.rawValue)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(category.tint)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(category.tint.opacity(0.14), in: .capsule)
     }
 }
 
@@ -78,10 +40,10 @@ struct ProcessIcon: View {
                 .frame(width: size, height: size)
         } else {
             Image(systemName: category.symbolName)
-                .font(.system(size: size * 0.52, weight: .semibold))
-                .foregroundStyle(category.tint)
+                .symbolRenderingMode(.hierarchical)
+                .font(.system(size: size * 0.62))
+                .foregroundStyle(.secondary)
                 .frame(width: size, height: size)
-                .background(category.tint.opacity(0.15), in: .rect(cornerRadius: size * 0.28, style: .continuous))
         }
     }
 }
@@ -102,126 +64,162 @@ enum AppIcons {
     }
 }
 
-struct ConsoleLine: Identifiable, Hashable {
-    enum Tone {
-        case normal
-        case accent
-        case warning
-        case error
-    }
-
-    var id: UUID
-    var date: Date
-    var tag: String?
-    var text: String
-    var tone: Tone
-}
-
-extension ForwardLogEntry {
-    var consoleLine: ConsoleLine {
-        ConsoleLine(id: id, date: date, tag: source.rawValue, text: message, tone: isError ? .error : source == .portKiller ? .accent : .normal)
-    }
-}
-
-extension TunnelLogEntry {
-    var consoleLine: ConsoleLine {
-        let tone: ConsoleLine.Tone = switch level {
-        case .error: .error
-        case .warning: .warning
-        case .request: .accent
-        case .info: .normal
-        }
-        return ConsoleLine(id: id, date: date, tag: nil, text: message, tone: tone)
-    }
-}
-
-struct LogConsole: View {
-    let lines: [ConsoleLine]
-    var emptyText = "No output yet."
-    var exportTitle: String?
-    var onClear: (() -> Void)?
-    @State private var query = ""
-
-    private static let timeFormat = Date.FormatStyle.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits)
+struct InspectorSegmentedPicker<Option: Hashable>: View {
+    @Binding var selection: Option
+    let options: [Option]
+    let title: (Option) -> String
 
     var body: some View {
-        let visible = query.isEmpty ? lines : lines.filter { $0.text.localizedCaseInsensitiveContains(query) }
-        VStack(spacing: 0) {
-            TextField("Filter", text: $query)
-                .textFieldStyle(.bordered)
-                .controlSize(.small)
-                .padding(8)
-            Divider()
-            if visible.isEmpty {
-                ContentUnavailableView(query.isEmpty ? emptyText : "No Matching Lines", systemImage: "text.alignleft")
-                    .frame(maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 3) {
-                        ForEach(visible) { line in
-                            row(line)
-                        }
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .defaultScrollAnchor(.bottom)
-            }
+        Picker("", selection: $selection) {
+            ForEach(options, id: \.self) { Text(title($0)).tag($0) }
         }
-        .background(.background.secondary)
-        .safeAreaBar(edge: .bottom) {
-            if let onClear {
-                HStack {
-                    if let exportTitle {
-                        Button("Copy as Markdown", systemImage: "doc.on.doc") {
-                            Pasteboard.copy(Self.markdown(lines, title: exportTitle))
-                        }
-                    }
-                    Spacer()
-                    Button("Clear", systemImage: "trash", action: onClear)
-                }
-                .buttonStyle(.borderless)
-                .labelStyle(.titleAndIcon)
-                .font(.callout)
-                .disabled(lines.isEmpty)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-            }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
+    }
+}
+
+struct TrailingButtons<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack {
+            Spacer()
+            content
         }
     }
+}
 
-    private func row(_ line: ConsoleLine) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(line.date, format: Self.timeFormat)
-                .foregroundStyle(.tertiary)
-            if let tag = line.tag {
-                Text(tag)
+struct NoticeRow<Actions: View>: View {
+    let symbol: String
+    let title: String
+    let message: String
+    @ViewBuilder let actions: Actions
+
+    var body: some View {
+        HStack(spacing: 10) {
+            RowIcon(symbol: symbol, tint: .orange)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                Text(message)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .frame(width: 64, alignment: .leading)
             }
-            Text(line.text)
-                .foregroundStyle(color(line.tone))
+            Spacer(minLength: 8)
+            actions
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct ToolNotice: View {
+    let tool: CommandLineTool
+    let message: String
+
+    var body: some View {
+        NoticeRow(symbol: "shippingbox", title: "\(tool.name) Isn't Installed", message: message) {
+            ToolInstallButton(tool: tool)
+        }
+        ToolInstallError(tool: tool)
+    }
+}
+
+struct ToolInstallButton: View {
+    @Environment(AppModel.self) private var model
+    let tool: CommandLineTool
+
+    var body: some View {
+        let installer = model.installer
+        if installer.installing.contains(tool.name) {
+            ProgressView().controlSize(.small)
+        } else if installer.canInstall {
+            Button("Install") { installer.install(tool) }
+        } else if let url = URL(string: "https://brew.sh") {
+            Link("Get Homebrew", destination: url)
+        }
+    }
+}
+
+struct ToolInstallError: View {
+    @Environment(AppModel.self) private var model
+    let tool: CommandLineTool
+
+    var body: some View {
+        if let error = model.installer.errors[tool.name] {
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(.red)
+                .lineLimit(3)
                 .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .font(.system(.caption, design: .monospaced))
-    }
-
-    private func color(_ tone: ConsoleLine.Tone) -> Color {
-        switch tone {
-        case .normal: .primary
-        case .accent: .accentColor
-        case .warning: .orange
-        case .error: .red
         }
     }
+}
 
-    private static func markdown(_ lines: [ConsoleLine], title: String) -> String {
-        let body = lines.map { line in
-            let time = line.date.formatted(timeFormat)
-            return [time, line.tag.map { "[\($0)]" }, line.text].compactMap { $0 }.joined(separator: " ")
+struct CommandLineToolRow: View {
+    @Environment(AppModel.self) private var model
+    let tool: CommandLineTool
+
+    var body: some View {
+        let preferences = model.preferences
+        let located = preferences.locate(tool)
+        LabeledContent {
+            if let located {
+                Text(located.path)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            } else {
+                ToolInstallButton(tool: tool)
+            }
+        } label: {
+            Label {
+                Text(tool.name)
+                if located == nil {
+                    Text(tool.isRequired ? "Not installed" : "Not installed (optional)")
+                }
+            } icon: {
+                Image(systemName: located == nil ? "xmark.circle" : "checkmark.circle")
+                    .foregroundStyle(located == nil ? .orange : .green)
+            }
         }
-        return "# \(title)\n\n```\n\(body.joined(separator: "\n"))\n```\n"
+        TextField(text: Binding(get: { preferences.path(for: tool) }, set: { preferences.setPath($0, for: tool) }), prompt: Text("Detect automatically")) {
+            Label("Custom Path", systemImage: "folder")
+        }
+        .font(.system(.body, design: .monospaced))
+        ToolInstallError(tool: tool)
+    }
+}
+
+struct URLActions: View {
+    let url: URL
+
+    var body: some View {
+        Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(url) }
+        Button("Copy URL", systemImage: "link") { Pasteboard.copy(url.absoluteString) }
+    }
+}
+
+struct NotificationPermissionControl: View {
+    @Environment(AppModel.self) private var model
+    var allowTitle = "Allow Notifications"
+
+    var body: some View {
+        let notifier = model.notifier
+        if notifier.isAuthorized {
+            Text("Allowed")
+                .foregroundStyle(.secondary)
+        } else if notifier.isDenied {
+            Button("Open System Settings") { notifier.openSystemSettings() }
+        } else {
+            Button(allowTitle) {
+                Task { await notifier.requestAuthorization() }
+            }
+            .disabled(!notifier.isAvailable)
+        }
     }
 }
 
@@ -239,7 +237,6 @@ struct ShortcutRecorder: View {
                     .monospacedDigit()
                     .frame(minWidth: 110)
             }
-            .buttonBorderShape(.capsule)
             .tint(isRecording ? .accentColor : nil)
             if shortcut != nil, !isRecording {
                 Button("Clear", systemImage: "xmark.circle.fill") {
@@ -281,75 +278,6 @@ struct ShortcutRecorder: View {
         monitor = nil
         isRecording = false
         HotKeyCenter.shared.register(shortcut)
-    }
-}
-
-struct CommandLineToolRow: View {
-    @Environment(AppModel.self) private var model
-    let tool: CommandLineTool
-
-    var body: some View {
-        let preferences = model.preferences
-        let installer = model.installer
-        let located = preferences.locate(tool)
-        LabeledContent {
-            if let located {
-                Label(located.path, systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            } else if installer.installing.contains(tool.name) {
-                ProgressView().controlSize(.small)
-            } else if installer.canInstall {
-                Button("Install with Homebrew") { installer.install(tool) }
-            } else {
-                Button("Get Homebrew") {
-                    if let url = URL(string: "https://brew.sh") { NSWorkspace.shared.open(url) }
-                }
-            }
-        } label: {
-            Text(tool.name)
-            if located == nil {
-                Text(tool.isRequired ? "Not installed" : "Not installed (optional)")
-            }
-        }
-        TextField("Custom \(tool.name) path", text: Binding(get: { preferences.path(for: tool) }, set: { preferences.setPath($0, for: tool) }), prompt: Text("Detect automatically"))
-            .font(.system(.body, design: .monospaced))
-        if let error = installer.errors[tool.name] {
-            Text(error)
-                .font(.caption)
-                .foregroundStyle(.red)
-                .lineLimit(3)
-        }
-    }
-}
-
-struct URLActions: View {
-    let url: URL
-
-    var body: some View {
-        Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(url) }
-        Button("Copy URL", systemImage: "link") { Pasteboard.copy(url.absoluteString) }
-    }
-}
-
-struct NotificationPermissionControl: View {
-    @Environment(AppModel.self) private var model
-    var allowTitle = "Allow Notifications"
-
-    var body: some View {
-        let notifier = model.notifier
-        if notifier.isAuthorized {
-            Label("Allowed", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-        } else if notifier.isDenied {
-            Button("Open System Settings") { notifier.openSystemSettings() }
-        } else {
-            Button(allowTitle) {
-                Task { await notifier.requestAuthorization() }
-            }
-            .disabled(!notifier.isAvailable)
-        }
     }
 }
 

@@ -1,4 +1,3 @@
-import AppKit
 import PortKillerKit
 import SwiftUI
 
@@ -9,25 +8,20 @@ struct PortsView: View {
 
     var body: some View {
         @Bindable var ports = model.ports
-        let rows = model.ports.rows(for: item).sorted(using: model.ports.sortOrder)
+        let rows = ports.rows(for: item).sorted(using: ports.sortOrder)
         let data = model.preferences.useTreeView ? PortStore.grouped(rows) : rows
-        let exposures = model.tunnels.exposuresByPort
+        let sharedPorts = model.tunnels.sharedPorts
 
         Table(data, children: \.children, selection: $ports.selection, sortOrder: $ports.sortOrder) {
-            TableColumn("", value: \.pinRank) { row in
-                FavoriteToggle(port: row.port)
-            }
-            .width(20)
-
             TableColumn("Port", value: \.port) { row in
-                PortCell(row: row, exposed: exposures[row.port] != nil, tunneled: model.tunnels.quickTunnel(for: row.port)?.status == .active)
+                PortCell(row: row, isShared: sharedPorts.contains(row.port))
             }
-            .width(min: 64, ideal: 84)
+            .width(min: 70, ideal: 92)
 
             TableColumn("Process", value: \.processName) { row in
-                ProcessCell(row: row, isTerminating: row.listener.map { model.ports.terminating.contains($0.id) } ?? false)
+                ProcessCell(row: row, isTerminating: row.listener.map { ports.terminating.contains($0.id) } ?? false)
             }
-            .width(min: 150, ideal: 230)
+            .width(min: 160, ideal: 250)
 
             TableColumn("PID", value: \.pid) { row in
                 Text(row.listener == nil ? "–" : String(row.pid))
@@ -37,11 +31,10 @@ struct PortsView: View {
             .width(min: 50, ideal: 64)
 
             TableColumn("Type", value: \.categoryName) { row in
-                if row.listener != nil {
-                    CategoryBadge(category: row.category)
-                }
+                Text(row.categoryName)
+                    .foregroundStyle(.secondary)
             }
-            .width(min: 80, ideal: 104)
+            .width(min: 80, ideal: 100)
 
             TableColumn("Address", value: \.address) { row in
                 Text(row.address)
@@ -82,11 +75,8 @@ struct PortsView: View {
         }
         .searchable(text: $ports.filter.searchText, placement: .toolbar, prompt: "Port, process, PID or command")
         .navigationTitle(item.title)
-        .navigationSubtitle(subtitle(visible: rows.count))
+        .navigationSubtitle(rows.count == 1 ? "1 port" : "\(rows.count) ports")
         .toolbar { toolbar }
-        .safeAreaBar(edge: .bottom) {
-            PortsStatusBar(visible: rows.count)
-        }
         .confirmationDialog(killTitle, isPresented: Binding(get: { !ports.pendingKill.isEmpty }, set: { if !$0 { ports.pendingKill = [] } }), presenting: ports.pendingKill) { targets in
             Button("Kill", role: .destructive) { kill(targets, .graceful) }
             Button("Force Kill") { kill(targets, .force) }
@@ -101,19 +91,7 @@ struct PortsView: View {
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup {
             KillSelectionButton()
-
-            Picker("Layout", selection: Bindable(model.preferences).useTreeView) {
-                Label("List", systemImage: "list.bullet").tag(false)
-                Label("Group by Process", systemImage: "list.bullet.indent").tag(true)
-            }
-            .pickerStyle(.segmented)
-            .help("Show ports as a list or grouped by process")
-        }
-        .visibilityPriority(.init(higherThan: .automatic))
-
-        ToolbarItemGroup {
-            filterMenu
-
+            viewOptions
             Button("Refresh", systemImage: "arrow.clockwise") {
                 Task { await model.ports.refresh() }
             }
@@ -121,10 +99,16 @@ struct PortsView: View {
         }
     }
 
-    private var filterMenu: some View {
+    private var viewOptions: some View {
         @Bindable var ports = model.ports
         @Bindable var preferences = model.preferences
+        let isFiltering = ports.filter.isActive || preferences.hideSystemProcesses
         return Menu {
+            Picker("Layout", selection: $preferences.useTreeView) {
+                Label("List", systemImage: "list.bullet").tag(false)
+                Label("Group by Process", systemImage: "list.bullet.indent").tag(true)
+            }
+            .pickerStyle(.inline)
             Toggle("Hide System Processes", isOn: $preferences.hideSystemProcesses)
             Section("Categories") {
                 ForEach(ProcessCategory.allCases) { category in
@@ -136,10 +120,10 @@ struct PortsView: View {
             Button("Reset Filters") { ports.filter.reset() }
                 .disabled(!ports.filter.isActive)
         } label: {
-            Label("Filter", systemImage: ports.filter.isActive || preferences.hideSystemProcesses ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+            Label("View Options", systemImage: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
         }
         .menuIndicator(.hidden)
-        .help("Filter ports")
+        .help("Layout and filters")
         .popover(isPresented: $showingRange, arrowEdge: .bottom) {
             PortRangeForm(filter: $ports.filter)
         }
@@ -152,17 +136,13 @@ struct PortsView: View {
         } else {
             switch item {
             case .favorites:
-                ContentUnavailableView("No Favorites", systemImage: "star", description: Text("Star a port to keep it at hand, even when nothing listens on it."))
+                ContentUnavailableView("No Favorites", systemImage: "star", description: Text("Mark a port as a favorite to keep it at hand, even when nothing listens on it."))
             case .watched:
                 ContentUnavailableView("No Watched Ports", systemImage: "eye", description: Text("Watch a port to get notified when it starts or stops being used."))
             default:
                 ContentUnavailableView("No Listening Ports", systemImage: "network.slash", description: Text("Processes that listen on TCP ports appear here."))
             }
         }
-    }
-
-    private func subtitle(visible: Int) -> String {
-        visible == 1 ? "1 port" : "\(visible) ports"
     }
 
     private var killTitle: String {
@@ -190,51 +170,40 @@ private struct KillSelectionButton: View {
     }
 }
 
-struct FavoriteToggle: View {
-    @Environment(AppModel.self) private var model
-    let port: Int
-
-    var body: some View {
-        let isFavorite = model.preferences.favorites.contains(port)
-        Button {
-            model.preferences.toggleFavorite(port)
-        } label: {
-            Image(systemName: isFavorite ? "star.fill" : "star")
-                .foregroundStyle(isFavorite ? AnyShapeStyle(.yellow) : AnyShapeStyle(.tertiary))
-        }
-        .buttonStyle(.borderless)
-        .help(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-    }
-}
-
-struct PortCell: View {
+private struct PortCell: View {
     let row: PortRow
-    let exposed: Bool
-    let tunneled: Bool
+    let isShared: Bool
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             Text(String(row.port))
-                .font(.body.monospacedDigit().weight(.semibold))
+                .monospacedDigit()
+                .fontWeight(.medium)
                 .foregroundStyle(row.listener == nil ? .secondary : .primary)
-            if row.isWatched {
-                Image(systemName: "eye.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.blue)
-                    .help("Watched")
+            Group {
+                if row.isFavorite {
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(.yellow)
+                        .help("Favorite")
+                }
+                if row.isWatched {
+                    Image(systemName: "eye.fill")
+                        .foregroundStyle(.secondary)
+                        .help("Watched")
+                }
+                if isShared {
+                    Image(systemName: "globe")
+                        .foregroundStyle(.orange)
+                        .help("Shared through a Cloudflare tunnel")
+                }
             }
-            if exposed || tunneled {
-                Image(systemName: "globe")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-                    .help(tunneled ? "Shared with a quick tunnel" : "Exposed by a Cloudflare tunnel")
-            }
+            .font(.caption2)
         }
         .fixedSize()
     }
 }
 
-struct ProcessCell: View {
+private struct ProcessCell: View {
     let row: PortRow
     let isTerminating: Bool
 
@@ -246,82 +215,47 @@ struct ProcessCell: View {
                     .frame(width: 18)
                 Text("Not Running")
                     .foregroundStyle(.secondary)
-                label
             } else {
                 ProcessIcon(process: row.listener?.process, category: row.category)
                 Text(row.processName)
                     .lineLimit(1)
                     .layoutPriority(1)
-                label
                 if let children = row.children {
                     Text("\(children.count) ports")
-                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if isTerminating {
-                    ProgressView()
-                        .controlSize(.mini)
-                }
+            }
+            if let label = row.label {
+                Text(label)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            if isTerminating {
+                ProgressView()
+                    .controlSize(.mini)
             }
         }
         .opacity(isTerminating ? 0.5 : 1)
     }
-
-    @ViewBuilder
-    private var label: some View {
-        if let label = row.label {
-            Text(label)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.orange)
-                .lineLimit(1)
-        }
-    }
 }
 
-struct PortRangeForm: View {
+private struct PortRangeForm: View {
     @Binding var filter: PortFilter
 
     var body: some View {
         Form {
             TextField("From", value: $filter.minPort, format: .number.grouping(.never), prompt: Text("1"))
             TextField("To", value: $filter.maxPort, format: .number.grouping(.never), prompt: Text("65535"))
-            Button("Clear Range") {
-                filter.minPort = nil
-                filter.maxPort = nil
+            TrailingButtons {
+                Button("Clear Range") {
+                    filter.minPort = nil
+                    filter.maxPort = nil
+                }
+                .disabled(!filter.hasRange)
             }
-            .disabled(!filter.hasRange)
         }
         .formStyle(.grouped)
         .frame(width: 240)
         .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-struct PortsStatusBar: View {
-    @Environment(AppModel.self) private var model
-    let visible: Int
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Text(model.ports.ports.count == visible ? "\(visible) listening" : "\(visible) of \(model.ports.ports.count) listening")
-            if model.forwards.connectedCount > 0 {
-                Label("\(model.forwards.connectedCount) forwarded", systemImage: "point.3.connected.trianglepath.dotted")
-            }
-            let tunnels = model.tunnels.activeCount
-            if tunnels > 0 {
-                Label("\(tunnels) tunneled", systemImage: "cloud")
-            }
-            Spacer()
-            if let lastScan = model.ports.lastScan {
-                TimelineView(.periodic(from: .now, by: 5)) { _ in
-                    Text("Updated \(lastScan, format: .relative(presentation: .named))")
-                }
-            }
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .labelStyle(.titleAndIcon)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
     }
 }

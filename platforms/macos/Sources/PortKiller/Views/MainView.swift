@@ -11,13 +11,13 @@ struct MainView: View {
         @Bindable var ports = model.ports
         NavigationSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 210, ideal: 232, max: 300)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
         } detail: {
             detail
         }
         .inspector(isPresented: $model.inspectorVisible) {
             inspector
-                .inspectorColumnWidth(min: 290, ideal: 330, max: 440)
+                .inspectorColumnWidth(min: 280, ideal: 310, max: 420)
                 .toolbar {
                     ToolbarSpacer(.flexible)
                     ToolbarItem {
@@ -79,44 +79,33 @@ struct SidebarView: View {
         let categoryCounts = model.ports.categoryCounts
         List(selection: Binding(get: { model.sidebar }, set: { if let item = $0 { model.sidebar = item } })) {
             Section("Ports") {
-                row(.allPorts, count: model.ports.ports.count)
-                row(.favorites, count: model.preferences.favorites.count, tint: .yellow)
-                row(.watched, count: model.preferences.watchedPorts.count, tint: .blue)
+                row(.allPorts, badge: model.ports.ports.count)
+                row(.favorites, badge: model.preferences.favorites.count)
+                row(.watched, badge: model.preferences.watchedPorts.count)
             }
 
             Section("Networking") {
-                row(.portForwards, count: model.forwards.sessions.count, tint: .indigo, active: model.forwards.connectedCount > 0)
-                row(.tunnels, count: model.tunnels.quickTunnels.count + model.tunnels.namedTunnels.count, tint: .orange, active: model.tunnels.activeCount > 0)
+                row(.portForwards, badge: model.forwards.connectedCount)
+                row(.tunnels, badge: model.tunnels.activeCount)
             }
 
             Section("Categories") {
                 ForEach(ProcessCategory.allCases) { category in
-                    row(.category(category), count: categoryCounts[category, default: 0], tint: category.tint)
+                    row(.category(category), badge: categoryCounts[category, default: 0])
                 }
             }
 
             Section {
-                row(.sponsors, count: nil, tint: .pink)
+                row(.sponsors, badge: 0)
             }
         }
         .listStyle(.sidebar)
     }
 
-    private func row(_ item: SidebarItem, count: Int?, tint: Color? = nil, active: Bool = false) -> some View {
-        Label {
-            HStack {
-                Text(item.title)
-                Spacer()
-                if active {
-                    StatusDot(color: .green, size: 6)
-                }
-            }
-        } icon: {
-            Image(systemName: item.symbolName)
-                .foregroundStyle(tint ?? .accentColor)
-        }
-        .badge(count ?? 0)
-        .tag(item)
+    private func row(_ item: SidebarItem, badge: Int) -> some View {
+        Label(item.title, systemImage: item.symbolName)
+            .badge(badge)
+            .tag(item)
     }
 }
 

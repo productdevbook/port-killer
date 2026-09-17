@@ -1,4 +1,3 @@
-import AppKit
 import PortKillerKit
 import SwiftUI
 
@@ -13,7 +12,7 @@ struct ForwardsView: View {
         List(selection: $forwards.selection) {
             if !hasKubectl {
                 Section {
-                    MissingToolBanner(tool: .kubectl, message: "Port forwarding runs kubectl port-forward for you.")
+                    ToolNotice(tool: .kubectl, message: "Port forwarding runs kubectl port-forward for you.")
                 }
             }
             Section {
@@ -24,7 +23,7 @@ struct ForwardsView: View {
                 .reorderable()
             } header: {
                 if let context = forwards.context {
-                    Label("Context: \(context)", systemImage: "circle.hexagongrid")
+                    Label(context, systemImage: "circle.hexagongrid")
                 }
             }
         }
@@ -54,9 +53,7 @@ struct ForwardsView: View {
                     Text("Forward a Kubernetes service to a port on this Mac. PortKiller keeps it connected.")
                 } actions: {
                     Button("Browse Cluster…") { browsing = true }
-                        .buttonStyle(.glassProminent)
                     Button("Add Manually") { forwards.add(.placeholder()) }
-                        .buttonStyle(.glass)
                 }
             }
         }
@@ -74,10 +71,10 @@ struct ForwardsView: View {
                 .menuIndicator(.hidden)
                 .help("Add a port forward")
 
-                Button("Start All", systemImage: "play.fill") { forwards.startAll() }
+                Button("Start All", systemImage: "play") { forwards.startAll() }
                     .disabled(sessions.isEmpty)
                     .help("Start every enabled port forward")
-                Button("Stop All", systemImage: "stop.fill") { forwards.stopAll() }
+                Button("Stop All", systemImage: "stop") { forwards.stopAll() }
                     .disabled(forwards.activeCount == 0)
                     .help("Stop every port forward")
             }
@@ -98,46 +95,28 @@ struct ForwardsView: View {
     }
 }
 
-struct ForwardRow: View {
+private struct ForwardRow: View {
     let session: PortForwardSession
 
     var body: some View {
         let configuration = session.configuration
         HStack(spacing: 10) {
-            StatusDot(color: session.status.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(configuration.name)
-                        .fontWeight(.medium)
-                    if !configuration.isEnabled {
-                        Text("Disabled")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                Text(configuration.target)
-                    .font(.caption)
+            RowIcon(symbol: "point.3.connected.trianglepath.dotted", tint: session.status.tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(configuration.name)
+                    .lineLimit(1)
+                Text("\(configuration.target) · \(configuration.isEnabled ? session.status.title : "Disabled")")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("localhost:\(String(configuration.effectivePort))")
-                    .font(.callout.monospacedDigit())
-                Text(session.status.title)
-                    .font(.caption)
-                    .foregroundStyle(session.status.tint)
-            }
-            Button {
-                session.toggle()
-            } label: {
-                Image(systemName: session.isActive ? "stop.fill" : "play.fill")
-                    .frame(width: 16, height: 16)
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .help(session.isActive ? "Stop" : "Start")
+            Spacer(minLength: 4)
+            Text(verbatim: ":\(configuration.effectivePort)")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+        .opacity(configuration.isEnabled || session.isActive ? 1 : 0.55)
     }
 }
 
@@ -147,10 +126,10 @@ struct ForwardActions: View {
 
     var body: some View {
         if session.isActive {
-            Button("Stop", systemImage: "stop.fill") { session.stop() }
+            Button("Stop", systemImage: "stop") { session.stop() }
             Button("Restart", systemImage: "arrow.clockwise") { session.restart() }
         } else {
-            Button("Start", systemImage: "play.fill") { session.start() }
+            Button("Start", systemImage: "play") { session.start() }
         }
         Divider()
         if let url = session.configuration.localURL {
@@ -165,67 +144,6 @@ struct ForwardActions: View {
         }
         Button("Delete", systemImage: "trash", role: .destructive) {
             model.forwards.remove(session.id)
-        }
-    }
-}
-
-struct MissingToolBanner: View {
-    @Environment(AppModel.self) private var model
-    let tool: CommandLineTool
-    let message: String
-
-    var body: some View {
-        let installer = model.installer
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "shippingbox")
-                .font(.title2)
-                .foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(tool.name) isn't installed")
-                    .fontWeight(.semibold)
-                Text(message)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                if let error = installer.errors[tool.name] {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(3)
-                }
-            }
-            Spacer()
-            if installer.installing.contains(tool.name) {
-                ProgressView().controlSize(.small)
-            } else if installer.canInstall {
-                Button("Install") { installer.install(tool) }
-                    .buttonStyle(.glassProminent)
-            } else {
-                Button("Copy Command") { Pasteboard.copy(tool.installCommand) }
-                    .buttonStyle(.glass)
-            }
-        }
-        .padding(.vertical, 6)
-    }
-}
-
-extension PortForwardSession.Status {
-    var title: String {
-        switch self {
-        case .stopped: "Stopped"
-        case .connecting: "Connecting…"
-        case .connected: "Connected"
-        case .waitingToReconnect: "Reconnecting…"
-        case .stopping: "Stopping…"
-        case .failed: "Failed"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .stopped: .secondary
-        case .connecting, .waitingToReconnect, .stopping: .orange
-        case .connected: .green
-        case .failed: .red
         }
     }
 }

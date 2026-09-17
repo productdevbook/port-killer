@@ -41,7 +41,6 @@ struct ServiceBrowser: View {
                 Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Add Port Forward") { add(service) }
-                    .buttonStyle(.glassProminent)
                     .keyboardShortcut(.defaultAction)
                     .disabled(service == nil || remotePort == nil)
             }
@@ -138,15 +137,23 @@ struct ServiceBrowser: View {
                     .labelsHidden()
                 }
                 Section("This Mac") {
-                    TextField("Local Port", value: $localPort, format: .number.grouping(.never))
-                    Toggle("Proxy through socat", isOn: $useProxy)
-                    LabeledContent("Connect to") {
+                    TextField(value: $localPort, format: .number.grouping(.never)) {
+                        Label("Local Port", systemImage: "laptopcomputer")
+                    }
+                    Toggle(isOn: $useProxy) {
+                        Label("Proxy Through socat", systemImage: "arrow.triangle.branch")
+                    }
+                    LabeledContent {
                         Text(verbatim: "localhost:\(proxyPort ?? localPort)")
                             .monospacedDigit()
+                    } label: {
+                        Label("Connect To", systemImage: "link")
                     }
                 }
                 Section {
-                    Toggle("Start right away", isOn: $startNow)
+                    Toggle(isOn: $startNow) {
+                        Label("Start Right Away", systemImage: "play")
+                    }
                 }
             }
             .formStyle(.grouped)

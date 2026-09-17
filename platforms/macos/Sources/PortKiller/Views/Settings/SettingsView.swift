@@ -202,7 +202,6 @@ private struct AutoKillRuleEditor: View {
                     onSave(rule)
                     dismiss()
                 }
-                .buttonStyle(.glassProminent)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!rule.isValid)
             }
@@ -255,8 +254,8 @@ private struct CloudflareSettings: View {
                 CommandLineToolRow(tool: .cloudflared)
                 LabeledContent("Cloudflare account") {
                     if model.tunnels.isLoggedIn {
-                        Label("Signed in", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                        Text("Signed In")
+                            .foregroundStyle(.secondary)
                     } else {
                         Button("Copy Login Command") { Pasteboard.copy("cloudflared tunnel login") }
                     }

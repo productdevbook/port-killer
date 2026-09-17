@@ -34,170 +34,145 @@ private struct PortDetails: View {
     @State private var parent: ProcessSnapshot?
 
     var body: some View {
+        let preferences = model.preferences
         let category = model.ports.category(for: port)
-        VStack(spacing: 0) {
-            header(category)
-            Form {
-                Section {
-                    actionButtons
-                }
-
-                if model.preferences.explainProcesses {
-                    ExplanationSection(port: port, category: category, parentName: parent?.name)
-                }
-
-                Section("Process") {
-                    LabeledContent("PID", value: String(port.pid))
-                    if let parent {
-                        LabeledContent("Parent", value: "\(parent.name) (\(parent.pid))")
-                    }
-                    LabeledContent("User", value: port.process.user)
-                    LabeledContent("Address", value: port.address)
-                    if let started = port.process.startDate {
-                        LabeledContent("Started") {
-                            Text(started, format: .relative(presentation: .named))
-                                .help(started.formatted(date: .complete, time: .standard))
-                        }
-                    }
-                    if let path = port.process.executablePath {
-                        LabeledContent("Executable") {
-                            Button {
-                                NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: path)])
-                            } label: {
-                                Text(path)
-                                    .lineLimit(2)
-                                    .truncationMode(.middle)
-                                    .multilineTextAlignment(.trailing)
-                            }
-                            .buttonStyle(.link)
-                            .help("Show in Finder")
-                        }
+        let isTerminating = model.ports.terminating.contains(port.id)
+        Form {
+            Section {
+                LabeledContent {
+                    Text("Port \(String(port.port))")
+                        .monospacedDigit()
+                } label: {
+                    Label {
+                        Text(port.processName)
+                            .lineLimit(1)
+                        Text(category.rawValue)
+                    } icon: {
+                        ProcessIcon(process: port.process, category: category, size: 20)
                     }
                 }
-
-                Section {
-                    Text(port.process.command)
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
-                        .lineLimit(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } header: {
-                    HStack {
-                        Text("Command")
-                        Spacer()
-                        Button("Copy", systemImage: "doc.on.doc") { Pasteboard.copy(port.process.command) }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
+                if let url = port.localURL {
+                    LabeledContent {
+                        Link(url.absoluteString, destination: url)
+                    } label: {
+                        Label("URL", systemImage: "link")
                     }
+                    .contextMenu { URLActions(url: url) }
                 }
-
-                Section("Label and Note") {
-                    TextField("Label", text: $label, prompt: Text("Frontend dev server"))
-                        .onSubmit { model.preferences.setLabel(label, for: port.port) }
-                    TextField("Note", text: $note, prompt: Text("Anything worth remembering"), axis: .vertical)
-                        .lineLimit(2...6)
-                        .onSubmit { model.preferences.setNote(note, for: port.port) }
-                    Picker("Category", selection: Binding(
-                        get: { model.preferences.categoryOverride(for: port.processName) },
-                        set: { model.preferences.setCategoryOverride($0, for: port.processName) }
-                    )) {
-                        Text("Automatic (\(ProcessCategory.detect(port.processName).rawValue))").tag(ProcessCategory?.none)
-                        Divider()
-                        ForEach(ProcessCategory.allCases) { Text($0.rawValue).tag(Optional($0)) }
+                Toggle(isOn: Binding(get: { preferences.favorites.contains(port.port) }, set: { _ in preferences.toggleFavorite(port.port) })) {
+                    Label("Favorite", systemImage: "star")
+                }
+                Toggle(isOn: Binding(get: { preferences.isWatching(port.port) }, set: { _ in preferences.toggleWatch(port.port) })) {
+                    Label("Watch", systemImage: "eye")
+                }
+                TrailingButtons {
+                    if isTerminating {
+                        ProgressView().controlSize(.small)
                     }
+                    Button("Kill Process", role: .destructive) { model.ports.requestKill([port]) }
+                        .disabled(isTerminating)
                 }
-
-                TunnelSection(port: port)
+            } footer: {
+                if port.isLoopbackOnly {
+                    Text("Only reachable from this Mac.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
-            .formStyle(.grouped)
+
+            if preferences.explainProcesses {
+                ExplanationSection(port: port, category: category, parentName: parent?.name)
+            }
+
+            Section("Process") {
+                value("PID", "number", String(port.pid))
+                if let parent {
+                    value("Parent", "arrow.turn.left.up", "\(parent.name) (\(parent.pid))")
+                }
+                value("User", "person", port.process.user)
+                value("Address", "network", port.address)
+                if let started = port.process.startDate {
+                    LabeledContent {
+                        Text(started, format: .relative(presentation: .named))
+                            .help(started.formatted(date: .complete, time: .standard))
+                    } label: {
+                        Label("Started", systemImage: "clock")
+                    }
+                }
+                if let path = port.process.executablePath {
+                    LabeledContent {
+                        Button {
+                            NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: path)])
+                        } label: {
+                            Text(path)
+                                .lineLimit(2)
+                                .truncationMode(.middle)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        .buttonStyle(.link)
+                        .help("Show in Finder")
+                    } label: {
+                        Label("Executable", systemImage: "app")
+                    }
+                }
+            }
+
+            Section("Command") {
+                Text(port.process.command)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .lineLimit(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                TrailingButtons {
+                    Button("Copy Command") { Pasteboard.copy(port.process.command) }
+                }
+            }
+
+            Section("Label and Note") {
+                TextField(text: $label, prompt: Text("Frontend dev server")) {
+                    Label("Label", systemImage: "tag")
+                }
+                .onSubmit { preferences.setLabel(label, for: port.port) }
+                TextField(text: $note, prompt: Text("Anything worth remembering"), axis: .vertical) {
+                    Label("Note", systemImage: "note.text")
+                }
+                .lineLimit(2...6)
+                .onSubmit { preferences.setNote(note, for: port.port) }
+                Picker(selection: Binding(
+                    get: { preferences.categoryOverride(for: port.processName) },
+                    set: { preferences.setCategoryOverride($0, for: port.processName) }
+                )) {
+                    Text("Automatic (\(ProcessCategory.detect(port.processName).rawValue))").tag(ProcessCategory?.none)
+                    Divider()
+                    ForEach(ProcessCategory.allCases) { Text($0.rawValue).tag(Optional($0)) }
+                } label: {
+                    Label("Category", systemImage: "square.grid.2x2")
+                }
+            }
+
+            SharingSection(port: port)
         }
+        .formStyle(.grouped)
         .onAppear {
-            label = model.preferences.label(for: port.port) ?? ""
-            note = model.preferences.note(for: port.port) ?? ""
+            label = preferences.label(for: port.port) ?? ""
+            note = preferences.note(for: port.port) ?? ""
         }
         .onDisappear {
-            model.preferences.setLabel(label, for: port.port)
-            model.preferences.setNote(note, for: port.port)
+            preferences.setLabel(label, for: port.port)
+            preferences.setNote(note, for: port.port)
         }
         .task {
             parent = await model.ports.parent(of: port)
         }
     }
 
-    private func header(_ category: ProcessCategory) -> some View {
-        HStack(spacing: 12) {
-            ProcessIcon(process: port.process, category: category, size: 44)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(port.processName)
-                    .font(.title3.weight(.semibold))
-                    .lineLimit(1)
-                HStack(spacing: 6) {
-                    Text("Port \(String(port.port))")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                    CategoryBadge(category: category)
-                    if port.isLoopbackOnly {
-                        Text("Local only")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
+    private func value(_ title: String, _ symbol: String, _ value: String) -> some View {
+        LabeledContent {
+            Text(value)
+                .textSelection(.enabled)
+        } label: {
+            Label(title, systemImage: symbol)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 14)
-        .padding(.bottom, 4)
-    }
-
-    private var actionButtons: some View {
-        let preferences = model.preferences
-        let isFavorite = preferences.favorites.contains(port.port)
-        let isWatching = preferences.isWatching(port.port)
-        return VStack(spacing: 10) {
-            HStack(spacing: 8) {
-                action("Open", "safari") {
-                    if let url = port.localURL { NSWorkspace.shared.open(url) }
-                }
-                action("Copy URL", "link") {
-                    if let url = port.localURL { Pasteboard.copy(url.absoluteString) }
-                }
-                action("Favorite", isFavorite ? "star.fill" : "star", tint: isFavorite ? .yellow : nil) {
-                    preferences.toggleFavorite(port.port)
-                }
-                action("Watch", isWatching ? "eye.fill" : "eye", tint: isWatching ? .blue : nil) {
-                    preferences.toggleWatch(port.port)
-                }
-            }
-            Button(role: .destructive) {
-                model.ports.requestKill([port])
-            } label: {
-                Label(model.ports.terminating.contains(port.id) ? "Killing…" : "Kill Process", systemImage: "xmark.octagon.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glassProminent)
-            .tint(.red)
-            .controlSize(.large)
-            .disabled(model.ports.terminating.contains(port.id))
-        }
-    }
-
-    private func action(_ title: String, _ symbol: String, tint: Color? = nil, perform: @escaping () -> Void) -> some View {
-        Button(action: perform) {
-            VStack(spacing: 4) {
-                Image(systemName: symbol)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(tint ?? .primary)
-                    .frame(height: 18)
-                Text(title)
-                    .font(.caption)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
-        }
-        .buttonStyle(.glass)
-        .help(title)
     }
 }
 
@@ -214,31 +189,28 @@ private struct ExplanationSection: View {
             Section {
                 switch explainer.state(for: port) {
                 case .idle:
-                    Button {
-                        explain()
-                    } label: {
-                        Label("What is this process?", systemImage: "apple.intelligence")
+                    TrailingButtons {
+                        Button("Explain This Process", systemImage: "apple.intelligence") { explain() }
                     }
-                    .buttonStyle(.borderless)
                 case .working:
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         Text("Thinking…").foregroundStyle(.secondary)
                     }
                 case .explained(let explanation):
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(explanation.summary)
-                        Label(explanation.owner, systemImage: "shippingbox")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Label(explanation.reason, systemImage: symbol(explanation.risk))
-                            .font(.caption)
-                            .foregroundStyle(color(explanation.risk))
+                    Text(explanation.summary)
+                        .textSelection(.enabled)
+                    LabeledContent {
+                        Text(explanation.owner)
+                    } label: {
+                        Label("Belongs To", systemImage: "shippingbox")
                     }
-                    .textSelection(.enabled)
+                    Label(explanation.reason, systemImage: symbol(explanation.risk))
+                        .foregroundStyle(color(explanation.risk))
                 case .failed(let message):
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(message).foregroundStyle(.secondary)
+                    Text(message)
+                        .foregroundStyle(.secondary)
+                    TrailingButtons {
                         Button("Try Again") { explain() }
                     }
                 }
@@ -246,8 +218,8 @@ private struct ExplanationSection: View {
                 Text("Apple Intelligence")
             } footer: {
                 Text("Runs on this Mac. Explanations can be wrong.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         case .unavailable(.deviceNotEligible):
             EmptyView()
@@ -255,7 +227,6 @@ private struct ExplanationSection: View {
             if let reason = explainer.unavailableReason {
                 Section("Apple Intelligence") {
                     Text(reason)
-                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -283,35 +254,38 @@ private struct ExplanationSection: View {
     }
 }
 
-private struct TunnelSection: View {
+private struct SharingSection: View {
     @Environment(AppModel.self) private var model
     let port: ListeningPort
 
     var body: some View {
         let tunnels = model.tunnels
-        let exposures = tunnels.exposuresByPort[port.port] ?? []
         Section("Sharing") {
             if let tunnel = tunnels.quickTunnel(for: port.port) {
                 QuickTunnelSummary(tunnel: tunnel)
             } else if tunnels.isInstalled {
-                Button {
-                    tunnels.startQuickTunnel(port: port.port)
-                } label: {
-                    Label("Share with a Quick Tunnel", systemImage: "cloud")
+                TrailingButtons {
+                    Button("Share with Quick Tunnel", systemImage: "bolt") {
+                        tunnels.startQuickTunnel(port: port.port)
+                    }
+                    .help("Create a temporary public trycloudflare.com URL for this port")
                 }
-                .buttonStyle(.borderless)
-                .help("Create a temporary public trycloudflare.com URL for this port")
             } else {
-                LabeledContent("cloudflared") {
-                    Button("Copy Install Command") { Pasteboard.copy(CommandLineTool.cloudflared.installCommand) }
+                LabeledContent {
+                    ToolInstallButton(tool: .cloudflared)
+                } label: {
+                    Label("cloudflared Isn't Installed", systemImage: "cloud")
                 }
             }
-            ForEach(exposures, id: \.publicURL) { exposure in
-                LabeledContent(exposure.tunnelName) {
-                    Button(exposure.hostname) {
-                        if let url = URL(string: exposure.publicURL) { NSWorkspace.shared.open(url) }
+            ForEach(tunnels.exposuresByPort[port.port] ?? [], id: \.publicURL) { exposure in
+                LabeledContent {
+                    if let url = URL(string: exposure.publicURL) {
+                        Link(exposure.hostname, destination: url)
+                    } else {
+                        Text(exposure.hostname)
                     }
-                    .buttonStyle(.link)
+                } label: {
+                    Label(exposure.tunnelName, systemImage: "cloud")
                 }
             }
         }
@@ -323,34 +297,35 @@ struct QuickTunnelSummary: View {
     let tunnel: QuickTunnel
 
     var body: some View {
-        HStack(spacing: 8) {
-            StatusDot(color: tunnel.status.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                if let url = tunnel.url {
-                    Link(tunnel.host ?? url.absoluteString, destination: url)
-                        .lineLimit(1)
-                } else {
-                    Text(tunnel.status == .failed ? "Tunnel failed" : "Starting tunnel…")
-                }
-                if let error = tunnel.lastError, tunnel.status != .active {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(2)
-                }
-            }
-            Spacer()
+        LabeledContent {
             if let url = tunnel.url {
-                Button("Copy", systemImage: "doc.on.doc") { Pasteboard.copy(url.absoluteString) }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
+                Link(tunnel.host ?? url.absoluteString, destination: url)
+                    .lineLimit(1)
+            } else {
+                Text(tunnel.status.title)
             }
-            Button(tunnel.status == .failed ? "Dismiss" : "Stop", systemImage: "stop.circle") {
+        } label: {
+            Label {
+                Text("Quick Tunnel")
+            } icon: {
+                Image(systemName: "bolt.fill")
+                    .foregroundStyle(tunnel.status.tint)
+            }
+        }
+        if let error = tunnel.lastError, tunnel.status != .active {
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(.red)
+                .lineLimit(3)
+                .textSelection(.enabled)
+        }
+        TrailingButtons {
+            if let url = tunnel.url {
+                Button("Copy URL") { Pasteboard.copy(url.absoluteString) }
+            }
+            Button(tunnel.status == .failed ? "Dismiss" : "Stop Tunnel") {
                 model.tunnels.stopQuickTunnel(tunnel)
             }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            .foregroundStyle(.red)
         }
     }
 }
@@ -361,25 +336,18 @@ private struct MultiplePortsSummary: View {
     @State private var confirming = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            ContentUnavailableView {
-                Label("\(ports.count) Ports Selected", systemImage: "square.stack.3d.up")
-            } description: {
-                Text(ports.map { "\($0.processName) :\($0.port)" }.joined(separator: "\n"))
-                    .lineLimit(8)
-            } actions: {
-                Button(role: .destructive) {
-                    if model.preferences.skipKillConfirmation {
-                        Task { await model.ports.kill(ports) }
-                    } else {
-                        confirming = true
-                    }
-                } label: {
-                    Label("Kill \(ports.count) Processes", systemImage: "xmark.octagon.fill")
+        ContentUnavailableView {
+            Label("\(ports.count) Ports Selected", systemImage: "square.stack.3d.up")
+        } description: {
+            Text(ports.map { "\($0.processName) :\($0.port)" }.joined(separator: "\n"))
+                .lineLimit(8)
+        } actions: {
+            Button("Kill \(ports.count) Processes", role: .destructive) {
+                if model.preferences.skipKillConfirmation {
+                    Task { await model.ports.kill(ports) }
+                } else {
+                    confirming = true
                 }
-                .buttonStyle(.glassProminent)
-                .tint(.red)
-                .controlSize(.large)
             }
         }
         .confirmationDialog("Kill \(ports.count) Processes?", isPresented: $confirming) {
@@ -400,7 +368,6 @@ private struct InactivePortDetails: View {
             Text("Nothing listens on this port right now. PortKiller keeps it here because it's a favorite or watched.")
         } actions: {
             Button("Remove") { model.ports.removeInactive(port) }
-                .buttonStyle(.glass)
         }
     }
 }

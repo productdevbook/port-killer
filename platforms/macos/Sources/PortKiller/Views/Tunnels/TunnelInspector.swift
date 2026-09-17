@@ -1,4 +1,3 @@
-import AppKit
 import PortKillerKit
 import SwiftUI
 
@@ -31,48 +30,62 @@ struct TunnelInspector: View {
     }
 }
 
+private enum TunnelPage: String, CaseIterable {
+    case details = "Details"
+    case logs = "Logs"
+}
+
 private struct QuickTunnelDetails: View {
     @Environment(AppModel.self) private var model
     let tunnel: QuickTunnel
+    @State private var page = TunnelPage.details
 
     var body: some View {
         VStack(spacing: 0) {
-            Form {
-                Section {
-                    QuickTunnelSummary(tunnel: tunnel)
-                }
-                Section("Details") {
-                    LabeledContent("Local Port", value: String(tunnel.port))
-                    LabeledContent("Status", value: tunnel.status.title)
-                    if let startedAt = tunnel.startedAt {
-                        LabeledContent("Started") {
-                            Text(startedAt, format: .relative(presentation: .named))
+            InspectorSegmentedPicker(selection: $page, options: TunnelPage.allCases) { $0 == .logs && !tunnel.logs.isEmpty ? "Logs (\(tunnel.logs.count))" : $0.rawValue }
+            switch page {
+            case .details:
+                Form {
+                    Section {
+                        QuickTunnelSummary(tunnel: tunnel)
+                    }
+                    Section("Details") {
+                        LabeledContent {
+                            Text(String(tunnel.port))
+                                .monospacedDigit()
+                        } label: {
+                            Label("Local Port", systemImage: "laptopcomputer")
+                        }
+                        if let startedAt = tunnel.startedAt {
+                            LabeledContent {
+                                Text(startedAt, format: .relative(presentation: .named))
+                            } label: {
+                                Label("Started", systemImage: "clock")
+                            }
+                        }
+                        LabeledContent {
+                            Text(model.preferences.quickTunnelProtocol.title)
+                        } label: {
+                            Label("Protocol", systemImage: "network")
                         }
                     }
-                    LabeledContent("Protocol", value: model.preferences.quickTunnelProtocol.title)
                 }
+                .formStyle(.grouped)
+            case .logs:
+                LogConsole(lines: tunnel.logs.map(\.consoleLine), emptyText: "cloudflared output appears here.", onClear: { tunnel.clearLogs() })
             }
-            .formStyle(.grouped)
-            .frame(maxHeight: 280)
-            LogConsole(lines: tunnel.logs.map(\.consoleLine), emptyText: "cloudflared output appears here.")
         }
     }
 }
 
 private struct NamedTunnelDetails: View {
-    enum Page: String, CaseIterable {
-        case details = "Details"
-        case logs = "Logs"
-    }
-
     @Environment(AppModel.self) private var model
     let tunnel: NamedTunnel
-    @State private var page = Page.details
+    @State private var page = TunnelPage.details
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            InspectorSegmentedPicker(selection: $page, options: Page.allCases) { $0 == .logs && !tunnel.logs.isEmpty ? "Logs (\(tunnel.logs.count))" : $0.rawValue }
+            InspectorSegmentedPicker(selection: $page, options: TunnelPage.allCases) { $0 == .logs && !tunnel.logs.isEmpty ? "Logs (\(tunnel.logs.count))" : $0.rawValue }
             switch page {
             case .details:
                 details
@@ -82,147 +95,115 @@ private struct NamedTunnelDetails: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "cloud.fill")
-                    .font(.title2)
-                    .foregroundStyle(tunnel.tint)
-                    .frame(width: 40, height: 40)
-                    .background(tunnel.tint.opacity(0.15), in: .circle)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(tunnel.name)
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(1)
-                    Text(tunnel.status == .running ? "\(tunnel.statusTitle) · \(tunnel.activeConnections) connections" : tunnel.statusTitle)
+    private var details: some View {
+        Form {
+            Section {
+                LabeledContent {
+                    Text(tunnel.statusTitle)
+                } label: {
+                    Label {
+                        Text(tunnel.name)
+                            .lineLimit(1)
+                    } icon: {
+                        Image(systemName: "cloud.fill")
+                            .foregroundStyle(tunnel.tint)
+                    }
+                }
+                if let error = tunnel.lastError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .lineLimit(3)
+                        .textSelection(.enabled)
+                }
+                TrailingButtons {
+                    action
+                }
+            } footer: {
+                if tunnel.runSafety == .managedElsewhere, !tunnel.isRunningHere {
+                    Text("Other machines already run this tunnel and this Mac has no local configuration for it. Running it here adds another connector, which splits traffic between origins.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
             }
-            actionButton
-            if let error = tunnel.lastError {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(3)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-    }
 
-    @ViewBuilder
-    private var actionButton: some View {
-        switch tunnel.status {
-        case .running:
-            Button(role: .destructive) { model.tunnels.stop(tunnel) } label: {
-                Label("Stop Tunnel", systemImage: "stop.fill").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glassProminent)
-            .tint(.red)
-            .controlSize(.large)
-        case .starting, .stopping:
-            Button {} label: {
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text(tunnel.statusTitle)
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glass)
-            .controlSize(.large)
-            .disabled(true)
-        case .stopped, .failed:
-            if tunnel.runSafety == .managedElsewhere {
-                Button { model.tunnels.run(tunnel, allowManagedElsewhere: true) } label: {
-                    Label("Run Anyway", systemImage: "play.fill").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glass)
-                .tint(.orange)
-                .controlSize(.large)
-                .disabled(!model.tunnels.isInstalled)
-                .help("Add this Mac as another connector for the tunnel")
-            } else {
-                Button { model.tunnels.run(tunnel) } label: {
-                    Label("Run Tunnel", systemImage: "play.fill").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .disabled(!model.tunnels.isInstalled)
-            }
-        }
-    }
-
-    private var details: some View {
-        Form {
-            if tunnel.runSafety == .managedElsewhere {
-                Section {
-                    Label {
-                        Text("Other machines already run this tunnel and this Mac has no local configuration for it. Running it here adds another connector, which splits traffic between origins.")
-                            .font(.callout)
-                    } icon: {
-                        Image(systemName: "lock.fill").foregroundStyle(.orange)
-                    }
-                }
-            }
             if !tunnel.ingressRules.isEmpty {
                 Section("Routes") {
                     ForEach(Array(tunnel.ingressRules.enumerated()), id: \.offset) { _, rule in
-                        VStack(alignment: .leading, spacing: 2) {
-                            if let url = rule.publicURL {
-                                Button(url) {
-                                    if let link = URL(string: url) { NSWorkspace.shared.open(link) }
-                                }
-                                .buttonStyle(.link)
-                                .contextMenu {
-                                    Button("Copy URL") { Pasteboard.copy(url) }
-                                }
-                            } else {
-                                Text("Fallback").foregroundStyle(.secondary)
-                            }
-                            Label(rule.service, systemImage: "arrow.turn.down.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        LabeledContent {
+                            Text(rule.service)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
                                 .textSelection(.enabled)
+                        } label: {
+                            if let url = rule.publicURL, let link = URL(string: url) {
+                                Link(rule.hostname ?? url, destination: link)
+                                    .contextMenu {
+                                        Button("Copy URL") { Pasteboard.copy(url) }
+                                    }
+                            } else {
+                                Text("Fallback")
+                            }
                         }
                     }
                 }
             }
+
             Section("Details") {
-                LabeledContent("Tunnel ID") {
+                LabeledContent {
                     Text(tunnel.id)
                         .font(.system(.caption, design: .monospaced))
                         .textSelection(.enabled)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                } label: {
+                    Label("Tunnel ID", systemImage: "number")
                 }
-                LabeledContent("Routes From", value: ingressSource)
+                LabeledContent {
+                    Text(ingressSource)
+                } label: {
+                    Label("Routes From", systemImage: "doc.text")
+                }
                 if let created = tunnel.createdAt {
-                    LabeledContent("Created", value: created.formatted(date: .abbreviated, time: .shortened))
+                    LabeledContent {
+                        Text(created.formatted(date: .abbreviated, time: .shortened))
+                    } label: {
+                        Label("Created", systemImage: "calendar")
+                    }
                 }
                 if let metricsPort = tunnel.metricsPort {
-                    LabeledContent("Metrics", value: "127.0.0.1:\(metricsPort)")
+                    LabeledContent {
+                        Text(verbatim: "127.0.0.1:\(metricsPort)")
+                            .monospacedDigit()
+                    } label: {
+                        Label("Metrics", systemImage: "chart.bar")
+                    }
                 }
                 if let credentials = tunnel.credentialsPath {
-                    LabeledContent("Credentials", value: (credentials as NSString).abbreviatingWithTildeInPath)
+                    LabeledContent {
+                        Text((credentials as NSString).abbreviatingWithTildeInPath)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    } label: {
+                        Label("Credentials", systemImage: "key")
+                    }
                 }
             }
+
             if !tunnel.edgeConnections.isEmpty {
                 Section("Edge Connections") {
                     ForEach(tunnel.edgeConnections) { connection in
-                        HStack {
-                            StatusDot(color: connection.isPendingReconnect ? .orange : .green, size: 6)
-                            Text(connection.coloName)
-                                .font(.system(.body, design: .monospaced).weight(.semibold))
-                            Text(connection.originIP)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
+                        LabeledContent {
                             if let opened = connection.openedAt {
                                 Text(opened, format: .relative(presentation: .named))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                            }
+                        } label: {
+                            Label {
+                                Text(connection.coloName)
+                                    .font(.body.monospaced())
+                                Text(connection.originIP)
+                            } icon: {
+                                StatusDot(color: connection.isPendingReconnect ? .orange : .green)
                             }
                         }
                     }
@@ -232,11 +213,30 @@ private struct NamedTunnelDetails: View {
         .formStyle(.grouped)
     }
 
+    @ViewBuilder
+    private var action: some View {
+        switch tunnel.status {
+        case .running:
+            Button("Stop Tunnel") { model.tunnels.stop(tunnel) }
+        case .starting, .stopping:
+            ProgressView().controlSize(.small)
+        case .stopped, .failed:
+            if tunnel.runSafety == .managedElsewhere {
+                Button("Run Anyway") { model.tunnels.run(tunnel, allowManagedElsewhere: true) }
+                    .disabled(!model.tunnels.isInstalled)
+                    .help("Add this Mac as another connector for the tunnel")
+            } else {
+                Button("Run Tunnel") { model.tunnels.run(tunnel) }
+                    .disabled(!model.tunnels.isInstalled)
+            }
+        }
+    }
+
     private var ingressSource: String {
         switch tunnel.ingressSource {
         case .none: "Unknown"
-        case .localConfiguration: "~/.cloudflared/config.yml"
-        case .dashboard: "Cloudflare dashboard"
+        case .localConfiguration: "config.yml"
+        case .dashboard: "Dashboard"
         }
     }
 }

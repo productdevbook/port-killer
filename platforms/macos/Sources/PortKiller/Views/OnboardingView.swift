@@ -28,18 +28,15 @@ struct OnboardingView: View {
                 Spacer()
                 if page > 0 {
                     Button("Back") { withAnimation { page -= 1 } }
-                        .buttonStyle(.glass)
                 }
                 if page < 2 {
                     Button("Skip") { model.completeOnboarding() }
                         .buttonStyle(.borderless)
                         .foregroundStyle(.secondary)
                     Button("Continue") { withAnimation { page += 1 } }
-                        .buttonStyle(.glassProminent)
                         .keyboardShortcut(.defaultAction)
                 } else {
                     Button("Get Started") { model.completeOnboarding() }
-                        .buttonStyle(.glassProminent)
                         .keyboardShortcut(.defaultAction)
                 }
             }
@@ -62,26 +59,27 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
             HStack(spacing: 12) {
-                feature("network", "Every port", .green)
-                feature("xmark.octagon", "One-click kill", .red)
-                feature("point.3.connected.trianglepath.dotted", "K8s forwards", .indigo)
-                feature("cloud", "Tunnels", .orange)
+                feature("network", "Every port")
+                feature("xmark.octagon", "One-click kill")
+                feature("point.3.connected.trianglepath.dotted", "K8s forwards")
+                feature("cloud", "Tunnels")
             }
             .padding(.top, 6)
         }
         .padding(28)
     }
 
-    private func feature(_ symbol: String, _ title: String, _ tint: Color) -> some View {
+    private func feature(_ symbol: String, _ title: String) -> some View {
         VStack(spacing: 8) {
             Image(systemName: symbol)
+                .symbolRenderingMode(.hierarchical)
                 .font(.title2)
-                .foregroundStyle(tint)
+                .foregroundStyle(.tint)
             Text(title)
                 .font(.caption.weight(.medium))
         }
         .frame(width: 104, height: 76)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16, style: .continuous))
+        .background(.fill.quaternary, in: .rect(cornerRadius: 14, style: .continuous))
     }
 
     private var setup: some View {

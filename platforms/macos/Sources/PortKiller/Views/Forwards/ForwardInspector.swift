@@ -15,10 +15,9 @@ struct ForwardInspector: View {
 }
 
 private struct ForwardDetails: View {
-    enum Page: String, CaseIterable, Identifiable {
+    enum Page: String, CaseIterable {
         case settings = "Settings"
         case logs = "Logs"
-        var id: String { rawValue }
     }
 
     @Environment(AppModel.self) private var model
@@ -30,13 +29,17 @@ private struct ForwardDetails: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
             InspectorSegmentedPicker(selection: $page, options: Page.allCases) { $0 == .logs && !session.logs.isEmpty ? "Logs (\(session.logs.count))" : $0.rawValue }
             switch page {
             case .settings:
                 settings
             case .logs:
-                logs
+                LogConsole(
+                    lines: session.logs.map(\.consoleLine),
+                    emptyText: "Start the port forward to see kubectl output.",
+                    exportTitle: session.configuration.name,
+                    onClear: { session.clearLogs() }
+                )
             }
         }
         .onAppear { draft = session.configuration }
@@ -44,90 +47,99 @@ private struct ForwardDetails: View {
         .task(id: draft.namespace) { await loadServices() }
     }
 
-    private var header: some View {
-        HStack(spacing: 10) {
-            StatusDot(color: session.status.tint, size: 10)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.configuration.name)
-                    .font(.title3.weight(.semibold))
-                    .lineLimit(1)
-                Group {
-                    if case .waitingToReconnect(let date) = session.status {
-                        Text("Reconnecting \(date, format: .relative(presentation: .named))")
-                    } else if let since = session.connectedSince {
-                        Text("Connected \(since, format: .relative(presentation: .named))")
-                    } else {
-                        Text(session.status.title)
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if session.isActive {
-                Button("Restart", systemImage: "arrow.clockwise") { session.restart() }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.glass)
-                    .buttonBorderShape(.circle)
-                    .help("Restart")
-            }
-            Button(session.isActive ? "Stop" : "Start", systemImage: session.isActive ? "stop.fill" : "play.fill") {
-                session.toggle()
-            }
-            .buttonStyle(.glassProminent)
-            .tint(session.isActive ? .red : .green)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-    }
-
     private var settings: some View {
         VStack(spacing: 0) {
             Form {
-                if let error = session.lastError, session.status != .connected {
-                    Section {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                Section {
+                    LabeledContent {
+                        statusText
+                    } label: {
+                        Label {
+                            Text(session.configuration.name)
+                                .lineLimit(1)
+                        } icon: {
+                            Image(systemName: "point.3.connected.trianglepath.dotted")
+                                .foregroundStyle(session.status.tint)
+                        }
+                    }
+                    if let error = session.lastError, session.status != .connected {
+                        Text(error)
+                            .font(.caption)
                             .foregroundStyle(.red)
                             .textSelection(.enabled)
                     }
+                    TrailingButtons {
+                        if session.isActive {
+                            Button("Restart") { session.restart() }
+                        }
+                        Button(session.isActive ? "Stop" : "Start") { session.toggle() }
+                    }
                 }
+
                 Section("Kubernetes") {
-                    TextField("Name", text: $draft.name)
-                    SuggestionField(title: "Namespace", text: $draft.namespace, suggestions: namespaces)
-                    SuggestionField(title: "Service", text: $draft.service, suggestions: services.map(\.name)) { name in
+                    TextField(text: $draft.name) {
+                        Label("Name", systemImage: "tag")
+                    }
+                    SuggestionField(title: "Namespace", symbol: "folder", text: $draft.namespace, suggestions: namespaces)
+                    SuggestionField(title: "Service", symbol: "server.rack", text: $draft.service, suggestions: services.map(\.name)) { name in
                         if let service = services.first(where: { $0.name == name }), let first = service.ports.first,
                            !service.ports.contains(where: { $0.port == draft.remotePort }) {
                             draft.remotePort = first.port
                         }
                     }
-                    TextField("Service Port", value: $draft.remotePort, format: .number.grouping(.never))
+                    TextField(value: $draft.remotePort, format: .number.grouping(.never)) {
+                        Label("Service Port", systemImage: "number")
+                    }
                 }
+
                 Section("This Mac") {
-                    TextField("Local Port", value: $draft.localPort, format: .number.grouping(.never))
-                    Toggle("Proxy through socat", isOn: Binding(
+                    TextField(value: $draft.localPort, format: .number.grouping(.never)) {
+                        Label("Local Port", systemImage: "laptopcomputer")
+                    }
+                    Toggle(isOn: Binding(
                         get: { draft.proxyPort != nil },
                         set: { draft.proxyPort = $0 ? max(1, draft.localPort - 1) : nil }
-                    ))
-                    if draft.proxyPort != nil {
-                        TextField("Proxy Port", value: Binding(get: { draft.proxyPort ?? 0 }, set: { draft.proxyPort = $0 }), format: .number.grouping(.never))
-                        Toggle("Allow multiple connections", isOn: $draft.useDirectExec)
-                            .help("Starts a separate kubectl port-forward for every client connection")
+                    )) {
+                        Label("Proxy Through socat", systemImage: "arrow.triangle.branch")
                     }
-                    LabeledContent("Connect to") {
+                    if draft.proxyPort != nil {
+                        TextField(value: Binding(get: { draft.proxyPort ?? 0 }, set: { draft.proxyPort = $0 }), format: .number.grouping(.never)) {
+                            Label("Proxy Port", systemImage: "arrow.right.circle")
+                        }
+                        Toggle(isOn: $draft.useDirectExec) {
+                            Label("Allow Multiple Connections", systemImage: "person.2")
+                        }
+                        .help("Starts a separate kubectl port-forward for every client connection")
+                    }
+                    LabeledContent {
                         Text(verbatim: "localhost:\(draft.effectivePort)")
                             .monospacedDigit()
                             .textSelection(.enabled)
+                    } label: {
+                        Label("Connect To", systemImage: "link")
                     }
                 }
+
                 Section("Behavior") {
-                    Toggle("Start with Start All", isOn: $draft.isEnabled)
-                    Toggle("Reconnect automatically", isOn: $draft.autoReconnect)
-                    Toggle("Notify when connected", isOn: $draft.notifyOnConnect)
-                    Toggle("Notify when disconnected", isOn: $draft.notifyOnDisconnect)
+                    Toggle(isOn: $draft.isEnabled) {
+                        Label("Start with Start All", systemImage: "play")
+                    }
+                    Toggle(isOn: $draft.autoReconnect) {
+                        Label("Reconnect Automatically", systemImage: "arrow.clockwise")
+                    }
+                    Toggle(isOn: $draft.notifyOnConnect) {
+                        Label("Notify When Connected", systemImage: "bell")
+                    }
+                    Toggle(isOn: $draft.notifyOnDisconnect) {
+                        Label("Notify When Disconnected", systemImage: "bell.slash")
+                    }
                 }
+
                 Section {
-                    Button("Delete Port Forward", role: .destructive) {
-                        model.forwards.remove(session.id)
+                    TrailingButtons {
+                        Button("Delete Port Forward", role: .destructive) {
+                            model.forwards.remove(session.id)
+                        }
                     }
                 }
             }
@@ -140,22 +152,23 @@ private struct ForwardDetails: View {
                     Button(session.isActive ? "Apply and Restart" : "Apply") {
                         model.forwards.update(draft)
                     }
-                    .buttonStyle(.glassProminent)
                     .keyboardShortcut(.defaultAction)
                 }
-                .padding(12)
-                .background(.bar)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
             }
         }
     }
 
-    private var logs: some View {
-        LogConsole(
-            lines: session.logs.map(\.consoleLine),
-            emptyText: "Start the port forward to see kubectl output.",
-            exportTitle: session.configuration.name,
-            onClear: { session.clearLogs() }
-        )
+    @ViewBuilder
+    private var statusText: some View {
+        if case .waitingToReconnect(let date) = session.status {
+            Text("Reconnecting \(date, format: .relative(presentation: .named))")
+        } else if let since = session.connectedSince {
+            Text("Connected \(since, format: .relative(presentation: .named))")
+        } else {
+            Text(session.status.title)
+        }
     }
 
     private func loadNamespaces() async {
@@ -175,15 +188,18 @@ private struct ForwardDetails: View {
     }
 }
 
-struct SuggestionField: View {
+private struct SuggestionField: View {
     let title: String
+    let symbol: String
     @Binding var text: String
     let suggestions: [String]
     var onPick: (String) -> Void = { _ in }
 
     var body: some View {
         HStack(spacing: 4) {
-            TextField(title, text: $text)
+            TextField(text: $text) {
+                Label(title, systemImage: symbol)
+            }
             Menu {
                 if suggestions.isEmpty {
                     Text("No Suggestions")
@@ -203,23 +219,5 @@ struct SuggestionField: View {
             .fixedSize()
             .help("Choose from the cluster")
         }
-    }
-}
-
-struct InspectorSegmentedPicker<Option: Hashable>: View {
-    @Binding var selection: Option
-    let options: [Option]
-    let title: (Option) -> String
-
-    var body: some View {
-        Picker("", selection: $selection) {
-            ForEach(options, id: \.self) { Text(title($0)).tag($0) }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
     }
 }
