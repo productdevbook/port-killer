@@ -5,9 +5,12 @@ struct ForwardInspector: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if let session = model.forwards.selectedSession {
+        let selected = model.forwards.sessions.filter { model.forwardSelection.contains($0.id) }
+        if selected.count == 1, let session = selected.first {
             ForwardDetails(session: session)
                 .id(session.id)
+        } else if selected.count > 1 {
+            ContentUnavailableView("\(selected.count) Port Forwards Selected", systemImage: "point.3.connected.trianglepath.dotted")
         } else {
             ContentUnavailableView("No Port Forward Selected", systemImage: "point.3.connected.trianglepath.dotted", description: Text("Select a port forward to edit it and read its logs."))
         }
@@ -48,103 +51,109 @@ private struct ForwardDetails: View {
     }
 
     private var settings: some View {
-        VStack(spacing: 0) {
-            Form {
+        Form {
+            Section {
+                LabeledContent {
+                    statusText
+                } label: {
+                    Label {
+                        Text(session.configuration.name)
+                            .lineLimit(1)
+                    } icon: {
+                        Image(systemName: "point.3.connected.trianglepath.dotted")
+                            .foregroundStyle(session.status.tint)
+                    }
+                }
+                if let error = session.lastError, session.status != .connected {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                }
+                TrailingButtons {
+                    if session.isActive {
+                        Button("Restart") { session.restart() }
+                    }
+                    Button(session.isActive ? "Stop" : "Start") { session.toggle() }
+                }
+            }
+
+            if model.preferences.locate(.kubectl) == nil {
                 Section {
-                    LabeledContent {
-                        statusText
-                    } label: {
-                        Label {
-                            Text(session.configuration.name)
-                                .lineLimit(1)
-                        } icon: {
-                            Image(systemName: "point.3.connected.trianglepath.dotted")
-                                .foregroundStyle(session.status.tint)
-                        }
-                    }
-                    if let error = session.lastError, session.status != .connected {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .textSelection(.enabled)
-                    }
-                    TrailingButtons {
-                        if session.isActive {
-                            Button("Restart") { session.restart() }
-                        }
-                        Button(session.isActive ? "Stop" : "Start") { session.toggle() }
+                    ToolNotice(tool: .kubectl, message: "Port forwarding runs kubectl port-forward for you.")
+                }
+            }
+
+            Section("Kubernetes") {
+                TextField(text: $draft.name) {
+                    Label("Name", systemImage: "tag")
+                }
+                SuggestionField(title: "Namespace", symbol: "folder", text: $draft.namespace, suggestions: namespaces)
+                SuggestionField(title: "Service", symbol: "server.rack", text: $draft.service, suggestions: services.map(\.name)) { name in
+                    if let service = services.first(where: { $0.name == name }), let first = service.ports.first,
+                       !service.ports.contains(where: { $0.port == draft.remotePort }) {
+                        draft.remotePort = first.port
                     }
                 }
-
-                Section("Kubernetes") {
-                    TextField(text: $draft.name) {
-                        Label("Name", systemImage: "tag")
-                    }
-                    SuggestionField(title: "Namespace", symbol: "folder", text: $draft.namespace, suggestions: namespaces)
-                    SuggestionField(title: "Service", symbol: "server.rack", text: $draft.service, suggestions: services.map(\.name)) { name in
-                        if let service = services.first(where: { $0.name == name }), let first = service.ports.first,
-                           !service.ports.contains(where: { $0.port == draft.remotePort }) {
-                            draft.remotePort = first.port
-                        }
-                    }
-                    TextField(value: $draft.remotePort, format: .number.grouping(.never)) {
-                        Label("Service Port", systemImage: "number")
-                    }
+                TextField(value: $draft.remotePort, format: .number.grouping(.never)) {
+                    Label("Service Port", systemImage: "number")
                 }
+            }
 
-                Section("This Mac") {
-                    TextField(value: $draft.localPort, format: .number.grouping(.never)) {
-                        Label("Local Port", systemImage: "laptopcomputer")
-                    }
-                    Toggle(isOn: Binding(
-                        get: { draft.proxyPort != nil },
-                        set: { draft.proxyPort = $0 ? max(1, draft.localPort - 1) : nil }
-                    )) {
-                        Label("Proxy Through socat", systemImage: "arrow.triangle.branch")
-                    }
-                    if draft.proxyPort != nil {
-                        TextField(value: Binding(get: { draft.proxyPort ?? 0 }, set: { draft.proxyPort = $0 }), format: .number.grouping(.never)) {
-                            Label("Proxy Port", systemImage: "arrow.right.circle")
-                        }
-                        Toggle(isOn: $draft.useDirectExec) {
-                            Label("Allow Multiple Connections", systemImage: "person.2")
-                        }
-                        .help("Starts a separate kubectl port-forward for every client connection")
-                    }
-                    LabeledContent {
-                        Text(verbatim: "localhost:\(draft.effectivePort)")
-                            .monospacedDigit()
-                            .textSelection(.enabled)
-                    } label: {
-                        Label("Connect To", systemImage: "link")
-                    }
+            Section("This Mac") {
+                TextField(value: $draft.localPort, format: .number.grouping(.never)) {
+                    Label("Local Port", systemImage: "laptopcomputer")
                 }
-
-                Section("Behavior") {
-                    Toggle(isOn: $draft.isEnabled) {
-                        Label("Start with Start All", systemImage: "play")
-                    }
-                    Toggle(isOn: $draft.autoReconnect) {
-                        Label("Reconnect Automatically", systemImage: "arrow.clockwise")
-                    }
-                    Toggle(isOn: $draft.notifyOnConnect) {
-                        Label("Notify When Connected", systemImage: "bell")
-                    }
-                    Toggle(isOn: $draft.notifyOnDisconnect) {
-                        Label("Notify When Disconnected", systemImage: "bell.slash")
-                    }
+                Toggle(isOn: Binding(
+                    get: { draft.proxyPort != nil },
+                    set: { draft.proxyPort = $0 ? max(1, draft.localPort - 1) : nil }
+                )) {
+                    Label("Proxy Through socat", systemImage: "arrow.triangle.branch")
                 }
+                if draft.proxyPort != nil {
+                    TextField(value: Binding(get: { draft.proxyPort ?? 0 }, set: { draft.proxyPort = $0 }), format: .number.grouping(.never)) {
+                        Label("Proxy Port", systemImage: "arrow.right.circle")
+                    }
+                    Toggle(isOn: $draft.useDirectExec) {
+                        Label("Allow Multiple Connections", systemImage: "person.2")
+                    }
+                    .help("Starts a separate kubectl port-forward for every client connection")
+                }
+                LabeledContent {
+                    Text(verbatim: "localhost:\(draft.effectivePort)")
+                        .monospacedDigit()
+                        .textSelection(.enabled)
+                } label: {
+                    Label("Connect To", systemImage: "link")
+                }
+            }
 
-                Section {
-                    TrailingButtons {
-                        Button("Delete Port Forward", role: .destructive) {
-                            model.forwards.remove(session.id)
-                        }
+            Section("Behavior") {
+                Toggle(isOn: $draft.isEnabled) {
+                    Label("Start with Start All", systemImage: "play")
+                }
+                Toggle(isOn: $draft.autoReconnect) {
+                    Label("Reconnect Automatically", systemImage: "arrow.clockwise")
+                }
+                Toggle(isOn: $draft.notifyOnConnect) {
+                    Label("Notify When Connected", systemImage: "bell")
+                }
+                Toggle(isOn: $draft.notifyOnDisconnect) {
+                    Label("Notify When Disconnected", systemImage: "bell.slash")
+                }
+            }
+
+            Section {
+                TrailingButtons {
+                    Button("Delete Port Forward", role: .destructive) {
+                        model.forwardSelection.remove(session.id)
+                        model.forwards.remove(session.id)
                     }
                 }
             }
-            .formStyle(.grouped)
-
+        }
+        .formStyle(.grouped)
+        .safeAreaBar(edge: .bottom) {
             if draft != session.configuration {
                 HStack {
                     Button("Revert") { draft = session.configuration }

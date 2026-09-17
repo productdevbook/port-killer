@@ -22,6 +22,9 @@ struct SettingsView: View {
             Tab("Cloudflare", systemImage: "cloud", value: "cloudflare") {
                 CloudflareSettings()
             }
+            Tab("Plugins", systemImage: "puzzlepiece.extension", value: "plugins") {
+                PluginSettings()
+            }
             Tab("About", systemImage: "info.circle", value: "about") {
                 AboutSettings()
             }
@@ -267,6 +270,63 @@ private struct CloudflareSettings: View {
     }
 }
 
+private struct PluginSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let plugins = model.plugins
+        Form {
+            Section {
+                if plugins.plugins.isEmpty {
+                    Text("No plugins installed")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(plugins.plugins) { plugin in
+                    Toggle(isOn: Binding(get: { plugins.isEnabled(plugin) }, set: { plugins.setEnabled($0, for: plugin) })) {
+                        Label {
+                            Text(plugin.manifest.name)
+                            Text([plugin.manifest.version, plugin.manifest.author, plugin.manifest.summary].compactMap { $0 }.joined(separator: " · "))
+                        } icon: {
+                            Image(systemName: plugin.manifest.icon ?? "puzzlepiece.extension")
+                        }
+                    }
+                }
+            } header: {
+                Text("Installed Plugins")
+            } footer: {
+                Text("Plugins run on this Mac with your user account. Turn on only plugins you trust.")
+            }
+            if !plugins.failures.isEmpty {
+                Section("Couldn't Load") {
+                    ForEach(plugins.failures) { failure in
+                        LabeledContent {
+                            Text(failure.message)
+                                .multilineTextAlignment(.trailing)
+                        } label: {
+                            Label(failure.bundleURL.lastPathComponent, systemImage: "exclamationmark.triangle")
+                        }
+                    }
+                }
+            }
+            Section {
+                TrailingButtons {
+                    if let url = AppInfo.pluginGuide {
+                        Link("Build a Plugin", destination: url)
+                    }
+                    Spacer()
+                    Button("Reload") { plugins.reload() }
+                    Button("Open Plugins Folder") { plugins.openFolder() }
+                }
+            } footer: {
+                Text("Put .portkillerplugin folders in ~/Library/Application Support/PortKiller/Plugins.")
+            }
+        }
+        .formStyle(.grouped)
+        .fixedSize(horizontal: false, vertical: true)
+        .onAppear { plugins.reload() }
+    }
+}
+
 private struct AboutSettings: View {
     @Environment(AppModel.self) private var model
 
@@ -306,7 +366,7 @@ private struct AboutSettings: View {
                 Picker("Show the sponsors page", selection: $preferences.sponsorInterval) {
                     ForEach(SponsorDisplayInterval.allCases) { Text($0.rawValue).tag($0) }
                 }
-                Button("Show Sponsors") { model.show(.sponsors) }
+                Button("Show Sponsors") { model.showSponsors() }
             }
             Section {
                 link("PortKiller on GitHub", AppInfo.repository)

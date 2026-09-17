@@ -3,40 +3,20 @@ import Observation
 import OrderedCollections
 import PortKillerKit
 
-enum SidebarItem: Hashable {
-    case allPorts
+enum PortScope: String, CaseIterable, Identifiable {
+    case all
     case favorites
     case watched
-    case category(ProcessCategory)
-    case portForwards
-    case tunnels
-    case sponsors
 
-    init?(storageValue: String) {
-        switch storageValue {
-        case "all": self = .allPorts
-        case "favorites": self = .favorites
-        case "watched": self = .watched
-        case "forwards": self = .portForwards
-        case "tunnels": self = .tunnels
-        case "sponsors": self = .sponsors
-        default:
-            guard let category = ProcessCategory(rawValue: storageValue) else { return nil }
-            self = .category(category)
-        }
-    }
+    var id: String { rawValue }
+}
 
-    var storageValue: String {
-        switch self {
-        case .allPorts: "all"
-        case .favorites: "favorites"
-        case .watched: "watched"
-        case .category(let category): category.rawValue
-        case .portForwards: "forwards"
-        case .tunnels: "tunnels"
-        case .sponsors: "sponsors"
-        }
-    }
+nonisolated enum ItemID: Hashable {
+    case listener(ListeningPort.ID)
+    case process(String)
+    case inactivePort(Int)
+    case quickTunnel(UUID)
+    case namedTunnel(String)
 }
 
 enum KillMode: Hashable {
@@ -55,31 +35,19 @@ struct PresentedError: LocalizedError {
 }
 
 nonisolated struct PortRow: Identifiable, Hashable {
-    enum ID: Hashable {
-        case listener(ListeningPort.ID)
-        case group(String)
-        case inactive(Int)
-
-        var inactivePort: Int? {
-            if case .inactive(let port) = self { port } else { nil }
-        }
-    }
-
-    var id: ID
+    var id: ItemID
     var port: Int
     var listener: ListeningPort?
     var category: ProcessCategory
     var label: String?
     var isFavorite: Bool
     var isWatched: Bool
-    var address = ""
     var children: [PortRow]?
 
     var processName: String { listener?.processName ?? "Not Running" }
     var pid: Int { Int(listener?.pid ?? 0) }
+    var address: String { listener?.address ?? "" }
     var user: String { listener?.process.user ?? "" }
-    var startDate: Date { listener?.process.startDate ?? .distantFuture }
-    var categoryName: String { listener == nil ? "" : category.rawValue }
 }
 
 @Observable
@@ -91,7 +59,6 @@ final class PortStore {
     private(set) var isScanning = false
     private(set) var terminating: Set<String> = []
     var filter = PortFilter()
-    var selection: Set<PortRow.ID> = []
     var sortOrder = [KeyPathComparator(\PortRow.port)]
     var pendingKill: [ListeningPort] = []
     var error: PresentedError?
@@ -155,20 +122,17 @@ final class PortStore {
         return detected
     }
 
-    func rows(for item: SidebarItem, filter: PortFilter? = nil) -> [PortRow] {
+    func rows(for scope: PortScope, filter: PortFilter? = nil) -> [PortRow] {
         let filter = filter ?? self.filter
-        let hideSystem = preferences.hideSystemProcesses && item != .category(.system)
         let listening = ports.map(row(for:))
-        var rows = listening.filter { !(hideSystem && $0.category == .system) }
-        switch item {
+        var rows = listening.filter { !(preferences.hideSystemProcesses && $0.category == .system) }
+        switch scope {
+        case .all:
+            break
         case .favorites:
             rows = rows.filter(\.isFavorite) + inactiveRows(for: preferences.favorites, active: listening)
         case .watched:
             rows = rows.filter(\.isWatched) + inactiveRows(for: Set(preferences.watchedPorts.map(\.port)), active: listening)
-        case .category(let category):
-            rows = rows.filter { $0.category == category }
-        default:
-            break
         }
         return rows.filter { row in
             guard let listener = row.listener else {
@@ -178,23 +142,18 @@ final class PortStore {
         }
     }
 
-    var categoryCounts: [ProcessCategory: Int] {
-        ports.reduce(into: [:]) { counts, port in counts[category(for: port), default: 0] += 1 }
-    }
-
     static func grouped(_ rows: [PortRow]) -> [PortRow] {
         let groups = OrderedDictionary(grouping: rows.filter { $0.listener != nil }, by: \.processName)
         return groups.map { name, members in
             guard members.count > 1, let first = members.first else { return members[0] }
             return PortRow(
-                id: .group(name),
+                id: .process(name),
                 port: first.port,
                 listener: first.listener,
                 category: first.category,
                 label: nil,
                 isFavorite: members.contains(where: \.isFavorite),
                 isWatched: members.contains(where: \.isWatched),
-                address: first.address,
                 children: members
             )
         } + rows.filter { $0.listener == nil }
@@ -208,8 +167,7 @@ final class PortStore {
             category: category(for: listener),
             label: preferences.label(for: listener.port),
             isFavorite: preferences.favorites.contains(listener.port),
-            isWatched: preferences.isWatching(listener.port),
-            address: listener.address
+            isWatched: preferences.isWatching(listener.port)
         )
     }
 
@@ -217,7 +175,7 @@ final class PortStore {
         let activePorts = Set(active.map(\.port))
         return ports.subtracting(activePorts).sorted().map { port in
             PortRow(
-                id: .inactive(port),
+                id: .inactivePort(port),
                 port: port,
                 listener: nil,
                 category: .other,
@@ -232,21 +190,21 @@ final class PortStore {
         await PortScanner.parent(of: port.process)
     }
 
-    func listeners(ids: Set<PortRow.ID>, in item: SidebarItem) -> [ListeningPort] {
-        var groups: Set<String> = []
+    func listeners(ids: Set<ItemID>, in scope: PortScope) -> [ListeningPort] {
+        var processes: Set<String> = []
         var result: [ListeningPort] = []
         for id in ids {
             switch id {
             case .listener(let listenerID):
                 if let port = ports.first(where: { $0.id == listenerID }) { result.append(port) }
-            case .group(let name):
-                groups.insert(name)
-            case .inactive:
+            case .process(let name):
+                processes.insert(name)
+            default:
                 break
             }
         }
-        if !groups.isEmpty {
-            result += rows(for: item).filter { groups.contains($0.processName) }.compactMap(\.listener)
+        if !processes.isEmpty {
+            result += rows(for: scope).filter { processes.contains($0.processName) }.compactMap(\.listener)
         }
         return Array(Set(result)).sorted { $0.port < $1.port }
     }

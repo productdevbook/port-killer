@@ -7,17 +7,18 @@ struct PortInspector: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        let selection = model.portSelection
         let selected = model.selectedListeners
-        let inactive = model.ports.selection.compactMap(\.inactivePort)
         Group {
-            if selected.count == 1, let port = selected.first {
+            if selection.count == 1, case .process(let name) = selection.first {
+                ProcessDetails(name: name, ports: selected)
+            } else if selected.count == 1, let port = selected.first {
                 PortDetails(port: port)
                     .id(port.id)
             } else if selected.count > 1 {
                 MultiplePortsSummary(ports: selected)
-            } else if let port = inactive.first {
+            } else if selection.count == 1, case .inactivePort(let port) = selection.first {
                 InactivePortDetails(port: port)
-                    .id(port)
             } else {
                 ContentUnavailableView("No Port Selected", systemImage: "network", description: Text("Select a port to see its process, command and actions."))
             }
@@ -77,6 +78,26 @@ private struct PortDetails: View {
                     Text("Only reachable from this Mac.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            let actions = model.plugins.portActions(for: port)
+            if !actions.isEmpty {
+                Section("Plugins") {
+                    ForEach(Array(actions.enumerated()), id: \.offset) { _, entry in
+                        Button {
+                            Task { await model.plugins.perform(entry.action, on: port, in: entry.plugin) }
+                        } label: {
+                            Label {
+                                Text(entry.action.title)
+                                Text(entry.plugin.manifest.name)
+                            } icon: {
+                                Image(systemName: entry.action.icon ?? entry.plugin.manifest.icon ?? "puzzlepiece.extension")
+                            }
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.primary)
+                    }
                 }
             }
 
@@ -176,6 +197,45 @@ private struct PortDetails: View {
     }
 }
 
+private struct ProcessDetails: View {
+    @Environment(AppModel.self) private var model
+    let name: String
+    let ports: [ListeningPort]
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent {
+                    Text(ports.count == 1 ? "1 port" : "\(ports.count) ports")
+                } label: {
+                    Label {
+                        Text(name)
+                            .lineLimit(1)
+                    } icon: {
+                        if let first = ports.first {
+                            ProcessIcon(process: first.process, category: model.ports.category(for: first), size: 20)
+                        }
+                    }
+                }
+                TrailingButtons {
+                    Button("Kill All", role: .destructive) { model.ports.requestKill(ports) }
+                        .disabled(ports.isEmpty)
+                }
+            }
+            Section("Ports") {
+                ForEach(ports) { port in
+                    LabeledContent {
+                        Text(port.address)
+                    } label: {
+                        Label("Port \(String(port.port))", systemImage: "number")
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
 private struct ExplanationSection: View {
     @Environment(AppModel.self) private var model
     let port: ListeningPort
@@ -262,7 +322,27 @@ private struct SharingSection: View {
         let tunnels = model.tunnels
         Section("Sharing") {
             if let tunnel = tunnels.quickTunnel(for: port.port) {
-                QuickTunnelSummary(tunnel: tunnel)
+                LabeledContent {
+                    if let url = tunnel.url {
+                        Link(tunnel.host ?? url.absoluteString, destination: url)
+                            .lineLimit(1)
+                    } else {
+                        Text(tunnel.status.title)
+                    }
+                } label: {
+                    Label {
+                        Text("Quick Tunnel")
+                    } icon: {
+                        Image(systemName: "bolt.fill")
+                            .foregroundStyle(tunnel.status.tint)
+                    }
+                }
+                TrailingButtons {
+                    if let url = tunnel.url {
+                        Button("Copy URL") { Pasteboard.copy(url.absoluteString) }
+                    }
+                    Button(tunnel.status == .failed ? "Dismiss" : "Stop Sharing") { tunnels.stopQuickTunnel(tunnel) }
+                }
             } else if tunnels.isInstalled {
                 TrailingButtons {
                     Button("Share with Quick Tunnel", systemImage: "bolt") {
@@ -271,11 +351,7 @@ private struct SharingSection: View {
                     .help("Create a temporary public trycloudflare.com URL for this port")
                 }
             } else {
-                LabeledContent {
-                    ToolInstallButton(tool: .cloudflared)
-                } label: {
-                    Label("cloudflared Isn't Installed", systemImage: "cloud")
-                }
+                ToolNotice(tool: .cloudflared, message: "Share this port on a public URL.")
             }
             ForEach(tunnels.exposuresByPort[port.port] ?? [], id: \.publicURL) { exposure in
                 LabeledContent {
@@ -292,67 +368,20 @@ private struct SharingSection: View {
     }
 }
 
-struct QuickTunnelSummary: View {
-    @Environment(AppModel.self) private var model
-    let tunnel: QuickTunnel
-
-    var body: some View {
-        LabeledContent {
-            if let url = tunnel.url {
-                Link(tunnel.host ?? url.absoluteString, destination: url)
-                    .lineLimit(1)
-            } else {
-                Text(tunnel.status.title)
-            }
-        } label: {
-            Label {
-                Text("Quick Tunnel")
-            } icon: {
-                Image(systemName: "bolt.fill")
-                    .foregroundStyle(tunnel.status.tint)
-            }
-        }
-        if let error = tunnel.lastError, tunnel.status != .active {
-            Text(error)
-                .font(.caption)
-                .foregroundStyle(.red)
-                .lineLimit(3)
-                .textSelection(.enabled)
-        }
-        TrailingButtons {
-            if let url = tunnel.url {
-                Button("Copy URL") { Pasteboard.copy(url.absoluteString) }
-            }
-            Button(tunnel.status == .failed ? "Dismiss" : "Stop Tunnel") {
-                model.tunnels.stopQuickTunnel(tunnel)
-            }
-        }
-    }
-}
-
 private struct MultiplePortsSummary: View {
     @Environment(AppModel.self) private var model
     let ports: [ListeningPort]
-    @State private var confirming = false
 
     var body: some View {
         ContentUnavailableView {
             Label("\(ports.count) Ports Selected", systemImage: "square.stack.3d.up")
         } description: {
-            Text(ports.map { "\($0.processName) :\($0.port)" }.joined(separator: "\n"))
+            Text(ports.map { "\($0.processName) · \($0.port)" }.joined(separator: "\n"))
                 .lineLimit(8)
         } actions: {
             Button("Kill \(ports.count) Processes", role: .destructive) {
-                if model.preferences.skipKillConfirmation {
-                    Task { await model.ports.kill(ports) }
-                } else {
-                    confirming = true
-                }
+                model.ports.requestKill(ports)
             }
-        }
-        .confirmationDialog("Kill \(ports.count) Processes?", isPresented: $confirming) {
-            Button("Kill", role: .destructive) { Task { await model.ports.kill(ports) } }
-            Button("Force Kill") { Task { await model.ports.kill(ports, mode: .force) } }
         }
     }
 }
@@ -365,9 +394,12 @@ private struct InactivePortDetails: View {
         ContentUnavailableView {
             Label("Port \(String(port)) Is Free", systemImage: "moon.zzz")
         } description: {
-            Text("Nothing listens on this port right now. PortKiller keeps it here because it's a favorite or watched.")
+            Text("Nothing listens on this port right now. PortKiller keeps it because it's a favorite or watched.")
         } actions: {
-            Button("Remove") { model.ports.removeInactive(port) }
+            Button("Remove") {
+                model.ports.removeInactive(port)
+                model.portSelection = []
+            }
         }
     }
 }

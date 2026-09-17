@@ -2,17 +2,21 @@ import AppKit
 import PortKillerKit
 import SwiftUI
 
-struct RowIcon: View {
-    let symbol: String
-    let tint: Color
+struct InspectorSegmentedPicker<Option: Hashable>: View {
+    @Binding var selection: Option
+    let options: [Option]
+    let title: (Option) -> String
 
     var body: some View {
-        Image(systemName: symbol)
-            .symbolRenderingMode(.hierarchical)
-            .font(.system(size: 15))
-            .foregroundStyle(tint)
-            .frame(width: 32, height: 32)
-            .background(.fill.quaternary, in: .circle)
+        Picker("", selection: $selection) {
+            ForEach(options, id: \.self) { Text(title($0)).tag($0) }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
     }
 }
 
@@ -64,24 +68,6 @@ enum AppIcons {
     }
 }
 
-struct InspectorSegmentedPicker<Option: Hashable>: View {
-    @Binding var selection: Option
-    let options: [Option]
-    let title: (Option) -> String
-
-    var body: some View {
-        Picker("", selection: $selection) {
-            ForEach(options, id: \.self) { Text(title($0)).tag($0) }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
-    }
-}
-
 struct TrailingButtons<Content: View>: View {
     @ViewBuilder let content: Content
 
@@ -100,18 +86,17 @@ struct NoticeRow<Actions: View>: View {
     @ViewBuilder let actions: Actions
 
     var body: some View {
-        HStack(spacing: 10) {
-            RowIcon(symbol: symbol, tint: .orange)
-            VStack(alignment: .leading, spacing: 1) {
+        LabeledContent {
+            actions
+        } label: {
+            Label {
                 Text(title)
                 Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            } icon: {
+                Image(systemName: symbol)
+                    .foregroundStyle(.orange)
             }
-            Spacer(minLength: 8)
-            actions
         }
-        .padding(.vertical, 4)
     }
 }
 

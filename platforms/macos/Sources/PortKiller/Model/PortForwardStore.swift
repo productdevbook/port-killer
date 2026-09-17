@@ -10,7 +10,6 @@ final class PortForwardStore {
     private(set) var sessions: [PortForwardSession] = []
     private(set) var context: String?
     private(set) var isKillingStuckProcesses = false
-    var selection: PortForwardSession.ID?
 
     init(preferences: Preferences, notifier: Notifier) {
         self.preferences = preferences
@@ -26,10 +25,6 @@ final class PortForwardStore {
         sessions.count(where: \.isActive)
     }
 
-    var selectedSession: PortForwardSession? {
-        sessions.first { $0.id == selection }
-    }
-
     var kubectl: Kubectl? {
         preferences.locate(.kubectl).map(Kubectl.init(executable:))
     }
@@ -43,12 +38,12 @@ final class PortForwardStore {
         context = await kubectl?.currentContext()
     }
 
-    func add(_ configuration: PortForwardConfiguration, start: Bool = false) {
+    func add(_ configuration: PortForwardConfiguration, start: Bool = false) -> PortForwardSession {
         let session = PortForwardSession(configuration: configuration, preferences: preferences, notifier: notifier)
         sessions.append(session)
-        selection = session.id
         save()
         if start { session.start() }
+        return session
     }
 
     func update(_ configuration: PortForwardConfiguration) {
@@ -65,16 +60,6 @@ final class PortForwardStore {
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
         sessions[index].stop()
         sessions.remove(at: index)
-        if selection == id { selection = nil }
-        save()
-    }
-
-    func move(_ ids: [PortForwardSession.ID], before destination: PortForwardSession.ID?) {
-        let moving = sessions.filter { ids.contains($0.id) }
-        var remaining = sessions.filter { !ids.contains($0.id) }
-        let index = destination.flatMap { id in remaining.firstIndex { $0.id == id } } ?? remaining.endIndex
-        remaining.insert(contentsOf: moving, at: index)
-        sessions = remaining
         save()
     }
 

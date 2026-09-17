@@ -18,6 +18,14 @@ struct PortKillerApp: App {
             PortKillerCommands(model: appDelegate.model)
         }
 
+        Window("Sponsors", id: "sponsors") {
+            SponsorsView()
+                .environment(appDelegate.model)
+        }
+        .defaultSize(width: 760, height: 640)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+
         Settings {
             SettingsView()
                 .environment(appDelegate.model)

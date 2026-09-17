@@ -2,39 +2,32 @@ import PortKillerKit
 import SwiftUI
 
 struct PortsView: View {
-    let item: SidebarItem
     @Environment(AppModel.self) private var model
-    @State private var showingRange = false
 
     var body: some View {
+        @Bindable var model = model
         @Bindable var ports = model.ports
-        let rows = ports.rows(for: item).sorted(using: ports.sortOrder)
+        let rows = ports.rows(for: model.portScope).sorted(using: ports.sortOrder)
         let data = model.preferences.useTreeView ? PortStore.grouped(rows) : rows
         let sharedPorts = model.tunnels.sharedPorts
 
-        Table(data, children: \.children, selection: $ports.selection, sortOrder: $ports.sortOrder) {
+        Table(data, children: \.children, selection: $model.portSelection, sortOrder: $ports.sortOrder) {
             TableColumn("Port", value: \.port) { row in
                 PortCell(row: row, isShared: sharedPorts.contains(row.port))
             }
-            .width(min: 70, ideal: 92)
+            .width(min: 70, ideal: 90)
 
             TableColumn("Process", value: \.processName) { row in
                 ProcessCell(row: row, isTerminating: row.listener.map { ports.terminating.contains($0.id) } ?? false)
             }
-            .width(min: 160, ideal: 250)
+            .width(min: 160, ideal: 260)
 
             TableColumn("PID", value: \.pid) { row in
-                Text(row.listener == nil ? "–" : String(row.pid))
+                Text(row.listener == nil ? "" : String(row.pid))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
-            .width(min: 50, ideal: 64)
-
-            TableColumn("Type", value: \.categoryName) { row in
-                Text(row.categoryName)
-                    .foregroundStyle(.secondary)
-            }
-            .width(min: 80, ideal: 100)
+            .width(min: 50, ideal: 70)
 
             TableColumn("Address", value: \.address) { row in
                 Text(row.address)
@@ -42,27 +35,17 @@ struct PortsView: View {
                     .lineLimit(1)
                     .help(row.address)
             }
-            .width(min: 70, ideal: 120)
+            .width(min: 80, ideal: 130)
 
             TableColumn("User", value: \.user) { row in
                 Text(row.user)
                     .foregroundStyle(.secondary)
             }
-            .width(min: 50, ideal: 76)
-
-            TableColumn("Started", value: \.startDate) { row in
-                if let date = row.listener?.process.startDate {
-                    Text(date, format: .relative(presentation: .numeric, unitsStyle: .abbreviated))
-                        .foregroundStyle(.secondary)
-                        .help(date.formatted(date: .abbreviated, time: .standard))
-                }
-            }
-            .width(min: 70, ideal: 96)
+            .width(min: 50, ideal: 80)
         }
-        .contextMenu(forSelectionType: PortRow.ID.self) { ids in
+        .contextMenu(forSelectionType: ItemID.self) { ids in
             PortContextMenu(ids: ids) { model.ports.requestKill($0) }
-        } primaryAction: { ids in
-            model.ports.selection = ids
+        } primaryAction: { _ in
             model.inspectorVisible = true
         }
         .onDeleteCommand {
@@ -73,91 +56,45 @@ struct PortsView: View {
                 emptyState
             }
         }
-        .searchable(text: $ports.filter.searchText, placement: .toolbar, prompt: "Port, process, PID or command")
-        .navigationTitle(item.title)
-        .navigationSubtitle(rows.count == 1 ? "1 port" : "\(rows.count) ports")
-        .toolbar { toolbar }
-        .confirmationDialog(killTitle, isPresented: Binding(get: { !ports.pendingKill.isEmpty }, set: { if !$0 { ports.pendingKill = [] } }), presenting: ports.pendingKill) { targets in
-            Button("Kill", role: .destructive) { kill(targets, .graceful) }
-            Button("Force Kill") { kill(targets, .force) }
-            Button("Kill Process Tree") { kill(targets, .tree) }
-            Button("Kill and Close Connections") { kill(targets, .deep) }
-        } message: { targets in
-            Text(targets.count == 1 ? "PortKiller asks the process to quit, then stops it if it doesn't within a moment." : "PortKiller stops \(targets.count) processes.")
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        ToolbarItemGroup {
-            KillSelectionButton()
-            viewOptions
-            Button("Refresh", systemImage: "arrow.clockwise") {
-                Task { await model.ports.refresh() }
+        .navigationSubtitle(subtitle(rows.count))
+        .toolbar {
+            ToolbarItem {
+                KillButton()
             }
-            .help("Scan listening ports now")
-        }
-    }
-
-    private var viewOptions: some View {
-        @Bindable var ports = model.ports
-        @Bindable var preferences = model.preferences
-        let isFiltering = ports.filter.isActive || preferences.hideSystemProcesses
-        return Menu {
-            Picker("Layout", selection: $preferences.useTreeView) {
-                Label("List", systemImage: "list.bullet").tag(false)
-                Label("Group by Process", systemImage: "list.bullet.indent").tag(true)
+            ToolbarItem {
+                PortFilterMenu()
             }
-            .pickerStyle(.inline)
-            Toggle("Hide System Processes", isOn: $preferences.hideSystemProcesses)
-            Section("Categories") {
-                ForEach(ProcessCategory.allCases) { category in
-                    Toggle(category.rawValue, isOn: $ports.filter.categories.contains(category))
-                }
-            }
-            Divider()
-            Button("Port Range…") { showingRange = true }
-            Button("Reset Filters") { ports.filter.reset() }
-                .disabled(!ports.filter.isActive)
-        } label: {
-            Label("View Options", systemImage: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
-        }
-        .menuIndicator(.hidden)
-        .help("Layout and filters")
-        .popover(isPresented: $showingRange, arrowEdge: .bottom) {
-            PortRangeForm(filter: $ports.filter)
         }
     }
 
     @ViewBuilder
     private var emptyState: some View {
-        if !model.ports.filter.searchText.isEmpty {
-            ContentUnavailableView.search(text: model.ports.filter.searchText)
+        let query = model.ports.filter.searchText
+        if !query.isEmpty {
+            ContentUnavailableView.search(text: query)
         } else {
-            switch item {
+            switch model.portScope {
+            case .all:
+                ContentUnavailableView("No Listening Ports", systemImage: "network.slash", description: Text("Processes that listen on TCP ports appear here."))
             case .favorites:
-                ContentUnavailableView("No Favorites", systemImage: "star", description: Text("Mark a port as a favorite to keep it at hand, even when nothing listens on it."))
+                ContentUnavailableView("No Favorites", systemImage: "star", description: Text("Mark a port as a favorite to keep it here, even when nothing listens on it."))
             case .watched:
                 ContentUnavailableView("No Watched Ports", systemImage: "eye", description: Text("Watch a port to get notified when it starts or stops being used."))
-            default:
-                ContentUnavailableView("No Listening Ports", systemImage: "network.slash", description: Text("Processes that listen on TCP ports appear here."))
             }
         }
     }
 
-    private var killTitle: String {
-        let pendingKill = model.ports.pendingKill
-        guard pendingKill.count == 1, let port = pendingKill.first else { return "Kill \(pendingKill.count) Processes?" }
-        return "Kill \(port.processName) on Port \(port.port)?"
-    }
-
-    private func kill(_ targets: [ListeningPort], _ mode: KillMode) {
-        model.ports.pendingKill = []
-        Task { await model.ports.kill(targets, mode: mode) }
+    private func subtitle(_ count: Int) -> String {
+        let ports = count == 1 ? "1 port" : "\(count) ports"
+        switch model.portScope {
+        case .all: return ports
+        case .favorites: return "Favorites · \(ports)"
+        case .watched: return "Watched · \(ports)"
+        }
     }
 }
 
-private struct KillSelectionButton: View {
+private struct KillButton: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -167,6 +104,47 @@ private struct KillSelectionButton: View {
         }
         .disabled(selected.isEmpty)
         .help("Kill the selected processes")
+    }
+}
+
+private struct PortFilterMenu: View {
+    @Environment(AppModel.self) private var model
+    @State private var showingRange = false
+
+    var body: some View {
+        @Bindable var model = model
+        @Bindable var ports = model.ports
+        @Bindable var preferences = model.preferences
+        let isFiltering = model.portScope != .all || ports.filter.isActive || preferences.hideSystemProcesses
+        Menu {
+            Picker("Show", selection: $model.portScope) {
+                Text("All Ports").tag(PortScope.all)
+                Text("Favorites").tag(PortScope.favorites)
+                Text("Watched").tag(PortScope.watched)
+            }
+            .pickerStyle(.inline)
+            Toggle("Group by Process", isOn: $preferences.useTreeView)
+            Toggle("Hide System Processes", isOn: $preferences.hideSystemProcesses)
+            Menu("Categories") {
+                ForEach(ProcessCategory.allCases) { category in
+                    Toggle(category.rawValue, isOn: $ports.filter.categories.contains(category))
+                }
+            }
+            Button("Port Range…") { showingRange = true }
+            Divider()
+            Button("Reset Filters") {
+                ports.filter.reset()
+                model.portScope = .all
+            }
+            .disabled(!ports.filter.isActive && model.portScope == .all)
+        } label: {
+            Label("Filter", systemImage: isFiltering ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
+        }
+        .menuIndicator(.hidden)
+        .help("Filter and group ports")
+        .popover(isPresented: $showingRange, arrowEdge: .bottom) {
+            PortRangeForm(filter: $ports.filter)
+        }
     }
 }
 

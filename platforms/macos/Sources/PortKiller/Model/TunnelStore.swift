@@ -10,11 +10,6 @@ struct PortExposure: Hashable {
     var tunnelName: String
 }
 
-enum TunnelSelection: Hashable {
-    case quick(QuickTunnel.ID)
-    case named(NamedTunnel.ID)
-}
-
 @Observable
 final class QuickTunnel: Identifiable {
     enum Status: Equatable {
@@ -124,7 +119,6 @@ final class TunnelStore {
     private(set) var isDiscovering = false
     private(set) var hasDiscovered = false
     private(set) var isLoggedIn = Cloudflared.isLoggedIn
-    var selection: TunnelSelection?
 
     @ObservationIgnored private var discoveryLoop: Task<Void, Never>?
 
@@ -141,7 +135,6 @@ final class TunnelStore {
 
     var activeQuickCount: Int { quickTunnels.count { $0.status == .active } }
     var runningNamedCount: Int { namedTunnels.count { $0.status == .running } }
-    var activeCount: Int { activeQuickCount + runningNamedCount }
 
     var sharedPorts: Set<Int> {
         Set(exposuresByPort.keys).union(quickTunnels.filter { $0.status == .active }.map(\.port))

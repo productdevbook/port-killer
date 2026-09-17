@@ -6,84 +6,103 @@ struct ForwardsView: View {
     @State private var browsing = false
 
     var body: some View {
-        @Bindable var forwards = model.forwards
-        let sessions = forwards.sessions
+        @Bindable var model = model
+        let forwards = model.forwards
+        let query = model.ports.filter.searchText.trimmingCharacters(in: .whitespaces)
+        let sessions = forwards.sessions.filter { $0.matches(query) }
         let hasKubectl = model.preferences.locate(.kubectl) != nil
-        List(selection: $forwards.selection) {
-            if !hasKubectl {
-                Section {
-                    ToolNotice(tool: .kubectl, message: "Port forwarding runs kubectl port-forward for you.")
+
+        Table(sessions, selection: $model.forwardSelection) {
+            TableColumn("Status") { session in
+                HStack(spacing: 6) {
+                    StatusDot(color: session.status.tint)
+                    Text(session.configuration.isEnabled || session.isActive ? session.status.title : "Disabled")
+                        .foregroundStyle(.secondary)
                 }
             }
-            Section {
-                ForEach(sessions) { session in
-                    ForwardRow(session: session)
-                        .tag(session.id)
-                }
-                .reorderable()
-            } header: {
-                if let context = forwards.context {
-                    Label(context, systemImage: "circle.hexagongrid")
-                }
+            .width(min: 90, ideal: 120)
+
+            TableColumn("Name") { session in
+                Text(session.configuration.name)
+                    .lineLimit(1)
             }
-        }
-        .reorderContainer(for: PortForwardSession.self) { difference in
-            let destination: PortForwardSession.ID? = switch difference.destination.position {
-            case .before(let id): id
-            case .end: nil
+            .width(min: 120, ideal: 200)
+
+            TableColumn("Service") { session in
+                Text(session.configuration.target)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            forwards.move(difference.sources, before: destination)
+            .width(min: 120, ideal: 220)
+
+            TableColumn("Local Address") { session in
+                Text(verbatim: "localhost:\(session.configuration.effectivePort)")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            .width(min: 110, ideal: 130)
         }
         .contextMenu(forSelectionType: PortForwardSession.ID.self) { ids in
-            if let id = ids.first, let session = sessions.first(where: { $0.id == id }) {
+            if ids.count == 1, let session = forwards.sessions.first(where: { ids.contains($0.id) }) {
                 ForwardActions(session: session)
             }
-        } primaryAction: { ids in
-            guard let id = ids.first, let session = sessions.first(where: { $0.id == id }) else { return }
-            session.toggle()
+        } primaryAction: { _ in
+            model.inspectorVisible = true
         }
         .onDeleteCommand {
-            if let id = forwards.selection { forwards.remove(id) }
+            for id in model.forwardSelection { forwards.remove(id) }
+            model.forwardSelection = []
         }
         .overlay {
-            if sessions.isEmpty {
+            if forwards.sessions.isEmpty {
                 ContentUnavailableView {
                     Label("No Port Forwards", systemImage: "point.3.connected.trianglepath.dotted")
                 } description: {
-                    Text("Forward a Kubernetes service to a port on this Mac. PortKiller keeps it connected.")
+                    Text(hasKubectl ? "Forward a Kubernetes service to a port on this Mac. PortKiller keeps it connected." : "Port forwarding runs kubectl port-forward, which isn't installed.")
                 } actions: {
-                    Button("Browse Cluster…") { browsing = true }
-                    Button("Add Manually") { forwards.add(.placeholder()) }
+                    if hasKubectl {
+                        Button("Browse Cluster…") { browsing = true }
+                        Button("New Port Forward") { model.addForward(.placeholder()) }
+                    } else {
+                        ToolInstallButton(tool: .kubectl)
+                    }
                 }
+            } else if sessions.isEmpty {
+                ContentUnavailableView.search(text: query)
             }
         }
-        .navigationTitle("Port Forwards")
-        .navigationSubtitle(sessions.isEmpty ? "" : "\(forwards.connectedCount) of \(sessions.count) connected")
+        .navigationSubtitle(forwards.sessions.isEmpty ? "" : "\(forwards.connectedCount) of \(forwards.sessions.count) connected")
         .toolbar {
-            ToolbarItemGroup {
+            ToolbarItem {
                 Menu {
                     Button("Browse Cluster…", systemImage: "square.stack.3d.down.forward") { browsing = true }
                         .disabled(!hasKubectl)
-                    Button("Add Manually", systemImage: "plus") { forwards.add(.placeholder()) }
+                    Button("New Port Forward", systemImage: "plus") { model.addForward(.placeholder()) }
                 } label: {
                     Label("Add", systemImage: "plus")
                 }
                 .menuIndicator(.hidden)
                 .help("Add a port forward")
-
-                Button("Start All", systemImage: "play") { forwards.startAll() }
-                    .disabled(sessions.isEmpty)
-                    .help("Start every enabled port forward")
-                Button("Stop All", systemImage: "stop") { forwards.stopAll() }
-                    .disabled(forwards.activeCount == 0)
-                    .help("Stop every port forward")
             }
             ToolbarItem {
-                Button("Kill Stuck Processes", systemImage: "bandage") {
-                    Task { await forwards.killStuckProcesses() }
+                ForwardControlButton()
+            }
+            ToolbarItem {
+                Menu {
+                    Button("Start All", systemImage: "play") { forwards.startAll() }
+                        .disabled(forwards.sessions.isEmpty)
+                    Button("Stop All", systemImage: "stop") { forwards.stopAll() }
+                        .disabled(forwards.activeCount == 0)
+                    Divider()
+                    Button("Kill Stuck Processes", systemImage: "bandage") {
+                        Task { await forwards.killStuckProcesses() }
+                    }
+                    .disabled(forwards.isKillingStuckProcesses)
+                } label: {
+                    Label("More", systemImage: "ellipsis")
                 }
-                .disabled(forwards.isKillingStuckProcesses)
-                .help("Force-quit leftover kubectl port-forward and socat processes")
+                .menuIndicator(.hidden)
+                .help("Start, stop or clean up all port forwards")
             }
         }
         .sheet(isPresented: $browsing) {
@@ -95,28 +114,19 @@ struct ForwardsView: View {
     }
 }
 
-private struct ForwardRow: View {
-    let session: PortForwardSession
+private struct ForwardControlButton: View {
+    @Environment(AppModel.self) private var model
 
     var body: some View {
-        let configuration = session.configuration
-        HStack(spacing: 10) {
-            RowIcon(symbol: "point.3.connected.trianglepath.dotted", tint: session.status.tint)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(configuration.name)
-                    .lineLimit(1)
-                Text("\(configuration.target) · \(configuration.isEnabled ? session.status.title : "Disabled")")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+        let selected = model.forwards.sessions.filter { model.forwardSelection.contains($0.id) }
+        let isActive = selected.contains(where: \.isActive)
+        Button(isActive ? "Stop" : "Start", systemImage: isActive ? "stop.fill" : "play.fill") {
+            for session in selected {
+                isActive ? session.stop() : session.start()
             }
-            Spacer(minLength: 4)
-            Text(verbatim: ":\(configuration.effectivePort)")
-                .font(.subheadline.monospacedDigit())
-                .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 4)
-        .opacity(configuration.isEnabled || session.isActive ? 1 : 0.55)
+        .disabled(selected.isEmpty)
+        .help(isActive ? "Stop the selected port forwards" : "Start the selected port forwards")
     }
 }
 
@@ -140,10 +150,19 @@ struct ForwardActions: View {
             var copy = session.configuration
             copy.id = UUID()
             copy.name += " Copy"
-            model.forwards.add(copy)
+            model.addForward(copy)
         }
         Button("Delete", systemImage: "trash", role: .destructive) {
+            model.forwardSelection.remove(session.id)
             model.forwards.remove(session.id)
         }
+    }
+}
+
+private extension PortForwardSession {
+    func matches(_ query: String) -> Bool {
+        guard !query.isEmpty else { return true }
+        return [configuration.name, configuration.namespace, configuration.service, String(configuration.effectivePort)]
+            .contains { $0.localizedCaseInsensitiveContains(query) }
     }
 }

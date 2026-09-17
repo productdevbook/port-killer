@@ -67,6 +67,9 @@ Download `.zip` from [GitHub Releases](https://github.com/productdevbook/port-ki
 - ☁️ View and manage active Cloudflare Tunnel connections
 - 🌐 Quick access to tunnel status
 
+### Plugins (macOS)
+- 🧩 Add tabs and port actions with plugins written in any language, see [PLUGINS.md](platforms/macos/PLUGINS.md)
+
 ### Cross-Platform
 - 📍 Menu bar integration (macOS)
 - 🖥️ System tray app (Windows)

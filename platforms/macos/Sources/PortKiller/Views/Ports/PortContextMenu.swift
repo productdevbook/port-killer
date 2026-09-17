@@ -4,12 +4,14 @@ import SwiftUI
 
 struct PortContextMenu: View {
     @Environment(AppModel.self) private var model
-    let ids: Set<PortRow.ID>
+    let ids: Set<ItemID>
     let onKill: ([ListeningPort]) -> Void
 
     var body: some View {
         let listeners = model.listeners(ids: ids)
-        let inactivePorts = ids.compactMap(\.inactivePort)
+        let inactivePorts = ids.compactMap { id in
+            if case .inactivePort(let port) = id { port } else { nil }
+        }
 
         if listeners.count == 1, let port = listeners.first {
             single(port)
@@ -61,14 +63,23 @@ struct PortContextMenu: View {
                 Button("Detect Automatically") { preferences.setCategoryOverride(nil, for: port.processName) }
             }
         }
-        Button("Edit Label and Note…", systemImage: "pencil") {
-            model.ports.selection = [.listener(port.id)]
-            model.inspectorVisible = true
+        Button("Show in PortKiller", systemImage: "macwindow") {
+            model.reveal(.listener(port.id))
         }
 
         Divider()
 
         tunnelActions(port)
+
+        let pluginActions = model.plugins.portActions(for: port)
+        if !pluginActions.isEmpty {
+            Divider()
+            ForEach(Array(pluginActions.enumerated()), id: \.offset) { _, entry in
+                Button(entry.action.title, systemImage: entry.action.icon ?? entry.plugin.manifest.icon ?? "puzzlepiece.extension") {
+                    Task { await model.plugins.perform(entry.action, on: port, in: entry.plugin) }
+                }
+            }
+        }
 
         Divider()
 

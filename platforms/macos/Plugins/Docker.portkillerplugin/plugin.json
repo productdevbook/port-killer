@@ -1,0 +1,15 @@
+{
+  "apiVersion": 1,
+  "id": "dev.portkiller.docker",
+  "name": "Docker",
+  "version": "1.0.0",
+  "description": "Lists your containers and starts, stops or restarts them.",
+  "author": "PortKiller",
+  "homepage": "https://github.com/productdevbook/port-killer/tree/main/platforms/macos/Plugins",
+  "icon": "shippingbox",
+  "executable": "docker.sh",
+  "items": {
+    "title": "Docker",
+    "refreshInterval": 5
+  }
+}

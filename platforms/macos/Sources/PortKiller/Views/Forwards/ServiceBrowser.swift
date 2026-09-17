@@ -78,7 +78,15 @@ struct ServiceBrowser: View {
             if loadingNamespaces, allNamespaces.isEmpty {
                 ProgressView()
             } else if let namespaceError, allNamespaces.isEmpty {
-                ContentUnavailableView("Cluster Unavailable", systemImage: "exclamationmark.triangle", description: Text(namespaceError))
+                ContentUnavailableView {
+                    Label("Cluster Unavailable", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(namespaceError)
+                } actions: {
+                    if model.forwards.kubectl == nil {
+                        ToolInstallButton(tool: .kubectl)
+                    }
+                }
             }
         }
         .safeAreaBar(edge: .bottom) {
@@ -218,7 +226,7 @@ struct ServiceBrowser: View {
             remotePort: remotePort,
             proxyPort: proxyPort
         )
-        model.forwards.add(configuration, start: startNow)
+        model.addForward(configuration, start: startNow)
         dismiss()
     }
 }

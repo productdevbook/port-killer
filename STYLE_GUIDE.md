@@ -28,11 +28,18 @@ PortKiller for macOS targets macOS 27 on Apple silicon and Swift 6.4. There is n
 
 ## Views
 
-- Build with native containers first: `NavigationSplitView`, `Table`, `List`, `Form` with `.formStyle(.grouped)`, `.inspector`, `Settings` with `Tab`.
-- Use Liquid Glass through the system styles: `.buttonStyle(.glass)`, `.buttonStyle(.glassProminent)`, `.glassEffect(_:in:)`. Don't draw custom materials or shadows.
+- The window works like Activity Monitor: tabs in the toolbar, one `Table` per tab, and details in an `.inspector` that opens on request.
+- Build with native containers: `Table`, `Form` with `.formStyle(.grouped)`, `.inspector`, `Settings` with `Tab`. Label form rows with `Label` and an SF Symbol, and put row actions in trailing buttons.
+- Leave Liquid Glass to the system toolbar and controls. Use `.glassEffect(_:in:)` only for controls that float over content, such as the menu bar footer. Don't draw custom materials or shadows.
 - Use `ContentUnavailableView` for empty, missing and error states.
 - Keep view structs small and put actions in the stores. Views don't run processes or call the scanner; persisted settings go through `Preferences`, and `@AppStorage` is only for view state such as the selected settings tab.
 - Use `.safeAreaBar` for status and action bars, `.alert(error:)` and `.confirmationDialog` for errors and destructive actions.
+
+## Plugins
+
+- Plugins are executables that exchange JSON with PortKiller; [PLUGINS.md](platforms/macos/PLUGINS.md) is the contract. Change it together with `PluginManifest` and `PluginProtocol`, and keep `apiVersion` compatible.
+- Plugins only provide data. PortKiller draws their tabs, details and actions with the same native views as everything else.
+- Never run a plugin that isn't turned on in Settings.
 
 ## System APIs
 

@@ -3,6 +3,31 @@ import Observation
 import PortKillerKit
 import SwiftUI
 
+enum AppTab: Hashable {
+    case ports
+    case forwards
+    case tunnels
+    case plugin(Plugin.ID)
+
+    init(storageValue: String) {
+        switch storageValue {
+        case "forwards": self = .forwards
+        case "tunnels": self = .tunnels
+        case let value where value.hasPrefix("plugin:"): self = .plugin(String(value.dropFirst("plugin:".count)))
+        default: self = .ports
+        }
+    }
+
+    var storageValue: String {
+        switch self {
+        case .ports: "ports"
+        case .forwards: "forwards"
+        case .tunnels: "tunnels"
+        case .plugin(let id): "plugin:\(id)"
+        }
+    }
+}
+
 @Observable
 final class AppModel {
     let preferences: Preferences
@@ -12,14 +37,24 @@ final class AppModel {
     let tunnels: TunnelStore
     let sponsors: SponsorStore
     let installer: ToolInstaller
+    let plugins: PluginStore
     let loginItem = LoginItem()
     let updater = Updater()
     let explainer = ProcessExplainer()
 
-    var sidebar: SidebarItem {
-        didSet { UserDefaults.standard.set(sidebar.storageValue, forKey: "sidebarSelection") }
+    var tab: AppTab {
+        didSet { UserDefaults.standard.set(tab.storageValue, forKey: "selectedTab") }
     }
-    var inspectorVisible = true
+    var inspectorVisible: Bool {
+        didSet { UserDefaults.standard.set(inspectorVisible, forKey: "inspectorVisible") }
+    }
+    var portScope: PortScope {
+        didSet { UserDefaults.standard.set(portScope.rawValue, forKey: "portScope") }
+    }
+    var portSelection: Set<ItemID> = []
+    var forwardSelection: Set<PortForwardSession.ID> = []
+    var tunnelSelection: Set<ItemID> = []
+    var pluginSelection: Set<PluginItem.ID> = []
     var showingOnboarding: Bool
     @ObservationIgnored var openWindow: OpenWindowAction?
 
@@ -33,8 +68,14 @@ final class AppModel {
         tunnels = TunnelStore(preferences: preferences, notifier: notifier)
         sponsors = SponsorStore(preferences: preferences)
         installer = ToolInstaller(preferences: preferences)
+        plugins = PluginStore(notifier: notifier)
         showingOnboarding = !preferences.hasCompletedOnboarding
-        sidebar = UserDefaults.standard.string(forKey: "sidebarSelection").flatMap(SidebarItem.init(storageValue:)) ?? .allPorts
+        portScope = UserDefaults.standard.string(forKey: "portScope").flatMap(PortScope.init(rawValue:)) ?? .all
+        inspectorVisible = UserDefaults.standard.bool(forKey: "inspectorVisible")
+        tab = AppTab(storageValue: UserDefaults.standard.string(forKey: "selectedTab") ?? "")
+        if case .plugin(let id) = tab, !plugins.tabPlugins.contains(where: { $0.id == id }) {
+            tab = .ports
+        }
     }
 
     func start() {
@@ -50,7 +91,7 @@ final class AppModel {
             guard let self else { return }
             await sponsors.refreshIfStale()
             if sponsors.isDue, preferences.hasCompletedOnboarding {
-                show(.sponsors)
+                showSponsors()
                 sponsors.markShown()
             }
         }
@@ -61,8 +102,7 @@ final class AppModel {
         await tunnels.stopEverythingAndWait()
     }
 
-    func show(_ item: SidebarItem? = nil) {
-        if let item { sidebar = item }
+    func show() {
         if let window = mainWindow {
             window.makeKeyAndOrderFront(nil)
         } else {
@@ -79,12 +119,37 @@ final class AppModel {
         }
     }
 
-    var selectedListeners: [ListeningPort] {
-        listeners(ids: ports.selection)
+    func showSponsors() {
+        openWindow?(id: "sponsors")
+        NSApp.activate()
     }
 
-    func listeners(ids: Set<PortRow.ID>) -> [ListeningPort] {
-        ports.listeners(ids: ids, in: sidebar)
+    func reveal(_ id: ItemID) {
+        switch id {
+        case .listener, .process, .inactivePort:
+            tab = .ports
+            portSelection = [id]
+        case .quickTunnel, .namedTunnel:
+            tab = .tunnels
+            tunnelSelection = [id]
+        }
+        inspectorVisible = true
+        show()
+    }
+
+    var selectedListeners: [ListeningPort] {
+        listeners(ids: portSelection)
+    }
+
+    func listeners(ids: Set<ItemID>) -> [ListeningPort] {
+        ports.listeners(ids: ids, in: portScope)
+    }
+
+    func addForward(_ configuration: PortForwardConfiguration, start: Bool = false) {
+        let session = forwards.add(configuration, start: start)
+        tab = .forwards
+        forwardSelection = [session.id]
+        inspectorVisible = true
     }
 
     func completeOnboarding() {

@@ -137,6 +137,7 @@ enum AppInfo {
     static let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
     static let repository = URL(string: "https://github.com/productdevbook/port-killer")
     static let issues = URL(string: "https://github.com/productdevbook/port-killer/issues")
+    static let pluginGuide = URL(string: "https://github.com/productdevbook/port-killer/blob/main/platforms/macos/PLUGINS.md")
     static let sponsors = URL(string: "https://github.com/sponsors/productdevbook")
     static let twitter = URL(string: "https://x.com/productdevbook")
 }

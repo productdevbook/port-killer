@@ -137,8 +137,10 @@ platforms/
 ├── macos/
 │   ├── Sources/
 │   │   ├── PortKiller/            # App: @Observable stores (Model/) and SwiftUI views (Views/)
-│   │   └── PortKillerKit/         # Scanning, process control, kubectl, cloudflared, rules
+│   │   └── PortKillerKit/         # Scanning, process control, kubectl, cloudflared, rules, plugins
 │   ├── Tests/PortKillerKitTests/  # Swift Testing
+│   ├── Plugins/                   # Example plugins
+│   ├── PLUGINS.md                 # Plugin guide
 │   ├── Resources/                 # Icon, menu bar icon, Info.plist
 │   └── Scripts/build-app.sh       # App bundle
 ├── windows/

@@ -1,28 +1,23 @@
 import PortKillerKit
 import SwiftUI
 
-extension SidebarItem {
+extension Optional where Wrapped == PluginItemStatus {
     var title: String {
         switch self {
-        case .allPorts: "All Ports"
-        case .favorites: "Favorites"
-        case .watched: "Watched"
-        case .category(let category): category.rawValue
-        case .portForwards: "Port Forwards"
-        case .tunnels: "Cloudflare Tunnels"
-        case .sponsors: "Sponsors"
+        case .running: "Running"
+        case .stopped: "Stopped"
+        case .warning: "Warning"
+        case .error: "Error"
+        case nil: "—"
         }
     }
 
-    var symbolName: String {
+    var tint: Color {
         switch self {
-        case .allPorts: "network"
-        case .favorites: "star"
-        case .watched: "eye"
-        case .category(let category): category.symbolName
-        case .portForwards: "point.3.connected.trianglepath.dotted"
-        case .tunnels: "cloud"
-        case .sponsors: "heart"
+        case .running: .green
+        case .stopped, nil: .secondary
+        case .warning: .orange
+        case .error: .red
         }
     }
 }

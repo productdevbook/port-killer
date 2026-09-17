@@ -14,18 +14,55 @@ public struct CommandResult: Sendable {
     }
 }
 
+public struct CommandTimedOut: Error, Sendable {}
+
 public enum CommandRunner {
     private static let outputLimit = 64 << 20
 
     @concurrent
-    public static func run(_ executable: URL, _ arguments: [String]) async throws -> CommandResult {
-        let result = try await Subprocess.run(
-            .path(FilePath(executable.path)),
-            arguments: Arguments(arguments),
-            environment: environment,
-            output: .string(limit: outputLimit),
-            error: .string(limit: outputLimit)
-        )
+    public static func run(
+        _ executable: URL,
+        _ arguments: [String],
+        input: String? = nil,
+        environment: [String: String] = [:],
+        timeout: Duration? = nil
+    ) async throws -> CommandResult {
+        let environment = Self.environment(adding: environment)
+        guard let timeout else {
+            return try await collect(executable, arguments, input: input, environment: environment)
+        }
+        return try await withThrowingTaskGroup(of: CommandResult?.self) { group in
+            group.addTask { try await collect(executable, arguments, input: input, environment: environment) }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = try await group.next() ?? nil
+            group.cancelAll()
+            guard let first else { throw CommandTimedOut() }
+            return first
+        }
+    }
+
+    private static func collect(_ executable: URL, _ arguments: [String], input: String?, environment: Environment) async throws -> CommandResult {
+        let result = if let input {
+            try await Subprocess.run(
+                .path(FilePath(executable.path)),
+                arguments: Arguments(arguments),
+                environment: environment,
+                input: .string(input),
+                output: .string(limit: outputLimit),
+                error: .string(limit: outputLimit)
+            )
+        } else {
+            try await Subprocess.run(
+                .path(FilePath(executable.path)),
+                arguments: Arguments(arguments),
+                environment: environment,
+                output: .string(limit: outputLimit),
+                error: .string(limit: outputLimit)
+            )
+        }
         return CommandResult(status: status(result.terminationStatus), output: result.standardOutput, error: result.standardError)
     }
 
@@ -44,7 +81,7 @@ public enum CommandRunner {
         let result = try await Subprocess.run(
             .path(FilePath(executable.path)),
             arguments: Arguments(arguments),
-            environment: environment,
+            environment: environment(adding: [:]),
             platformOptions: options,
             input: .none,
             output: .sequence,
@@ -65,7 +102,11 @@ public enum CommandRunner {
         }
     }
 
-    private static var environment: Environment {
-        .inherit.updating(["PATH": CommandLineTool.searchPath])
+    private static func environment(adding values: [String: String]) -> Environment {
+        var changes: [Environment.Key: String?] = ["PATH": CommandLineTool.searchPath]
+        for (name, value) in values {
+            if let key = Environment.Key(rawValue: name) { changes[key] = value }
+        }
+        return .inherit.updating(changes)
     }
 }

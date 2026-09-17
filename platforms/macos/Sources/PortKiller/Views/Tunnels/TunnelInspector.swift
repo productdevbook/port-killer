@@ -5,22 +5,29 @@ struct TunnelInspector: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        switch model.tunnels.selection {
-        case .quick(let id):
-            if let tunnel = model.tunnels.quickTunnels.first(where: { $0.id == id }) {
-                QuickTunnelDetails(tunnel: tunnel)
-                    .id(id)
-            } else {
+        let selection = model.tunnelSelection
+        if selection.count == 1, let id = selection.first {
+            switch id {
+            case .quickTunnel(let tunnelID):
+                if let tunnel = model.tunnels.quickTunnels.first(where: { $0.id == tunnelID }) {
+                    QuickTunnelDetails(tunnel: tunnel)
+                        .id(tunnelID)
+                } else {
+                    empty
+                }
+            case .namedTunnel(let tunnelID):
+                if let tunnel = model.tunnels.namedTunnels.first(where: { $0.id == tunnelID }) {
+                    NamedTunnelDetails(tunnel: tunnel)
+                        .id(tunnelID)
+                } else {
+                    empty
+                }
+            default:
                 empty
             }
-        case .named(let id):
-            if let tunnel = model.tunnels.namedTunnels.first(where: { $0.id == id }) {
-                NamedTunnelDetails(tunnel: tunnel)
-                    .id(id)
-            } else {
-                empty
-            }
-        case nil:
+        } else if selection.count > 1 {
+            ContentUnavailableView("\(selection.count) Tunnels Selected", systemImage: "cloud")
+        } else {
             empty
         }
     }
@@ -47,15 +54,43 @@ private struct QuickTunnelDetails: View {
             case .details:
                 Form {
                     Section {
-                        QuickTunnelSummary(tunnel: tunnel)
+                        LabeledContent {
+                            Text(tunnel.status.title)
+                        } label: {
+                            Label {
+                                Text("Port \(String(tunnel.port))")
+                            } icon: {
+                                Image(systemName: "bolt.fill")
+                                    .foregroundStyle(tunnel.status.tint)
+                            }
+                        }
+                        if let url = tunnel.url {
+                            LabeledContent {
+                                Link(tunnel.host ?? url.absoluteString, destination: url)
+                                    .lineLimit(1)
+                            } label: {
+                                Label("URL", systemImage: "link")
+                            }
+                            .contextMenu { URLActions(url: url) }
+                        }
+                        if let error = tunnel.lastError, tunnel.status != .active {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .textSelection(.enabled)
+                        }
+                        TrailingButtons {
+                            if let url = tunnel.url {
+                                Button("Copy URL") { Pasteboard.copy(url.absoluteString) }
+                            }
+                            Button(tunnel.status == .failed ? "Dismiss" : "Stop Tunnel") { model.tunnels.stopQuickTunnel(tunnel) }
+                        }
+                    } footer: {
+                        Text("Quick tunnels get a random trycloudflare.com address and stop when PortKiller quits.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     Section("Details") {
-                        LabeledContent {
-                            Text(String(tunnel.port))
-                                .monospacedDigit()
-                        } label: {
-                            Label("Local Port", systemImage: "laptopcomputer")
-                        }
                         if let startedAt = tunnel.startedAt {
                             LabeledContent {
                                 Text(startedAt, format: .relative(presentation: .named))
@@ -142,7 +177,7 @@ private struct NamedTunnelDetails: View {
                                         Button("Copy URL") { Pasteboard.copy(url) }
                                     }
                             } else {
-                                Text("Fallback")
+                                Text("Everything Else")
                             }
                         }
                     }
@@ -200,7 +235,6 @@ private struct NamedTunnelDetails: View {
                         } label: {
                             Label {
                                 Text(connection.coloName)
-                                    .font(.body.monospaced())
                                 Text(connection.originIP)
                             } icon: {
                                 StatusDot(color: connection.isPendingReconnect ? .orange : .green)
