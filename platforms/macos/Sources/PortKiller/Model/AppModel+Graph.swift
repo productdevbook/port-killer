@@ -207,6 +207,16 @@ extension AppModel {
         return PortGraph(providers: providers, consumers: consumers, idlePorts: Set(ports.inactivePorts(for: portScope)))
     }
 
+    func focusedGraph(_ overview: PortGraph, on id: String) -> PortGraph {
+        let graph = overview.focused(on: id)
+        let listeners = graph.nodes.compactMap(\.port).map { port in (port, ports.ports.first { $0.port == port }?.processName ?? "") }
+        return graph.removing { node in
+            guard case .pluginAction(let pluginID, let actionID) = node.kind, !graph.edges.contains(where: { $0.to == node.id }) else { return false }
+            guard let action = plugins.plugin(id: pluginID)?.manifest.portActions?.first(where: { $0.id == actionID }) else { return true }
+            return !listeners.contains { action.applies(toPort: $0.0, processName: $0.1) }
+        }
+    }
+
     func apply(_ change: GraphChange) {
         switch change {
         case .favorite(let port):

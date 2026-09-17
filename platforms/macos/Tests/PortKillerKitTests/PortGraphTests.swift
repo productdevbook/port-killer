@@ -89,6 +89,14 @@ struct PortGraphTests {
         #expect(positions["share"] == GraphPoint(x: 300, y: 120))
     }
 
+    @Test func removesNodesWithTheirEdges() {
+        let graph = graph.removing { $0.id == "favorites" || $0.id == "process:vite" }
+        #expect(graph.node(id: "favorites") == nil)
+        #expect(graph.node(id: "port:5173") != nil)
+        #expect(!graph.edges.contains { $0.to == "favorites" || $0.from == "process:vite" })
+        #expect(graph.edges.contains(GraphEdge(from: "port:5173", to: "tunnel:dev", origin: .system)))
+    }
+
     @Test func connectsPluginItemsThatTargetPorts() {
         let graph = PortGraph(
             providers: [.init(node: GraphNode(id: "process:node", kind: .process(pid: 10), title: "node", subtitle: "", symbol: "hammer"), ports: [3000])],

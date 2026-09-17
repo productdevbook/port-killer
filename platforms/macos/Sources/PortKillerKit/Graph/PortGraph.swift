@@ -169,6 +169,12 @@ public struct PortGraph: Hashable, Sendable {
         return PortGraph(nodes: nodes.filter { ids.contains($0.id) || $0.acceptsLinks }, edges: kept)
     }
 
+    public func removing(_ shouldRemove: (GraphNode) -> Bool) -> PortGraph {
+        let kept = nodes.filter { !shouldRemove($0) }
+        let ids = Set(kept.map(\.id))
+        return PortGraph(nodes: kept, edges: edges.filter { ids.contains($0.from) && ids.contains($0.to) })
+    }
+
     public static func portID(_ port: Int) -> String {
         "port:\(port)"
     }

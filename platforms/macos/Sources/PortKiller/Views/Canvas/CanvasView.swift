@@ -7,7 +7,7 @@ struct CanvasView: View {
     var body: some View {
         let overview = model.portGraph
         let centerID = model.selection.flatMap { selection in overview.nodes.first { $0.kind.itemID == selection }?.id }
-        let graph = centerID.map(overview.focused(on:)) ?? (model.selection == .overview || model.selection == nil ? overview : PortGraph(providers: [], consumers: []))
+        let graph = centerID.map { model.focusedGraph(overview, on: $0) } ?? (model.selection == .overview || model.selection == nil ? overview : PortGraph(providers: [], consumers: []))
         let layoutKey = centerID ?? "overview"
         let center = centerID.flatMap(graph.node(id:))
         let portCount = graph.nodes.count { $0.port != nil }
