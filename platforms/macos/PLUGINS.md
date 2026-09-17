@@ -14,7 +14,7 @@ A plugin is a folder with a `plugin.json` and an executable in any language. Por
 
 PortKiller never runs a plugin you haven't turned on. Plugins run with your user account, so only turn on plugins you trust.
 
-Two examples live in [`Plugins`](Plugins): **Docker** adds a tab with your containers, and **Open in Editor** adds folder actions to dev server ports.
+Three examples live in [`Plugins`](Plugins): **Docker** adds a tab with your containers, **Open in Editor** adds folder actions to dev server ports, and **HTTP Requests** sends a GET request to any port and keeps the requests you save in its `requests.json`.
 
 ## Layout
 

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "home",
+    "name": "Home Page",
+    "method": "GET",
+    "url": "http://localhost:3000/"
+  },
+  {
+    "id": "create-user",
+    "name": "Create User",
+    "method": "POST",
+    "url": "http://localhost:3000/api/users",
+    "headers": ["Content-Type: application/json"],
+    "body": "{\"name\": \"Ada\"}"
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "apiVersion": 1,
+  "id": "dev.portkiller.http-requests",
+  "name": "HTTP Requests",
+  "version": "1.0.0",
+  "description": "Sends HTTP requests to your ports and keeps the requests you save in requests.json.",
+  "author": "PortKiller",
+  "homepage": "https://github.com/productdevbook/port-killer/tree/main/platforms/macos/Plugins",
+  "icon": "paperplane",
+  "executable": "http.sh",
+  "items": {
+    "title": "HTTP Requests",
+    "refreshInterval": 10
+  },
+  "portActions": [
+    {
+      "id": "get",
+      "title": "Send GET Request",
+      "icon": "paperplane"
+    },
+    {
+      "id": "copy",
+      "title": "Copy GET Response",
+      "icon": "doc.on.doc"
+    }
+  ]
+}
