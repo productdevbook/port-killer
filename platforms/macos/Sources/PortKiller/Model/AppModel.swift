@@ -47,7 +47,10 @@ final class AppModel {
     let updater = Updater()
     let explainer = ProcessExplainer()
 
-    var selection: ItemID?
+    var selection: ItemID? {
+        didSet { if selection != oldValue { focusedPort = nil } }
+    }
+    var focusedPort: Int?
     var inspectorVisible: Bool {
         didSet { UserDefaults.standard.set(inspectorVisible, forKey: "inspectorVisible") }
     }
@@ -131,15 +134,22 @@ final class AppModel {
 
     var selectedPorts: [Int] {
         switch selection {
-        case .process(let pid): ports.ports.filter { $0.pid == pid }.map(\.port)
-        case .inactivePort(let port): [port]
-        default: []
+        case .process(let pid):
+            let numbers = ports.ports.filter { $0.pid == pid }.map(\.port)
+            return focusedPort.flatMap { numbers.contains($0) ? [$0] : nil } ?? numbers
+        case .inactivePort(let port): return [port]
+        default: return []
         }
+    }
+
+    func focusedPorts(in item: ProcessItem) -> [ListeningPort] {
+        let focused = item.ports.filter { $0.port == focusedPort }
+        return focused.isEmpty ? item.ports : focused
     }
 
     var selectedURL: URL? {
         switch selection {
-        case .process(let pid): ports.ports.first { $0.pid == pid }?.localURL
+        case .process(let pid): ports.ports.first { $0.pid == pid && (focusedPort == nil || $0.port == focusedPort) }?.localURL ?? ports.ports.first { $0.pid == pid }?.localURL
         case .inactivePort, nil: nil
         case .forward(let id): forwards.sessions.first { $0.id == id }?.configuration.localURL
         case .quickTunnel(let id): tunnels.quickTunnels.first { $0.id == id }?.url

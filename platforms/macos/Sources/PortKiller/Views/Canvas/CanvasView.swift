@@ -254,52 +254,219 @@ private struct ProcessCanvas: View {
 
     var body: some View {
         let isTerminating = model.ports.terminating.contains(item.process.pid)
-        let first = item.ports[0]
-        let tunnels = model.tunnels
-        let quickTunnel = tunnels.quickTunnel(for: first.port)
-        ItemCanvas(
-            title: item.label ?? item.process.name,
-            subtitle: "\(item.ports.count == 1 ? "Port" : "Ports") \(item.portList) · \(item.category.rawValue)"
-        ) {
-            ItemArtwork(symbol: item.category.symbolName, process: item.process)
-        } accessory: {
-            if isTerminating {
-                ProgressView().controlSize(.small)
-                Text("Stopping…").foregroundStyle(.secondary)
-            } else {
-                CanvasButton(title: "Kill Process", symbol: "xmark.octagon", role: .destructive) {
-                    model.ports.requestKill(item.ports)
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: 0) {
+                    ItemArtwork(symbol: item.category.symbolName, process: item.process)
+                        .frame(width: 96, height: 96)
+                        .padding(.bottom, 20)
+                    Text(item.process.name)
+                        .font(.title2.weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                    Text("PID \(String(item.process.pid)) · \(item.category.rawValue) · \(item.process.user)")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+                    HStack(spacing: 8) {
+                        if isTerminating {
+                            ProgressView().controlSize(.small)
+                            Text("Stopping…").foregroundStyle(.secondary)
+                        } else {
+                            CanvasButton(title: "Kill Process", symbol: "xmark.octagon", role: .destructive) {
+                                model.ports.requestKill(item.ports)
+                            }
+                        }
+                    }
+                    .padding(.top, 20)
+                    PortsCard(item: item)
+                        .frame(maxWidth: 620)
+                        .padding(.top, 32)
                 }
+                .padding(.horizontal, 40)
+                .padding(.vertical, 48)
+                .frame(maxWidth: .infinity, minHeight: proxy.size.height)
             }
-        }
-        .overlay(alignment: .bottom) {
-            ControlsBar {
-                ControlButton(title: "Open in Browser", symbol: "safari") {
-                    if let url = first.localURL { NSWorkspace.shared.open(url) }
-                }
-                ControlButton(title: "Copy Command", symbol: "terminal") {
-                    Pasteboard.copy(item.process.command)
-                }
-                if let path = item.process.executablePath {
-                    ControlButton(title: "Show in Finder", symbol: "folder") {
-                        NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: path)])
-                    }
-                }
-            } primary: {
-                if let quickTunnel, quickTunnel.status != .failed {
-                    ControlButton(title: "Stop Sharing", symbol: "bolt.fill", tint: .orange) {
-                        tunnels.stopQuickTunnel(quickTunnel)
-                    }
-                } else {
-                    ControlButton(title: "Share with Quick Tunnel", symbol: "bolt") {
-                        tunnels.startQuickTunnel(port: first.port)
-                    }
-                    .disabled(!tunnels.isInstalled)
-                }
-            }
+            .scrollBounceBehavior(.basedOnSize)
         }
         .navigationTitle(item.process.name)
-        .navigationSubtitle("PID \(String(item.process.pid))")
+        .navigationSubtitle(item.ports.count == 1 ? "1 port" : "\(item.ports.count) ports")
+    }
+}
+
+private struct PortsCard: View {
+    @Environment(AppModel.self) private var model
+    let item: ProcessItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(item.ports.count == 1 ? "Port" : "Ports")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 14)
+            VStack(spacing: 0) {
+                ForEach(Array(item.ports.enumerated()), id: \.element.id) { index, port in
+                    if index > 0 {
+                        Divider()
+                            .padding(.leading, 56)
+                    }
+                    PortCardRow(port: port, siblings: item.ports.count - 1)
+                }
+            }
+            .background(.fill.quaternary, in: .rect(cornerRadius: 12, style: .continuous))
+        }
+    }
+}
+
+private struct PortCardRow: View {
+    @Environment(AppModel.self) private var model
+    let port: ListeningPort
+    let siblings: Int
+    @State private var hovering = false
+
+    var body: some View {
+        let preferences = model.preferences
+        let tunnels = model.tunnels
+        let quickTunnel = tunnels.quickTunnel(for: port.port)
+        let isSharing = quickTunnel.map { $0.status != .failed } ?? false
+        let isFocused = model.focusedPort == port.port
+        let label = preferences.label(for: port.port)
+        HStack(spacing: 12) {
+            Image(systemName: port.isLoopbackOnly ? "lock" : "network")
+                .symbolRenderingMode(.hierarchical)
+                .font(.system(size: 14))
+                .foregroundStyle(isFocused ? Color.accentColor : .secondary)
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(.background))
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 5) {
+                    Text(String(port.port))
+                        .font(.body.monospacedDigit().weight(.semibold))
+                    if preferences.favorites.contains(port.port) {
+                        Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow)
+                    }
+                    if preferences.isWatching(port.port) {
+                        Image(systemName: "eye.fill").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    if isSharing || tunnels.exposuresByPort[port.port] != nil {
+                        Image(systemName: "globe").font(.caption2).foregroundStyle(.orange)
+                    }
+                }
+                Text([label, addressDescription].compactMap { $0 }.joined(separator: " · "))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 2) {
+                RowButton(title: "Open in Browser", symbol: "safari") {
+                    if let url = port.localURL { NSWorkspace.shared.open(url) }
+                }
+                RowButton(title: isSharing ? "Stop Sharing" : "Share with Quick Tunnel", symbol: isSharing ? "bolt.fill" : "bolt", tint: isSharing ? .orange : nil) {
+                    if let quickTunnel, isSharing {
+                        tunnels.stopQuickTunnel(quickTunnel)
+                    } else {
+                        tunnels.startQuickTunnel(port: port.port)
+                    }
+                }
+                .disabled(!tunnels.isInstalled && !isSharing)
+                Menu {
+                    PortMenu(port: port, siblings: siblings)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .frame(width: 28, height: 28)
+                        .contentShape(.rect)
+                }
+                .menuStyle(.button)
+                .menuIndicator(.hidden)
+                .buttonStyle(.borderless)
+                .fixedSize()
+                .help("More")
+                RowButton(title: siblings > 0 ? "Kill the process to free port \(port.port)" : "Kill Process", symbol: "xmark.circle", tint: hovering ? .red : nil) {
+                    model.ports.requestKill([port])
+                }
+            }
+            .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(isFocused ? AnyShapeStyle(Color.accentColor.opacity(0.12)) : AnyShapeStyle(.clear))
+        .contentShape(.rect)
+        .onTapGesture {
+            model.focusedPort = isFocused ? nil : port.port
+        }
+        .onHover { hovering = $0 }
+        .contextMenu {
+            PortMenu(port: port, siblings: siblings)
+        }
+    }
+}
+
+private extension PortCardRow {
+    var addressDescription: String {
+        let addresses = port.addresses.map { $0 == "*" ? "All interfaces" : $0 }.joined(separator: ", ")
+        return port.isLoopbackOnly ? "\(addresses) · This Mac only" : addresses
+    }
+}
+
+private struct PortMenu: View {
+    @Environment(AppModel.self) private var model
+    let port: ListeningPort
+    let siblings: Int
+
+    var body: some View {
+        let preferences = model.preferences
+        if let url = port.localURL {
+            URLActions(url: url)
+            Divider()
+        }
+        Button(preferences.favorites.contains(port.port) ? "Remove from Favorites" : "Add to Favorites", systemImage: "star") {
+            preferences.toggleFavorite(port.port)
+        }
+        Button(preferences.isWatching(port.port) ? "Stop Watching" : "Watch", systemImage: "eye") {
+            preferences.toggleWatch(port.port)
+        }
+        Button("Edit Label and Note…", systemImage: "tag") {
+            model.focusedPort = port.port
+            model.inspectorTab = .settings
+            model.inspectorVisible = true
+        }
+        let actions = model.plugins.portActions(for: port)
+        if !actions.isEmpty {
+            Divider()
+            ForEach(Array(actions.enumerated()), id: \.offset) { _, entry in
+                Button(entry.action.title, systemImage: entry.action.icon ?? entry.plugin.manifest.icon ?? "puzzlepiece.extension") {
+                    Task { await model.plugins.perform(entry.action, on: port, in: entry.plugin) }
+                }
+            }
+        }
+        Divider()
+        Button("Kill and Close Connections", systemImage: "bolt.horizontal.circle", role: .destructive) {
+            Task { await model.ports.kill([port], mode: .deep) }
+        }
+        Button(siblings > 0 ? "Kill Process to Free Port \(String(port.port))…" : "Kill Process…", systemImage: "xmark.octagon", role: .destructive) {
+            model.ports.requestKill([port])
+        }
+    }
+}
+
+private struct RowButton: View {
+    let title: String
+    let symbol: String
+    var tint: Color?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .foregroundStyle(tint ?? .secondary)
+                .frame(width: 28, height: 28)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.borderless)
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 

@@ -47,8 +47,8 @@ struct MainView: View {
             Button("Force Kill") { kill(targets, .force) }
             Button("Kill Process Tree") { kill(targets, .tree) }
             Button("Kill and Close Connections") { kill(targets, .deep) }
-        } message: { _ in
-            Text("PortKiller asks the process to quit, then stops it if it doesn't within a moment.")
+        } message: { targets in
+            Text(killMessage(targets))
         }
         .onAppear {
             model.openWindow = openWindow
@@ -59,6 +59,14 @@ struct MainView: View {
         guard let first = model.ports.pendingKill.first else { return "" }
         let ports = model.ports.pendingKill.map { String($0.port) }.joined(separator: ", ")
         return "Kill \(first.processName) on Port \(ports)?"
+    }
+
+    private func killMessage(_ targets: [ListeningPort]) -> String {
+        let pids = Set(targets.map(\.pid))
+        let others = model.ports.ports.filter { pids.contains($0.pid) && !targets.contains($0) }.map { String($0.port) }
+        let explanation = "PortKiller asks the process to quit, then stops it if it doesn't within a moment."
+        guard !others.isEmpty else { return explanation }
+        return "\(others.count == 1 ? "Port" : "Ports") \(others.joined(separator: ", ")) will close too, because they belong to the same process. \(explanation)"
     }
 
     private func kill(_ targets: [ListeningPort], _ mode: KillMode) {

@@ -61,7 +61,7 @@ struct ProcessSettingsInspector: View {
     var body: some View {
         let preferences = model.preferences
         Form {
-            ForEach(item.ports) { port in
+            ForEach(model.focusedPorts(in: item)) { port in
                 PortSettingsSection(port: port.port)
                     .id(port.port)
             }
@@ -149,7 +149,7 @@ struct ProcessSharingInspector: View {
                     ToolNotice(tool: .cloudflared, message: "Share ports on a public URL.")
                 }
             }
-            ForEach(item.ports) { port in
+            ForEach(model.focusedPorts(in: item)) { port in
                 Section("Port \(String(port.port))") {
                     if let tunnel = tunnels.quickTunnel(for: port.port) {
                         LabeledContent {
@@ -201,7 +201,7 @@ struct ProcessPluginsInspector: View {
     let item: ProcessItem
 
     var body: some View {
-        let entries = item.ports.flatMap { port in model.plugins.portActions(for: port).map { (port: port, plugin: $0.plugin, action: $0.action) } }
+        let entries = model.focusedPorts(in: item).flatMap { port in model.plugins.portActions(for: port).map { (port: port, plugin: $0.plugin, action: $0.action) } }
         if entries.isEmpty {
             ContentUnavailableView {
                 Label("No Plugin Actions", systemImage: InspectorTab.plugins.symbol)
@@ -214,7 +214,7 @@ struct ProcessPluginsInspector: View {
             }
         } else {
             Form {
-                ForEach(item.ports) { port in
+                ForEach(model.focusedPorts(in: item)) { port in
                     let actions = entries.filter { $0.port == port }
                     if !actions.isEmpty {
                         Section("Port \(String(port.port))") {
