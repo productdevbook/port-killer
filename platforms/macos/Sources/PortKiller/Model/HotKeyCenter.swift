@@ -43,15 +43,15 @@ final class HotKeyCenter {
     }
 }
 
-enum ShortcutRecording {
-    static func shortcut(from event: NSEvent) -> KeyShortcut? {
+extension KeyShortcut {
+    init?(event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         var modifiers = 0
         if flags.contains(.command) { modifiers |= KeyShortcut.command }
         if flags.contains(.shift) { modifiers |= KeyShortcut.shift }
         if flags.contains(.option) { modifiers |= KeyShortcut.option }
         if flags.contains(.control) { modifiers |= KeyShortcut.control }
-        let shortcut = KeyShortcut(carbonKeyCode: Int(event.keyCode), carbonModifiers: modifiers)
-        return shortcut.hasModifier ? shortcut : nil
+        self.init(carbonKeyCode: Int(event.keyCode), carbonModifiers: modifiers)
+        guard hasModifier else { return nil }
     }
 }

@@ -9,8 +9,9 @@ struct ForwardsView: View {
     var body: some View {
         @Bindable var forwards = model.forwards
         let sessions = forwards.sessions
+        let hasKubectl = model.preferences.locate(.kubectl) != nil
         List(selection: $forwards.selection) {
-            if model.preferences.locate(.kubectl) == nil {
+            if !hasKubectl {
                 Section {
                     MissingToolBanner(tool: .kubectl, message: "Port forwarding runs kubectl port-forward for you.")
                 }
@@ -40,7 +41,7 @@ struct ForwardsView: View {
             }
         } primaryAction: { ids in
             guard let id = ids.first, let session = sessions.first(where: { $0.id == id }) else { return }
-            session.isActive ? session.stop() : session.start()
+            session.toggle()
         }
         .onDeleteCommand {
             if let id = forwards.selection { forwards.remove(id) }
@@ -65,7 +66,7 @@ struct ForwardsView: View {
             ToolbarItemGroup {
                 Menu {
                     Button("Browse Cluster…", systemImage: "square.stack.3d.down.forward") { browsing = true }
-                        .disabled(model.preferences.locate(.kubectl) == nil)
+                        .disabled(!hasKubectl)
                     Button("Add Manually", systemImage: "plus") { forwards.add(.placeholder()) }
                 } label: {
                     Label("Add", systemImage: "plus")
@@ -127,7 +128,7 @@ struct ForwardRow: View {
                     .foregroundStyle(session.status.tint)
             }
             Button {
-                session.isActive ? session.stop() : session.start()
+                session.toggle()
             } label: {
                 Image(systemName: session.isActive ? "stop.fill" : "play.fill")
                     .frame(width: 16, height: 16)
@@ -152,9 +153,8 @@ struct ForwardActions: View {
             Button("Start", systemImage: "play.fill") { session.start() }
         }
         Divider()
-        if let url = URL(string: "http://localhost:\(session.configuration.effectivePort)") {
-            Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(url) }
-            Button("Copy URL", systemImage: "link") { Pasteboard.copy(url.absoluteString) }
+        if let url = session.configuration.localURL {
+            URLActions(url: url)
         }
         Divider()
         Button("Duplicate", systemImage: "plus.square.on.square") {

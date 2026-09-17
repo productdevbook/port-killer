@@ -7,8 +7,8 @@ struct PortInspector: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        let selected = model.ports.selectedListeners
-        let inactive = model.ports.selection.compactMap { id in id.hasPrefix("inactive:") ? Int(id.dropFirst("inactive:".count)) : nil }
+        let selected = model.selectedListeners
+        let inactive = model.ports.selection.compactMap(\.inactivePort)
         Group {
             if selected.count == 1, let port = selected.first {
                 PortDetails(port: port)
@@ -31,11 +31,10 @@ private struct PortDetails: View {
     let port: ListeningPort
     @State private var label = ""
     @State private var note = ""
-    @State private var confirmingKill = false
+    @State private var parent: ProcessSnapshot?
 
     var body: some View {
         let category = model.ports.category(for: port)
-        let parent = model.ports.parent(of: port)
         VStack(spacing: 0) {
             header(category)
             Form {
@@ -120,11 +119,8 @@ private struct PortDetails: View {
             model.preferences.setLabel(label, for: port.port)
             model.preferences.setNote(note, for: port.port)
         }
-        .confirmationDialog("Kill \(port.processName) on Port \(port.port)?", isPresented: $confirmingKill) {
-            Button("Kill", role: .destructive) { kill(.graceful) }
-            Button("Force Kill") { kill(.force) }
-            Button("Kill Process Tree") { kill(.tree) }
-            Button("Kill and Close Connections") { kill(.deep) }
+        .task {
+            parent = await model.ports.parent(of: port)
         }
     }
 
@@ -174,11 +170,7 @@ private struct PortDetails: View {
                 }
             }
             Button(role: .destructive) {
-                if preferences.skipKillConfirmation {
-                    kill(.graceful)
-                } else {
-                    confirmingKill = true
-                }
+                model.ports.requestKill([port])
             } label: {
                 Label(model.ports.terminating.contains(port.id) ? "Killing…" : "Kill Process", systemImage: "xmark.octagon.fill")
                     .frame(maxWidth: .infinity)
@@ -206,10 +198,6 @@ private struct PortDetails: View {
         }
         .buttonStyle(.glass)
         .help(title)
-    }
-
-    private func kill(_ mode: KillMode) {
-        Task { await model.ports.kill(port, mode: mode) }
     }
 }
 
@@ -336,14 +324,11 @@ struct QuickTunnelSummary: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            StatusDot(color: color)
+            StatusDot(color: tunnel.status.tint)
             VStack(alignment: .leading, spacing: 2) {
                 if let url = tunnel.url {
-                    Button(url.replacingOccurrences(of: "https://", with: "")) {
-                        if let link = URL(string: url) { NSWorkspace.shared.open(link) }
-                    }
-                    .buttonStyle(.link)
-                    .lineLimit(1)
+                    Link(tunnel.host ?? url.absoluteString, destination: url)
+                        .lineLimit(1)
                 } else {
                     Text(tunnel.status == .failed ? "Tunnel failed" : "Starting tunnel…")
                 }
@@ -356,7 +341,7 @@ struct QuickTunnelSummary: View {
             }
             Spacer()
             if let url = tunnel.url {
-                Button("Copy", systemImage: "doc.on.doc") { Pasteboard.copy(url) }
+                Button("Copy", systemImage: "doc.on.doc") { Pasteboard.copy(url.absoluteString) }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
             }
@@ -366,14 +351,6 @@ struct QuickTunnelSummary: View {
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
             .foregroundStyle(.red)
-        }
-    }
-
-    private var color: Color {
-        switch tunnel.status {
-        case .active: .green
-        case .starting, .stopping: .orange
-        case .failed: .red
         }
     }
 }

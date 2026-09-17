@@ -76,22 +76,22 @@ struct SidebarView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        @Bindable var model = model
+        let categoryCounts = model.ports.categoryCounts
         List(selection: Binding(get: { model.sidebar }, set: { if let item = $0 { model.sidebar = item } })) {
             Section("Ports") {
-                row(.allPorts, count: model.ports.count(for: .allPorts))
-                row(.favorites, count: model.ports.count(for: .favorites), tint: .yellow)
-                row(.watched, count: model.ports.count(for: .watched), tint: .blue)
+                row(.allPorts, count: model.ports.ports.count)
+                row(.favorites, count: model.preferences.favorites.count, tint: .yellow)
+                row(.watched, count: model.preferences.watchedPorts.count, tint: .blue)
             }
 
             Section("Networking") {
                 row(.portForwards, count: model.forwards.sessions.count, tint: .indigo, active: model.forwards.connectedCount > 0)
-                row(.tunnels, count: model.tunnels.quickTunnels.count + model.tunnels.namedTunnels.count, tint: .orange, active: model.tunnels.activeQuickCount + model.tunnels.runningNamedCount > 0)
+                row(.tunnels, count: model.tunnels.quickTunnels.count + model.tunnels.namedTunnels.count, tint: .orange, active: model.tunnels.activeCount > 0)
             }
 
             Section("Categories") {
                 ForEach(ProcessCategory.allCases) { category in
-                    row(.category(category), count: model.ports.count(for: .category(category)), tint: category.tint)
+                    row(.category(category), count: categoryCounts[category, default: 0], tint: category.tint)
                 }
             }
 
@@ -134,7 +134,7 @@ struct PortKillerCommands: Commands {
                 Task { await model.ports.refresh() }
             }
             .keyboardShortcut("r")
-            Toggle("Group Ports by Process", isOn: Binding(get: { model.preferences.useTreeView }, set: { model.preferences.useTreeView = $0 }))
+            Toggle("Group Ports by Process", isOn: Bindable(model.preferences).useTreeView)
                 .keyboardShortcut("t")
             Divider()
             Button("Show All Ports") { model.show(.allPorts) }

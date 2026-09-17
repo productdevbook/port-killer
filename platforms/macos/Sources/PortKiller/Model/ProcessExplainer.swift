@@ -40,10 +40,6 @@ final class ProcessExplainer {
         SystemLanguageModel.default.availability
     }
 
-    var isAvailable: Bool {
-        SystemLanguageModel.default.isAvailable
-    }
-
     var unavailableReason: String? {
         switch availability {
         case .available: nil

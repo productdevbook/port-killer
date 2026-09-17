@@ -70,6 +70,10 @@ public struct PortForwardConfiguration: Identifiable, Codable, Hashable, Sendabl
         "\(namespace)/\(service)"
     }
 
+    public var localURL: URL? {
+        URL(string: "http://localhost:\(effectivePort)")
+    }
+
     public static func suggestedLocalPort(forRemotePort remotePort: Int) -> Int {
         switch remotePort {
         case 80: 8080
@@ -85,12 +89,12 @@ public struct PortForwardConfiguration: Identifiable, Codable, Hashable, Sendabl
 }
 
 public enum PortForwardPlan {
-    public static func kubectlArguments(_ configuration: PortForwardConfiguration, localPort: Int? = nil) -> [String] {
+    public static func kubectlArguments(_ configuration: PortForwardConfiguration) -> [String] {
         [
             "port-forward",
             "-n", configuration.namespace,
             "svc/\(configuration.service)",
-            "\(localPort ?? configuration.localPort):\(configuration.remotePort)",
+            "\(configuration.localPort):\(configuration.remotePort)",
             "--address=127.0.0.1",
         ]
     }

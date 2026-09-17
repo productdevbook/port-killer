@@ -4,8 +4,6 @@ public struct KubernetesService: Identifiable, Hashable, Sendable {
     public struct Port: Identifiable, Hashable, Sendable {
         public var name: String?
         public var port: Int
-        public var targetPort: Int
-        public var transport: String?
 
         public var id: Int { port }
 
@@ -18,7 +16,6 @@ public struct KubernetesService: Identifiable, Hashable, Sendable {
     public var name: String
     public var namespace: String
     public var type: String
-    public var clusterIP: String?
     public var ports: [Port]
 
     public var id: String { "\(namespace)/\(name)" }
@@ -32,7 +29,7 @@ public enum KubectlError: Error, LocalizedError, Sendable, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .notInstalled: "kubectl isn't installed. Install it with brew install kubernetes-cli."
+        case .notInstalled: "kubectl isn't installed. Install it with \(CommandLineTool.kubectl.installCommand)."
         case .clusterUnreachable(let message): "Can't reach the Kubernetes cluster. \(message)"
         case .failed(let message): "kubectl failed: \(message)"
         case .unreadableResponse(let message): "Couldn't read kubectl's response: \(message)"
@@ -62,6 +59,7 @@ public struct Kubectl: Sendable {
         return context.isEmpty ? nil : context
     }
 
+    @concurrent
     public func namespaces() async throws(KubectlError) -> [String] {
         let data = try await json(["get", "namespaces", "-o", "json"])
         do {
@@ -71,6 +69,7 @@ public struct Kubectl: Sendable {
         }
     }
 
+    @concurrent
     public func services(namespace: String) async throws(KubectlError) -> [KubernetesService] {
         let data = try await json(["get", "services", "-n", namespace, "-o", "json"])
         do {
@@ -92,7 +91,7 @@ public struct Kubectl: Sendable {
     }
 
     private func run(_ arguments: [String]) async throws -> CommandResult {
-        try await CommandRunner.run(executable, arguments, environment: ["PATH": CommandLineTool.searchPath])
+        try await CommandRunner.run(executable, arguments)
     }
 
     static func parseNamespaces(_ data: Data) throws -> [String] {
@@ -115,26 +114,10 @@ public struct Kubectl: Sendable {
                 }
                 struct Spec: Decodable {
                     struct Port: Decodable {
-                        enum TargetPort: Decodable {
-                            case number(Int)
-                            case name(String)
-
-                            init(from decoder: any Decoder) throws {
-                                let container = try decoder.singleValueContainer()
-                                if let number = try? container.decode(Int.self) {
-                                    self = .number(number)
-                                } else {
-                                    self = .name(try container.decode(String.self))
-                                }
-                            }
-                        }
                         var name: String?
                         var port: Int
-                        var targetPort: TargetPort?
-                        var `protocol`: String?
                     }
                     var type: String?
-                    var clusterIP: String?
                     var ports: [Port]?
                 }
                 var metadata: Metadata
@@ -147,11 +130,7 @@ public struct Kubectl: Sendable {
                 name: item.metadata.name,
                 namespace: item.metadata.namespace,
                 type: item.spec.type ?? "ClusterIP",
-                clusterIP: item.spec.clusterIP,
-                ports: (item.spec.ports ?? []).map { port in
-                    let target: Int = if case .number(let number) = port.targetPort { number } else { port.port }
-                    return KubernetesService.Port(name: port.name, port: port.port, targetPort: target, transport: port.protocol)
-                }
+                ports: (item.spec.ports ?? []).map { KubernetesService.Port(name: $0.name, port: $0.port) }
             )
         }
         .sorted { $0.name < $1.name }

@@ -7,12 +7,13 @@ struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openSettings) private var openSettings
     @State private var query = ""
-    @State private var confirmingKill: String?
+    @State private var confirmingKill: PortRow.ID?
     @State private var confirmingKillAll = false
     @State private var expanded: Set<String> = []
 
     var body: some View {
         let ports = visiblePorts
+        let sharedPorts = model.tunnels.sharedPorts
         let forwards = visibleForwards
         let quick = model.tunnels.quickTunnels
         let named = model.tunnels.namedTunnels.filter { $0.isRunningHere || $0.runSafety == .safe }
@@ -29,11 +30,11 @@ struct MenuBarContent: View {
                         Section {
                             if model.preferences.useTreeView {
                                 ForEach(groups(ports), id: \.name) { group in
-                                    MenuProcessGroup(name: group.name, ports: group.ports, expanded: $expanded, confirmingKill: $confirmingKill)
+                                    MenuProcessGroup(name: group.name, ports: group.ports, sharedPorts: sharedPorts, expanded: $expanded, confirmingKill: $confirmingKill)
                                 }
                             } else {
                                 ForEach(ports) { port in
-                                    MenuPortRow(port: port, confirmingKill: $confirmingKill)
+                                    MenuPortRow(port: port, isShared: sharedPorts.contains(port.port), confirmingKill: $confirmingKill)
                                 }
                             }
                         } header: {
@@ -67,7 +68,7 @@ struct MenuBarContent: View {
             }
             .frame(height: 420)
             Divider()
-            footer
+            footer(ports)
         }
         .frame(width: 390)
         .task {
@@ -101,18 +102,17 @@ struct MenuBarContent: View {
         .padding(10)
     }
 
-    private var footer: some View {
+    private func footer(_ ports: [ListeningPort]) -> some View {
         HStack(spacing: 6) {
             if confirmingKillAll {
-                Text("Kill all \(visiblePorts.count) processes?")
+                Text("Kill all \(ports.count) processes?")
                     .font(.callout)
                 Spacer()
                 Button("Cancel") { confirmingKillAll = false }
                     .buttonStyle(.glass)
                 Button("Kill All", role: .destructive) {
                     confirmingKillAll = false
-                    let targets = visiblePorts
-                    Task { await model.ports.kill(targets) }
+                    Task { await model.ports.kill(ports) }
                 }
                 .buttonStyle(.glassProminent)
                 .tint(.red)
@@ -125,13 +125,12 @@ struct MenuBarContent: View {
                 }
                 footerButton("Kill All", "xmark.octagon", key: "k", tint: .red) {
                     if model.preferences.skipKillConfirmation {
-                        let targets = visiblePorts
-                        Task { await model.ports.kill(targets) }
+                        Task { await model.ports.kill(ports) }
                     } else {
                         confirmingKillAll = true
                     }
                 }
-                .disabled(visiblePorts.isEmpty)
+                .disabled(ports.isEmpty)
                 Spacer()
                 footerButton("Open PortKiller", "macwindow", key: "o") {
                     model.show()
@@ -160,14 +159,9 @@ struct MenuBarContent: View {
     }
 
     private var visiblePorts: [ListeningPort] {
-        let hideSystem = model.preferences.hideSystemProcesses
         let favorites = model.preferences.favorites
-        let search = PortFilter(searchText: query)
-        return model.ports.ports
-            .filter { port in
-                let category = model.ports.category(for: port)
-                return !(hideSystem && category == .system) && search.matches(port, category: category, label: model.preferences.label(for: port.port))
-            }
+        return model.ports.rows(for: .allPorts, filter: PortFilter(searchText: query))
+            .compactMap(\.listener)
             .sorted { (favorites.contains($0.port) ? 0 : 1, $0.port) < (favorites.contains($1.port) ? 0 : 1, $1.port) }
     }
 
@@ -225,34 +219,48 @@ extension EnvironmentValues {
     @Entry var isRowHovered = false
 }
 
+struct MenuKillConfirmRow: View {
+    let title: String
+    @Binding var confirmingKill: PortRow.ID?
+    let onKill: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .lineLimit(1)
+            Spacer()
+            Button("Cancel") { confirmingKill = nil }
+                .buttonStyle(.glass)
+            Button("Kill", role: .destructive) {
+                confirmingKill = nil
+                onKill()
+            }
+            .buttonStyle(.glassProminent)
+            .tint(.red)
+        }
+        .controlSize(.small)
+        .modifier(MenuRowBackground())
+    }
+}
+
 struct MenuPortRow: View {
     @Environment(AppModel.self) private var model
     let port: ListeningPort
     var nested = false
-    @Binding var confirmingKill: String?
+    let isShared: Bool
+    @Binding var confirmingKill: PortRow.ID?
 
     var body: some View {
-        if confirmingKill == port.id {
-            HStack(spacing: 8) {
-                Text("Kill \(port.processName)?")
-                    .lineLimit(1)
-                Spacer()
-                Button("Cancel") { confirmingKill = nil }
-                    .buttonStyle(.glass)
-                Button("Kill", role: .destructive) {
-                    confirmingKill = nil
-                    Task { await model.ports.kill(port) }
-                }
-                .buttonStyle(.glassProminent)
-                .tint(.red)
+        let id = PortRow.ID.listener(port.id)
+        if confirmingKill == id {
+            MenuKillConfirmRow(title: "Kill \(port.processName)?", confirmingKill: $confirmingKill) {
+                Task { await model.ports.kill(port) }
             }
-            .controlSize(.small)
-            .modifier(MenuRowBackground())
         } else {
-            MenuPortRowContent(port: port, nested: nested, confirmingKill: $confirmingKill)
+            MenuPortRowContent(port: port, nested: nested, isShared: isShared, confirmingKill: $confirmingKill)
                 .modifier(MenuRowBackground())
                 .contextMenu {
-                    PortContextMenu(ids: [port.id]) { _ in confirmingKill = port.id }
+                    PortContextMenu(ids: [id]) { _ in confirmingKill = id }
                 }
         }
     }
@@ -263,7 +271,8 @@ private struct MenuPortRowContent: View {
     @Environment(\.isRowHovered) private var hovered
     let port: ListeningPort
     let nested: Bool
-    @Binding var confirmingKill: String?
+    let isShared: Bool
+    @Binding var confirmingKill: PortRow.ID?
 
     var body: some View {
         let category = model.ports.category(for: port)
@@ -282,7 +291,7 @@ private struct MenuPortRowContent: View {
                 if model.preferences.isWatching(port.port) {
                     Image(systemName: "eye.fill").font(.caption2).foregroundStyle(.blue)
                 }
-                if model.tunnels.exposuresByPort[port.port] != nil || model.tunnels.quickTunnel(for: port.port)?.status == .active {
+                if isShared {
                     Image(systemName: "globe").font(.caption2).foregroundStyle(.orange)
                 }
             }
@@ -310,7 +319,7 @@ private struct MenuPortRowContent: View {
                     if model.preferences.skipKillConfirmation {
                         Task { await model.ports.kill(port) }
                     } else {
-                        confirmingKill = port.id
+                        confirmingKill = .listener(port.id)
                     }
                 }
                 .labelStyle(.iconOnly)
@@ -330,32 +339,21 @@ struct MenuProcessGroup: View {
     @Environment(AppModel.self) private var model
     let name: String
     let ports: [ListeningPort]
+    let sharedPorts: Set<Int>
     @Binding var expanded: Set<String>
-    @Binding var confirmingKill: String?
+    @Binding var confirmingKill: PortRow.ID?
 
     var body: some View {
         if ports.count == 1, let port = ports.first {
-            MenuPortRow(port: port, confirmingKill: $confirmingKill)
+            MenuPortRow(port: port, isShared: sharedPorts.contains(port.port), confirmingKill: $confirmingKill)
         } else {
             let isExpanded = expanded.contains(name)
-            let groupID = "group:\(name)"
+            let groupID = PortRow.ID.group(name)
             VStack(spacing: 0) {
                 if confirmingKill == groupID {
-                    HStack(spacing: 8) {
-                        Text("Kill \(name) on \(ports.count) ports?")
-                            .lineLimit(1)
-                        Spacer()
-                        Button("Cancel") { confirmingKill = nil }
-                            .buttonStyle(.glass)
-                        Button("Kill", role: .destructive) {
-                            confirmingKill = nil
-                            Task { await model.ports.kill(ports) }
-                        }
-                        .buttonStyle(.glassProminent)
-                        .tint(.red)
+                    MenuKillConfirmRow(title: "Kill \(name) on \(ports.count) ports?", confirmingKill: $confirmingKill) {
+                        Task { await model.ports.kill(ports) }
                     }
-                    .controlSize(.small)
-                    .modifier(MenuRowBackground())
                 } else {
                     GroupHeader(name: name, ports: ports, isExpanded: isExpanded) {
                         withAnimation(.snappy) {
@@ -372,7 +370,7 @@ struct MenuProcessGroup: View {
                 }
                 if isExpanded {
                     ForEach(ports) { port in
-                        MenuPortRow(port: port, nested: true, confirmingKill: $confirmingKill)
+                        MenuPortRow(port: port, nested: true, isShared: sharedPorts.contains(port.port), confirmingKill: $confirmingKill)
                     }
                 }
             }
@@ -436,7 +434,7 @@ struct MenuForwardRow: View {
             }
             Spacer()
             Button(session.isActive ? "Stop" : "Start", systemImage: session.isActive ? "stop.fill" : "play.fill") {
-                session.isActive ? session.stop() : session.start()
+                session.toggle()
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.glass)
@@ -461,13 +459,13 @@ struct MenuQuickTunnelRow: View {
             Text(":\(String(tunnel.port))")
                 .font(.body.monospacedDigit().weight(.semibold))
                 .frame(width: 64, alignment: .leading)
-            Text(tunnel.url?.replacingOccurrences(of: "https://", with: "") ?? tunnel.status.title)
+            Text(tunnel.host ?? tunnel.status.title)
                 .font(.callout)
                 .foregroundStyle(tunnel.url == nil ? .secondary : .primary)
                 .lineLimit(1)
             Spacer()
             if let url = tunnel.url {
-                Button("Copy URL", systemImage: "doc.on.doc") { Pasteboard.copy(url) }
+                Button("Copy URL", systemImage: "doc.on.doc") { Pasteboard.copy(url.absoluteString) }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
             }

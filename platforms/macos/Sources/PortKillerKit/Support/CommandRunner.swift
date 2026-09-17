@@ -14,25 +14,15 @@ public struct CommandResult: Sendable {
     }
 }
 
-public struct CommandError: Error, LocalizedError, Sendable {
-    public var message: String
-
-    public init(_ message: String) {
-        self.message = message
-    }
-
-    public var errorDescription: String? { message }
-}
-
 public enum CommandRunner {
     private static let outputLimit = 64 << 20
 
     @concurrent
-    public static func run(_ executable: URL, _ arguments: [String], environment: [String: String] = [:]) async throws -> CommandResult {
+    public static func run(_ executable: URL, _ arguments: [String]) async throws -> CommandResult {
         let result = try await Subprocess.run(
             .path(FilePath(executable.path)),
             arguments: Arguments(arguments),
-            environment: .inherit.updating(environmentChanges(environment)),
+            environment: environment,
             output: .string(limit: outputLimit),
             error: .string(limit: outputLimit)
         )
@@ -43,7 +33,6 @@ public enum CommandRunner {
     public static func stream(
         _ executable: URL,
         _ arguments: [String],
-        environment: [String: String] = [:],
         ownProcessGroup: Bool = false,
         onLine: @Sendable (String) async -> Void
     ) async throws -> Int32 {
@@ -55,7 +44,7 @@ public enum CommandRunner {
         let result = try await Subprocess.run(
             .path(FilePath(executable.path)),
             arguments: Arguments(arguments),
-            environment: .inherit.updating(environmentChanges(environment)),
+            environment: environment,
             platformOptions: options,
             input: .none,
             output: .sequence,
@@ -76,11 +65,7 @@ public enum CommandRunner {
         }
     }
 
-    static func environmentChanges(_ values: [String: String]) -> [Environment.Key: String?] {
-        var changes: [Environment.Key: String?] = [:]
-        for (name, value) in values {
-            if let key = Environment.Key(rawValue: name) { changes[key] = value }
-        }
-        return changes
+    private static var environment: Environment {
+        .inherit.updating(["PATH": CommandLineTool.searchPath])
     }
 }

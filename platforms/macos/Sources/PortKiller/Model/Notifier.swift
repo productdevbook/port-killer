@@ -16,7 +16,7 @@ final class Notifier: NSObject {
     @ObservationIgnored var onKill: ((KillRequest) -> Void)?
 
     private var center: UNUserNotificationCenter? {
-        Bundle.main.bundleURL.pathExtension == "app" ? UNUserNotificationCenter.current() : nil
+        AppInfo.isBundled ? UNUserNotificationCenter.current() : nil
     }
 
     var isAvailable: Bool { center != nil }

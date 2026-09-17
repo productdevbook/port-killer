@@ -26,11 +26,11 @@ public enum ProcessTerminator {
     }
 
     @concurrent
-    public static func terminate(_ pid: Int32, force: Bool = false, grace: Duration = .milliseconds(600)) async throws(TerminationError) {
+    public static func terminate(_ pid: Int32, force: Bool = false) async throws(TerminationError) {
         guard pid > 0 else { return }
         if !force {
             try send(SIGTERM, to: pid)
-            let deadline = ContinuousClock.now + grace
+            let deadline = ContinuousClock.now + .milliseconds(600)
             while ContinuousClock.now < deadline {
                 guard isRunning(pid) else { return }
                 try? await Task.sleep(for: .milliseconds(50))
@@ -42,11 +42,12 @@ public enum ProcessTerminator {
 
     @concurrent
     public static func terminateTree(_ pid: Int32, force: Bool = false) async throws(TerminationError) {
+        let children = PortScanner.childrenByParent()
         var order: [Int32] = []
         var queue = [pid]
         while let next = queue.popLast() {
             order.append(next)
-            queue.append(contentsOf: PortScanner.childPIDs(of: next))
+            queue.append(contentsOf: children[next] ?? [])
         }
         for member in order.reversed() {
             try await terminate(member, force: force)

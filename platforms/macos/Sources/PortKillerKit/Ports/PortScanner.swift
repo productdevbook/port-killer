@@ -7,26 +7,35 @@ import Synchronization
 public enum PortScanner {
     struct TCPSocket {
         var state: Int32
-        var localPort: Int
-        var remotePort: Int
-        var localAddress: String
+        var info: in_sockinfo
+
+        var localPort: Int { PortScanner.port(info.insi_lport) }
+        var remotePort: Int { PortScanner.port(info.insi_fport) }
+
+        var localAddress: String {
+            unsafe PortScanner.format(info.insi_vflag, v4: info.insi_laddr.ina_46.i46a_addr4, v6: info.insi_laddr.ina_6)
+        }
+
+        var isRemoteLoopback: Bool {
+            unsafe PortScanner.isLoopback(info.insi_vflag, v4: info.insi_faddr.ina_46.i46a_addr4, v6: info.insi_faddr.ina_6)
+        }
     }
 
     private static let userNames = Mutex<[uid_t: String]>([:])
 
     @concurrent
-    public static func scan() async -> [ListeningPort] {
-        listeningPorts()
+    public static func scan(port: Int? = nil) async -> [ListeningPort] {
+        listeningPorts(port: port)
     }
 
-    public static func listeningPorts() -> [ListeningPort] {
+    public static func listeningPorts(port: Int? = nil) -> [ListeningPort] {
         struct Listener: Hashable {
             var port: Int
             var pid: Int32
         }
         var listeners: [Listener: OrderedSet<String>] = [:]
         for pid in allPIDs() {
-            for socket in tcpSockets(pid: pid) where socket.state == TSI_S_LISTEN {
+            for socket in tcpSockets(pid: pid) where socket.state == TSI_S_LISTEN && (port == nil || socket.localPort == port) {
                 listeners[Listener(port: socket.localPort, pid: pid), default: []].append(socket.localAddress)
             }
         }
@@ -50,17 +59,21 @@ public enum PortScanner {
     @concurrent
     public static func establishedPIDs(port: Int) async -> Set<Int32> {
         var pids: Set<Int32> = []
-        for pid in allPIDs() where tcpSockets(pid: pid).contains(where: { $0.state == TSI_S_ESTABLISHED && ($0.localPort == port || $0.remotePort == port) }) {
+        for pid in allPIDs() where tcpSockets(pid: pid).contains(where: { socket in
+            socket.state == TSI_S_ESTABLISHED && (socket.localPort == port || (socket.remotePort == port && socket.isRemoteLoopback))
+        }) {
             pids.insert(pid)
         }
         return pids
     }
 
+    @concurrent
+    public static func parent(of process: ProcessSnapshot) async -> ProcessSnapshot? {
+        process.parentPID > 1 ? snapshot(pid: process.parentPID) : nil
+    }
+
     public static func snapshot(pid: Int32) -> ProcessSnapshot? {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        let read = withUnsafeMutableBytes(of: &info) { unsafe proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, $0.baseAddress, size) }
-        guard read == size else { return nil }
+        guard let info = bsdInfo(pid: pid) else { return nil }
         let startSeconds = TimeInterval(info.pbi_start_tvsec) + TimeInterval(info.pbi_start_tvusec) / 1_000_000
         return ProcessSnapshot(
             pid: pid,
@@ -73,13 +86,14 @@ public enum PortScanner {
         )
     }
 
-    public static func childPIDs(of parent: Int32) -> [Int32] {
-        allPIDs().filter { pid in
-            var info = proc_bsdinfo()
-            let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-            let read = withUnsafeMutableBytes(of: &info) { unsafe proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, $0.baseAddress, size) }
-            return read == size && Int32(bitPattern: info.pbi_ppid) == parent
+    public static func childrenByParent() -> [Int32: [Int32]] {
+        var children: [Int32: [Int32]] = [:]
+        for pid in allPIDs() {
+            if let info = bsdInfo(pid: pid) {
+                children[Int32(bitPattern: info.pbi_ppid), default: []].append(pid)
+            }
         }
+        return children
     }
 
     static func allPIDs() -> [Int32] {
@@ -88,6 +102,13 @@ public enum PortScanner {
         var pids = [Int32](repeating: 0, count: Int(estimate) + 64)
         let count = pids.withUnsafeMutableBytes { unsafe proc_listallpids($0.baseAddress, Int32($0.count)) }
         return pids.prefix(Int(max(count, 0))).filter { $0 > 0 }
+    }
+
+    private static func bsdInfo(pid: Int32) -> proc_bsdinfo? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        let read = withUnsafeMutableBytes(of: &info) { unsafe proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, $0.baseAddress, size) }
+        return read == size ? info : nil
     }
 
     static func tcpSockets(pid: Int32) -> [TCPSocket] {
@@ -106,12 +127,7 @@ public enum PortScanner {
             }
             guard read == size, info.psi.soi_kind == SOCKINFO_TCP else { continue }
             let tcp = unsafe info.psi.soi_proto.pri_tcp
-            sockets.append(TCPSocket(
-                state: tcp.tcpsi_state,
-                localPort: port(tcp.tcpsi_ini.insi_lport),
-                remotePort: port(tcp.tcpsi_ini.insi_fport),
-                localAddress: localAddress(tcp.tcpsi_ini)
-            ))
+            sockets.append(TCPSocket(state: tcp.tcpsi_state, info: tcp.tcpsi_ini))
         }
         return sockets
     }
@@ -120,17 +136,24 @@ public enum PortScanner {
         Int(UInt16(bigEndian: UInt16(truncatingIfNeeded: raw)))
     }
 
-    private static func localAddress(_ info: in_sockinfo) -> String {
-        let flags = Int32(info.insi_vflag)
-        if flags & INI_IPV4 != 0 {
-            let bytes = unsafe withUnsafeBytes(of: info.insi_laddr.ina_46.i46a_addr4) { unsafe Data($0) }
-            guard let address = IPv4Address(bytes), address != .any else { return "*" }
-            return "\(address)"
+    private static func address(_ flags: UInt8, v4: in_addr, v6: in6_addr) -> (any IPAddress)? {
+        if Int32(flags) & INI_IPV4 != 0 {
+            return IPv4Address(withUnsafeBytes(of: v4) { unsafe Data($0) })
         }
-        let bytes = unsafe withUnsafeBytes(of: info.insi_laddr.ina_6) { unsafe Data($0) }
-        guard let address = IPv6Address(bytes), address != .any else { return "*" }
-        if let mapped = address.asIPv4 { return "\(mapped)" }
-        return "[\(address)]"
+        let address = IPv6Address(withUnsafeBytes(of: v6) { unsafe Data($0) })
+        return address?.asIPv4 ?? address
+    }
+
+    private static func format(_ flags: UInt8, v4: in_addr, v6: in6_addr) -> String {
+        switch address(flags, v4: v4, v6: v6) {
+        case let address as IPv4Address where address != .any: "\(address)"
+        case let address as IPv6Address where address != .any: "[\(address)]"
+        default: "*"
+        }
+    }
+
+    private static func isLoopback(_ flags: UInt8, v4: in_addr, v6: in6_addr) -> Bool {
+        address(flags, v4: v4, v6: v6)?.isLoopback ?? false
     }
 
     private static func name(pid: Int32) -> String? {
@@ -153,20 +176,20 @@ public enum PortScanner {
         guard unsafe sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else { return nil }
         var buffer = [UInt8](repeating: 0, count: size)
         guard unsafe sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return nil }
-        return parseProcessArguments(Array(buffer.prefix(size)))
+        return parseProcessArguments(buffer.prefix(size))
     }
 
-    static func parseProcessArguments(_ buffer: [UInt8]) -> String? {
+    static func parseProcessArguments(_ buffer: ArraySlice<UInt8>) -> String? {
         guard buffer.count > MemoryLayout<Int32>.size else { return nil }
         let argc = buffer.prefix(4).enumerated().reduce(Int32(0)) { $0 | Int32($1.element) << (8 * $1.offset) }
         guard argc > 0 else { return nil }
-        var index = MemoryLayout<Int32>.size
-        while index < buffer.count, buffer[index] != 0 { index += 1 }
-        while index < buffer.count, buffer[index] == 0 { index += 1 }
+        var index = buffer.startIndex + MemoryLayout<Int32>.size
+        while index < buffer.endIndex, buffer[index] != 0 { index += 1 }
+        while index < buffer.endIndex, buffer[index] == 0 { index += 1 }
         var arguments: [String] = []
-        while index < buffer.count, arguments.count < min(Int(argc), 256) {
+        while index < buffer.endIndex, arguments.count < min(Int(argc), 256) {
             let start = index
-            while index < buffer.count, buffer[index] != 0 { index += 1 }
+            while index < buffer.endIndex, buffer[index] != 0 { index += 1 }
             arguments.append(String(decoding: buffer[start..<index], as: UTF8.self))
             index += 1
         }

@@ -35,9 +35,10 @@ private struct GeneralSettings: View {
 
     var body: some View {
         @Bindable var preferences = model.preferences
+        @Bindable var loginItem = model.loginItem
         Form {
             Section {
-                Toggle("Open PortKiller at login", isOn: Binding(get: { model.loginItem.isEnabled }, set: { model.loginItem.setEnabled($0) }))
+                Toggle("Open PortKiller at login", isOn: $loginItem.isEnabled)
                 if model.loginItem.requiresApproval {
                     LabeledContent("Needs approval in System Settings") {
                         Button("Open Login Items") { model.loginItem.openSystemSettings() }
@@ -86,31 +87,12 @@ private struct NotificationSettings: View {
         Form {
             Section {
                 LabeledContent("Permission") {
-                    if model.notifier.isAuthorized {
-                        Label("Allowed", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    } else if model.notifier.isDenied {
-                        Button("Open System Settings") { model.notifier.openSystemSettings() }
-                    } else {
-                        Button("Allow Notifications") {
-                            Task { await model.notifier.requestAuthorization() }
-                        }
-                        .disabled(!model.notifier.isAvailable)
-                    }
+                    NotificationPermissionControl()
                 }
             }
             Section {
                 ForEach(ProcessCategory.allCases) { category in
-                    Toggle(isOn: Binding(
-                        get: { preferences.notifyCategories.contains(category.rawValue) },
-                        set: { enabled in
-                            if enabled {
-                                preferences.notifyCategories.insert(category.rawValue)
-                            } else {
-                                preferences.notifyCategories.remove(category.rawValue)
-                            }
-                        }
-                    )) {
+                    Toggle(isOn: $preferences.notifyCategories.contains(category.rawValue)) {
                         Label(category.rawValue, systemImage: category.symbolName)
                     }
                 }
@@ -291,6 +273,7 @@ private struct AboutSettings: View {
 
     var body: some View {
         @Bindable var preferences = model.preferences
+        @Bindable var updater = model.updater
         Form {
             Section {
                 HStack(spacing: 14) {
@@ -313,9 +296,9 @@ private struct AboutSettings: View {
                         Text("Never")
                     }
                 }
-                Toggle("Check for updates automatically", isOn: Binding(get: { model.updater.automaticallyChecks }, set: { model.updater.automaticallyChecks = $0 }))
+                Toggle("Check for updates automatically", isOn: $updater.automaticallyChecks)
                     .disabled(!model.updater.isAvailable)
-                Toggle("Download updates automatically", isOn: Binding(get: { model.updater.automaticallyDownloads }, set: { model.updater.automaticallyDownloads = $0 }))
+                Toggle("Download updates automatically", isOn: $updater.automaticallyDownloads)
                     .disabled(!model.updater.isAvailable)
                 Button("Check for Updates…") { model.updater.checkForUpdates() }
                     .disabled(!model.updater.canCheckForUpdates)

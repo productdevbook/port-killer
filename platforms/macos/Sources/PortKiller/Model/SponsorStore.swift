@@ -6,16 +6,15 @@ import PortKillerKit
 final class SponsorStore {
     let preferences: Preferences
 
-    private(set) var sponsors: [Sponsor]
-    private(set) var contributors: [Contributor]
     private(set) var isLoading = false
     private(set) var failed = false
 
     init(preferences: Preferences) {
         self.preferences = preferences
-        sponsors = preferences.sponsorCache?.sponsors ?? []
-        contributors = preferences.sponsorCache?.contributors ?? []
     }
+
+    var sponsors: [Sponsor] { preferences.sponsorCache?.sponsors ?? [] }
+    var contributors: [Contributor] { preferences.sponsorCache?.contributors ?? [] }
 
     var activeSponsors: [Sponsor] { sponsors.filter(\.isActive) }
     var pastSponsors: [Sponsor] { sponsors.filter { !$0.isActive } }
@@ -40,10 +39,7 @@ final class SponsorStore {
         isLoading = true
         defer { isLoading = false }
         do {
-            let cache = try await SponsorsClient.fetch()
-            sponsors = cache.sponsors
-            contributors = cache.contributors
-            preferences.sponsorCache = cache
+            preferences.sponsorCache = try await SponsorsClient.fetch()
             failed = false
         } catch {
             failed = sponsors.isEmpty

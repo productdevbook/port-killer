@@ -79,6 +79,14 @@ final class AppModel {
         }
     }
 
+    var selectedListeners: [ListeningPort] {
+        listeners(ids: ports.selection)
+    }
+
+    func listeners(ids: Set<PortRow.ID>) -> [ListeningPort] {
+        ports.listeners(ids: ids, in: sidebar)
+    }
+
     func completeOnboarding() {
         preferences.hasCompletedOnboarding = true
         showingOnboarding = false

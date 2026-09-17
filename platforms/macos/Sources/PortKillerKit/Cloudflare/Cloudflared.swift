@@ -8,8 +8,10 @@ public enum CloudflaredOutput {
         case ingress([TunnelIngressRule])
     }
 
-    public static func quickTunnelURL(in line: String) -> String? {
-        line.firstMatch(of: /https:\/\/[a-z0-9-]+\.trycloudflare\.com/).map { String($0.output) }
+    public static func quickTunnelURL(in line: String) -> URL? {
+        line.matches(of: /https:\/\/([a-z0-9-]+)\.trycloudflare\.com/)
+            .first { $0.output.1 != "api" }
+            .flatMap { URL(string: String($0.output.0)) }
     }
 
     public static func namedTunnelEvents(in line: String) -> [NamedTunnelEvent] {
@@ -50,13 +52,7 @@ public enum CloudflaredOutput {
     }
 }
 
-public struct Cloudflared: Sendable {
-    public var executable: URL
-
-    public init(executable: URL) {
-        self.executable = executable
-    }
-
+public enum Cloudflared {
     public static var configurationDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser.appending(path: ".cloudflared", directoryHint: .isDirectory)
     }
@@ -94,13 +90,14 @@ public enum TunnelDiscovery {
         var edgeConnections: [TunnelEdgeConnection]
     }
 
+    @concurrent
     public static func discover(executable: URL?, directory: URL = Cloudflared.configurationDirectory) async -> [DiscoveredTunnel] {
         var tunnels: [String: DiscoveredTunnel] = [:]
         for credential in credentials(in: directory) {
             tunnels[credential.id] = DiscoveredTunnel(id: credential.id, name: credential.id, credentialsPath: credential.path, edgeConnections: [], localIngress: [])
         }
         if let executable,
-           let result = try? await CommandRunner.run(executable, ["--output", "json", "tunnel", "list"], environment: ["PATH": CommandLineTool.searchPath]),
+           let result = try? await CommandRunner.run(executable, ["--output", "json", "tunnel", "list"]),
            result.succeeded {
             for remote in parseTunnelList(Data(result.output.utf8)) {
                 var tunnel = tunnels[remote.id] ?? DiscoveredTunnel(id: remote.id, name: remote.name, edgeConnections: [], localIngress: [])
@@ -200,7 +197,7 @@ public enum TunnelDiscovery {
             let line = rawLine.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? ""
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { continue }
-            if !line.hasPrefix(" ") && !line.hasPrefix("\t") {
+            if !line.hasPrefix(" ") && !line.hasPrefix("\t") && !trimmed.hasPrefix("- ") {
                 if inIngress {
                     flush()
                     inIngress = false

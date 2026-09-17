@@ -4,6 +4,13 @@ import Foundation
 import Observation
 import PortKillerKit
 
+extension Deque {
+    mutating func append(_ element: Element, limit: Int) {
+        append(element)
+        if count > limit { removeFirst() }
+    }
+}
+
 struct ForwardLogEntry: Identifiable, Hashable {
     enum Source: String {
         case kubectl
@@ -40,7 +47,6 @@ final class PortForwardSession: Identifiable {
         case failed(String)
     }
 
-    let id: UUID
     var configuration: PortForwardConfiguration
     private(set) var status: Status = .stopped
     private(set) var lastError: String?
@@ -52,11 +58,12 @@ final class PortForwardSession: Identifiable {
     @ObservationIgnored private let notifier: Notifier
 
     init(configuration: PortForwardConfiguration, preferences: Preferences, notifier: Notifier) {
-        id = configuration.id
         self.configuration = configuration
         self.preferences = preferences
         self.notifier = notifier
     }
+
+    var id: UUID { configuration.id }
 
     var isActive: Bool { task != nil }
 
@@ -80,6 +87,10 @@ final class PortForwardSession: Identifiable {
         guard let task, !task.isCancelled else { return }
         task.cancel()
         status = .stopping
+    }
+
+    func toggle() {
+        isActive ? stop() : start()
     }
 
     func restart() {
@@ -138,7 +149,7 @@ final class PortForwardSession: Identifiable {
     private func runOnce(_ tools: Tools) async -> Outcome {
         let configuration = configuration
         if configuration.proxyPort != nil, tools.socat == nil {
-            return .failed("socat isn't installed. Install it with brew install socat, or turn off the proxy.")
+            return .failed("socat isn't installed. Install it with \(CommandLineTool.socat.installCommand), or turn off the proxy.")
         }
         if configuration.usesDirectExec, let socat = tools.socat, let proxyPort = configuration.proxyPort {
             let script: URL
@@ -148,41 +159,36 @@ final class PortForwardSession: Identifiable {
                 return .failed("Couldn't prepare the proxy script: \(error.localizedDescription)")
             }
             defer { try? FileManager.default.removeItem(at: script) }
-            return await withTaskGroup(of: Outcome.self) { group in
-                group.addTask {
-                    await self.runProcess(.socat, socat, PortForwardPlan.directExecArguments(listenPort: proxyPort, script: script))
-                }
-                group.addTask {
-                    await self.watchHealth(port: proxyPort)
-                }
-                let outcome = await group.next() ?? .failed("Stopped")
-                group.cancelAll()
-                return outcome
+            return await Self.firstOutcome {
+                await self.runProcess(.socat, socat, PortForwardPlan.directExecArguments(listenPort: proxyPort, script: script))
+            } or: {
+                await self.watchHealth(port: proxyPort)
             }
         }
-        return await withTaskGroup(of: Outcome.self) { group in
-            group.addTask {
-                await self.runProcess(.kubectl, tools.kubectl, PortForwardPlan.kubectlArguments(configuration))
+        return await Self.firstOutcome {
+            await self.runProcess(.kubectl, tools.kubectl, PortForwardPlan.kubectlArguments(configuration))
+        } or: {
+            guard await self.waitUntilListening(port: configuration.localPort) else {
+                return .failed("kubectl didn't open port \(configuration.localPort)")
             }
-            group.addTask {
-                guard await self.waitUntilListening(port: configuration.localPort) else {
-                    return .failed("kubectl didn't open port \(configuration.localPort)")
-                }
-                if let proxyPort = configuration.proxyPort, let socat = tools.socat {
-                    return await withTaskGroup(of: Outcome.self) { inner in
-                        inner.addTask {
-                            await self.runProcess(.socat, socat, PortForwardPlan.proxyArguments(listenPort: proxyPort, targetPort: configuration.localPort))
-                        }
-                        inner.addTask {
-                            await self.watchHealth(port: proxyPort)
-                        }
-                        let outcome = await inner.next() ?? .failed("Stopped")
-                        inner.cancelAll()
-                        return outcome
-                    }
-                }
+            guard let proxyPort = configuration.proxyPort, let socat = tools.socat else {
                 return await self.watchHealth(port: configuration.localPort)
             }
+            return await Self.firstOutcome {
+                await self.runProcess(.socat, socat, PortForwardPlan.proxyArguments(listenPort: proxyPort, targetPort: configuration.localPort))
+            } or: {
+                await self.watchHealth(port: proxyPort)
+            }
+        }
+    }
+
+    nonisolated private static func firstOutcome(
+        _ first: @escaping @Sendable () async -> Outcome,
+        or second: @escaping @Sendable () async -> Outcome
+    ) async -> Outcome {
+        await withTaskGroup(of: Outcome.self) { group in
+            group.addTask { await first() }
+            group.addTask { await second() }
             let outcome = await group.next() ?? .failed("Stopped")
             group.cancelAll()
             return outcome
@@ -194,7 +200,6 @@ final class PortForwardSession: Identifiable {
             let code = try await CommandRunner.stream(
                 executable,
                 arguments,
-                environment: ["PATH": CommandLineTool.searchPath],
                 ownProcessGroup: source == .socat
             ) { @MainActor [weak self] line in
                 self?.receive(line, from: source)
@@ -252,9 +257,7 @@ final class PortForwardSession: Identifiable {
     }
 
     private func resolveConflict(on port: Int) async {
-        let stale = await PortScanner.scan().filter { listener in
-            listener.port == port && ["kubectl", "socat"].contains(listener.processName)
-        }
+        let stale = await PortScanner.scan(port: port).filter { ["kubectl", "socat"].contains($0.processName) }
         guard !stale.isEmpty else {
             append(.portKiller, "Port \(port) is used by another app", isError: true)
             return
@@ -271,7 +274,6 @@ final class PortForwardSession: Identifiable {
     }
 
     private func append(_ source: ForwardLogEntry.Source, _ message: String, isError: Bool) {
-        logs.append(ForwardLogEntry(source: source, message: message, isError: isError))
-        if logs.count > 500 { logs.removeFirst() }
+        logs.append(ForwardLogEntry(source: source, message: message, isError: isError), limit: 500)
     }
 }

@@ -6,7 +6,6 @@ public struct Sponsor: Identifiable, Codable, Hashable, Sendable {
     public var avatar: String?
     public var amount: Int
     public var link: String?
-    public var org: Bool?
 
     public var id: String { login }
 

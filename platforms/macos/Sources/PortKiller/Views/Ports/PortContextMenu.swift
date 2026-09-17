@@ -8,8 +8,8 @@ struct PortContextMenu: View {
     let onKill: ([ListeningPort]) -> Void
 
     var body: some View {
-        let listeners = model.ports.listeners(ids: ids)
-        let inactivePorts = ids.compactMap { id in id.hasPrefix("inactive:") ? Int(id.dropFirst("inactive:".count)) : nil }
+        let listeners = model.listeners(ids: ids)
+        let inactivePorts = ids.compactMap(\.inactivePort)
 
         if listeners.count == 1, let port = listeners.first {
             single(port)
@@ -29,8 +29,7 @@ struct PortContextMenu: View {
     private func single(_ port: ListeningPort) -> some View {
         let preferences = model.preferences
         if let url = port.localURL {
-            Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(url) }
-            Button("Copy URL", systemImage: "link") { Pasteboard.copy(url.absoluteString) }
+            URLActions(url: url)
         }
         Menu("Copy") {
             Button("Port Number") { Pasteboard.copy(String(port.port)) }
@@ -63,7 +62,7 @@ struct PortContextMenu: View {
             }
         }
         Button("Edit Label and Note…", systemImage: "pencil") {
-            model.ports.selection = [port.id]
+            model.ports.selection = [.listener(port.id)]
             model.inspectorVisible = true
         }
 
@@ -88,7 +87,7 @@ struct PortContextMenu: View {
         let tunnels = model.tunnels
         if let tunnel = tunnels.quickTunnel(for: port.port), tunnel.status != .failed {
             if let url = tunnel.url {
-                Button("Copy Tunnel URL", systemImage: "cloud") { Pasteboard.copy(url) }
+                Button("Copy Tunnel URL", systemImage: "cloud") { Pasteboard.copy(url.absoluteString) }
             }
             Button("Stop Quick Tunnel") { tunnels.stopQuickTunnel(tunnel) }
         } else if tunnels.isInstalled {

@@ -86,24 +86,18 @@ struct OnboardingView: View {
 
     private var setup: some View {
         @Bindable var preferences = model.preferences
+        @Bindable var loginItem = model.loginItem
         return VStack(alignment: .leading, spacing: 14) {
             Text("Set Up PortKiller")
                 .font(.title.weight(.bold))
                 .padding(.horizontal, 20)
             Form {
-                Toggle(isOn: Binding(get: { model.loginItem.isEnabled }, set: { model.loginItem.setEnabled($0) })) {
+                Toggle(isOn: $loginItem.isEnabled) {
                     Text("Open at login")
                     Text("Keep an eye on ports from the moment you log in.")
                 }
                 LabeledContent {
-                    if model.notifier.isAuthorized {
-                        Label("Allowed", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    } else if model.notifier.isDenied {
-                        Button("Open System Settings") { model.notifier.openSystemSettings() }
-                    } else {
-                        Button("Allow") { Task { await model.notifier.requestAuthorization() } }
-                    }
+                    NotificationPermissionControl(allowTitle: "Allow")
                 } label: {
                     Text("Notifications")
                     Text("Hear about watched ports, forwards and tunnels.")

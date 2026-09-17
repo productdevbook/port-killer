@@ -60,34 +60,24 @@ private struct QuickTunnelDetails: View {
 }
 
 private struct NamedTunnelDetails: View {
+    enum Page: String, CaseIterable {
+        case details = "Details"
+        case logs = "Logs"
+    }
+
     @Environment(AppModel.self) private var model
     let tunnel: NamedTunnel
-    @State private var page = 0
+    @State private var page = Page.details
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            Picker("", selection: $page) {
-                Text("Details").tag(0)
-                Text(tunnel.logs.isEmpty ? "Logs" : "Logs (\(tunnel.logs.count))").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            if page == 0 {
+            InspectorSegmentedPicker(selection: $page, options: Page.allCases) { $0 == .logs && !tunnel.logs.isEmpty ? "Logs (\(tunnel.logs.count))" : $0.rawValue }
+            switch page {
+            case .details:
                 details
-            } else {
-                LogConsole(lines: tunnel.logs.map(\.consoleLine), emptyText: "Run the tunnel to see cloudflared output.")
-                    .safeAreaBar(edge: .bottom) {
-                        HStack {
-                            Spacer()
-                            Button("Clear", systemImage: "trash") { tunnel.clearLogs() }
-                                .buttonStyle(.borderless)
-                                .disabled(tunnel.logs.isEmpty)
-                        }
-                        .padding(8)
-                    }
+            case .logs:
+                LogConsole(lines: tunnel.logs.map(\.consoleLine), emptyText: "Run the tunnel to see cloudflared output.", onClear: { tunnel.clearLogs() })
             }
         }
     }

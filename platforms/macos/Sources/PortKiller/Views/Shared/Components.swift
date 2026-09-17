@@ -138,7 +138,11 @@ extension TunnelLogEntry {
 struct LogConsole: View {
     let lines: [ConsoleLine]
     var emptyText = "No output yet."
+    var exportTitle: String?
+    var onClear: (() -> Void)?
     @State private var query = ""
+
+    private static let timeFormat = Date.FormatStyle.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits)
 
     var body: some View {
         let visible = query.isEmpty ? lines : lines.filter { $0.text.localizedCaseInsensitiveContains(query) }
@@ -165,11 +169,30 @@ struct LogConsole: View {
             }
         }
         .background(.background.secondary)
+        .safeAreaBar(edge: .bottom) {
+            if let onClear {
+                HStack {
+                    if let exportTitle {
+                        Button("Copy as Markdown", systemImage: "doc.on.doc") {
+                            Pasteboard.copy(Self.markdown(lines, title: exportTitle))
+                        }
+                    }
+                    Spacer()
+                    Button("Clear", systemImage: "trash", action: onClear)
+                }
+                .buttonStyle(.borderless)
+                .labelStyle(.titleAndIcon)
+                .font(.callout)
+                .disabled(lines.isEmpty)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+        }
     }
 
     private func row(_ line: ConsoleLine) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(line.date, format: .dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits))
+            Text(line.date, format: Self.timeFormat)
                 .foregroundStyle(.tertiary)
             if let tag = line.tag {
                 Text(tag)
@@ -193,9 +216,9 @@ struct LogConsole: View {
         }
     }
 
-    static func markdown(_ lines: [ConsoleLine], title: String) -> String {
+    private static func markdown(_ lines: [ConsoleLine], title: String) -> String {
         let body = lines.map { line in
-            let time = line.date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).second(.twoDigits))
+            let time = line.date.formatted(timeFormat)
             return [time, line.tag.map { "[\($0)]" }, line.text].compactMap { $0 }.joined(separator: " ")
         }
         return "# \(title)\n\n```\n\(body.joined(separator: "\n"))\n```\n"
@@ -242,7 +265,7 @@ struct ShortcutRecorder: View {
                 shortcut = nil
                 stop()
             default:
-                if let recorded = ShortcutRecording.shortcut(from: event) {
+                if let recorded = KeyShortcut(event: event) {
                     shortcut = recorded
                     stop()
                 } else {
@@ -298,6 +321,50 @@ struct CommandLineToolRow: View {
                 .foregroundStyle(.red)
                 .lineLimit(3)
         }
+    }
+}
+
+struct URLActions: View {
+    let url: URL
+
+    var body: some View {
+        Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(url) }
+        Button("Copy URL", systemImage: "link") { Pasteboard.copy(url.absoluteString) }
+    }
+}
+
+struct NotificationPermissionControl: View {
+    @Environment(AppModel.self) private var model
+    var allowTitle = "Allow Notifications"
+
+    var body: some View {
+        let notifier = model.notifier
+        if notifier.isAuthorized {
+            Label("Allowed", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+        } else if notifier.isDenied {
+            Button("Open System Settings") { notifier.openSystemSettings() }
+        } else {
+            Button(allowTitle) {
+                Task { await notifier.requestAuthorization() }
+            }
+            .disabled(!notifier.isAvailable)
+        }
+    }
+}
+
+extension Binding {
+    func contains<Element: Hashable & Sendable>(_ element: Element) -> Binding<Bool> where Value == Set<Element> {
+        Binding<Bool>(
+            get: { wrappedValue.contains(element) },
+            set: { isIncluded in
+                if isIncluded {
+                    wrappedValue.insert(element)
+                } else {
+                    wrappedValue.remove(element)
+                }
+            }
+        )
     }
 }
 

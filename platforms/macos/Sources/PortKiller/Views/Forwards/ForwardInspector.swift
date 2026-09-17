@@ -1,4 +1,3 @@
-import AppKit
 import PortKillerKit
 import SwiftUI
 
@@ -73,7 +72,7 @@ private struct ForwardDetails: View {
                     .help("Restart")
             }
             Button(session.isActive ? "Stop" : "Start", systemImage: session.isActive ? "stop.fill" : "play.fill") {
-                session.isActive ? session.stop() : session.start()
+                session.toggle()
             }
             .buttonStyle(.glassProminent)
             .tint(session.isActive ? .red : .green)
@@ -151,29 +150,17 @@ private struct ForwardDetails: View {
     }
 
     private var logs: some View {
-        let lines = session.logs.map(\.consoleLine)
-        return LogConsole(lines: lines, emptyText: "Start the port forward to see kubectl output.")
-            .safeAreaBar(edge: .bottom) {
-                HStack {
-                    Button("Copy as Markdown", systemImage: "doc.on.doc") {
-                        Pasteboard.copy(LogConsole.markdown(lines, title: session.configuration.name))
-                    }
-                    Spacer()
-                    Button("Clear", systemImage: "trash") { session.clearLogs() }
-                }
-                .buttonStyle(.borderless)
-                .labelStyle(.titleAndIcon)
-                .font(.callout)
-                .disabled(lines.isEmpty)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-            }
+        LogConsole(
+            lines: session.logs.map(\.consoleLine),
+            emptyText: "Start the port forward to see kubectl output.",
+            exportTitle: session.configuration.name,
+            onClear: { session.clearLogs() }
+        )
     }
 
     private func loadNamespaces() async {
-        let custom = model.preferences.customNamespaces
         let fetched = (try? await model.forwards.kubectl?.namespaces()) ?? []
-        namespaces = Array(Set(fetched + custom)).sorted()
+        namespaces = model.forwards.namespaces(merging: fetched)
     }
 
     private func loadServices() async {
@@ -181,8 +168,10 @@ private struct ForwardDetails: View {
             services = []
             return
         }
-        try? await Task.sleep(for: .milliseconds(300))
-        services = (try? await kubectl.services(namespace: draft.namespace)) ?? []
+        guard (try? await Task.sleep(for: .milliseconds(300))) != nil else { return }
+        let loaded = (try? await kubectl.services(namespace: draft.namespace)) ?? []
+        guard !Task.isCancelled else { return }
+        services = loaded
     }
 }
 

@@ -64,7 +64,7 @@ public enum QuickTunnelProtocol: String, CaseIterable, Identifiable, Sendable, C
     }
 }
 
-public enum TunnelLogLevel: Sendable, Hashable, CaseIterable {
+public enum TunnelLogLevel: Sendable, Hashable {
     case info
     case request
     case warning
@@ -85,9 +85,9 @@ public struct TunnelLogEntry: Identifiable, Hashable, Sendable {
     public var message: String
     public var level: TunnelLogLevel
 
-    public init(message: String, date: Date = Date()) {
+    public init(message: String) {
         id = UUID()
-        self.date = date
+        date = Date()
         self.message = message
         level = TunnelLogLevel.classify(message)
     }

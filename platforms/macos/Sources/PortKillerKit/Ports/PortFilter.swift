@@ -31,16 +31,14 @@ public struct PortFilter: Sendable, Equatable {
         guard categories.contains(category) else { return false }
         let query = query
         guard !query.isEmpty else { return true }
-        let fields = [
-            String(port.port),
-            String(port.pid),
-            port.processName,
-            port.address,
-            port.process.user,
-            port.process.command,
-            label ?? "",
-        ]
-        return fields.contains { $0.lowercased().contains(query) }
+        func contains(_ field: String) -> Bool { field.lowercased().contains(query) }
+        return contains(String(port.port))
+            || contains(String(port.pid))
+            || contains(port.processName)
+            || contains(port.address)
+            || contains(port.process.user)
+            || contains(port.process.command)
+            || contains(label ?? "")
     }
 
     public mutating func reset() {

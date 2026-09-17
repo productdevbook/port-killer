@@ -8,7 +8,6 @@ struct PortExposure: Hashable {
     var hostname: String
     var publicURL: String
     var tunnelName: String
-    var tunnelID: String
 }
 
 enum TunnelSelection: Hashable {
@@ -28,7 +27,7 @@ final class QuickTunnel: Identifiable {
     let id = UUID()
     let port: Int
     fileprivate(set) var status: Status = .starting
-    fileprivate(set) var url: String?
+    fileprivate(set) var url: URL?
     fileprivate(set) var lastError: String?
     fileprivate(set) var startedAt: Date?
     fileprivate(set) var logs: Deque<TunnelLogEntry> = []
@@ -38,9 +37,8 @@ final class QuickTunnel: Identifiable {
         self.port = port
     }
 
-    fileprivate func append(_ line: String) {
-        logs.append(TunnelLogEntry(message: line))
-        if logs.count > 500 { logs.removeFirst() }
+    var host: String? {
+        url?.host()
     }
 
     func clearLogs() {
@@ -111,11 +109,6 @@ final class NamedTunnel: Identifiable {
         }
     }
 
-    fileprivate func append(_ line: String) {
-        logs.append(TunnelLogEntry(message: line))
-        if logs.count > 500 { logs.removeFirst() }
-    }
-
     func clearLogs() {
         logs.removeAll()
     }
@@ -140,21 +133,26 @@ final class TunnelStore {
         self.notifier = notifier
     }
 
-    var cloudflared: Cloudflared? {
-        preferences.locate(.cloudflared).map(Cloudflared.init(executable:))
+    var cloudflared: URL? {
+        preferences.locate(.cloudflared)
     }
 
     var isInstalled: Bool { cloudflared != nil }
 
     var activeQuickCount: Int { quickTunnels.count { $0.status == .active } }
     var runningNamedCount: Int { namedTunnels.count { $0.status == .running } }
+    var activeCount: Int { activeQuickCount + runningNamedCount }
+
+    var sharedPorts: Set<Int> {
+        Set(exposuresByPort.keys).union(quickTunnels.filter { $0.status == .active }.map(\.port))
+    }
 
     var exposuresByPort: [Int: [PortExposure]] {
         var result: [Int: [PortExposure]] = [:]
         for tunnel in namedTunnels where tunnel.status == .running {
             for rule in tunnel.ingressRules {
                 guard let port = rule.localPort, let hostname = rule.hostname, let url = rule.publicURL else { continue }
-                result[port, default: []].append(PortExposure(hostname: hostname, publicURL: url, tunnelName: tunnel.name, tunnelID: tunnel.id))
+                result[port, default: []].append(PortExposure(hostname: hostname, publicURL: url, tunnelName: tunnel.name))
             }
         }
         return result
@@ -180,7 +178,7 @@ final class TunnelStore {
             if existing.status == .failed {
                 quickTunnels.removeAll { $0.id == existing.id }
             } else {
-                if let url = existing.url { Pasteboard.copy(url) }
+                if let url = existing.url { Pasteboard.copy(url.absoluteString) }
                 return
             }
         }
@@ -189,27 +187,30 @@ final class TunnelStore {
         quickTunnels.append(tunnel)
         let arguments = Cloudflared.quickTunnelArguments(port: port, protocol: preferences.quickTunnelProtocol)
         tunnel.task = Task(name: "Quick tunnel \(port)") { [weak self, weak tunnel] in
+            let result: Result<Int32, any Error>
             do {
-                let status = try await CommandRunner.stream(cloudflared.executable, arguments, environment: ["PATH": CommandLineTool.searchPath]) { @MainActor [weak self, weak tunnel] line in
+                result = .success(try await CommandRunner.stream(cloudflared, arguments) { @MainActor [weak self, weak tunnel] line in
                     guard let tunnel else { return }
                     self?.receive(line, for: tunnel)
-                }
-                guard let tunnel else { return }
-                if tunnel.status == .stopping {
-                    self?.quickTunnels.removeAll { $0.id == tunnel.id }
-                } else {
-                    tunnel.status = .failed
-                    tunnel.lastError = tunnel.lastError ?? "cloudflared exited with status \(status)"
-                }
+                })
             } catch {
-                if let tunnel, tunnel.status == .stopping {
-                    self?.quickTunnels.removeAll { $0.id == tunnel.id }
-                } else {
-                    tunnel?.status = .failed
-                    tunnel?.lastError = error.localizedDescription
-                }
+                result = .failure(error)
             }
-            tunnel?.task = nil
+            guard let tunnel else { return }
+            self?.finish(tunnel, result)
+        }
+    }
+
+    private func finish(_ tunnel: QuickTunnel, _ result: Result<Int32, any Error>) {
+        tunnel.task = nil
+        guard tunnel.status != .stopping else {
+            quickTunnels.removeAll { $0.id == tunnel.id }
+            return
+        }
+        tunnel.status = .failed
+        switch result {
+        case .success(let status): tunnel.lastError = tunnel.lastError ?? "cloudflared exited with status \(status)"
+        case .failure(let error): tunnel.lastError = error.localizedDescription
         }
     }
 
@@ -222,24 +223,20 @@ final class TunnelStore {
         task.cancel()
     }
 
-    func stopQuickTunnel(port: Int) {
-        if let tunnel = quickTunnel(for: port) { stopQuickTunnel(tunnel) }
-    }
-
     func stopAllQuickTunnels() {
         quickTunnels.forEach(stopQuickTunnel)
     }
 
     private func receive(_ line: String, for tunnel: QuickTunnel) {
-        tunnel.append(line)
+        tunnel.logs.append(TunnelLogEntry(message: line), limit: 500)
         if tunnel.url == nil, let url = CloudflaredOutput.quickTunnelURL(in: line) {
             tunnel.url = url
             tunnel.status = .active
             tunnel.startedAt = Date()
             tunnel.lastError = nil
-            Pasteboard.copy(url)
-            notifier.post(title: "Tunnel Active", body: "Port \(tunnel.port) is available at \(url.replacingOccurrences(of: "https://", with: "")). The URL is on your clipboard.")
-        } else if tunnel.status != .active, TunnelLogLevel.classify(line) == .error {
+            Pasteboard.copy(url.absoluteString)
+            notifier.post(title: "Tunnel Active", body: "Port \(tunnel.port) is available at \(tunnel.host ?? url.absoluteString). The URL is on your clipboard.")
+        } else if tunnel.status != .active, tunnel.logs.last?.level == .error {
             tunnel.lastError = line
         }
     }
@@ -292,7 +289,7 @@ final class TunnelStore {
     }
 
     func run(_ tunnel: NamedTunnel, allowManagedElsewhere: Bool = false) {
-        guard !tunnel.isRunningHere, let cloudflared else { return }
+        guard tunnel.task == nil, let cloudflared else { return }
         guard allowManagedElsewhere || tunnel.runSafety != .managedElsewhere else {
             tunnel.lastError = "This tunnel is managed by another connector."
             return
@@ -304,28 +301,15 @@ final class TunnelStore {
         tunnel.startedAt = Date()
         let arguments = Cloudflared.namedTunnelArguments(name: tunnel.name)
         tunnel.task = Task(name: "Named tunnel \(tunnel.name)") { [weak tunnel] in
+            let result: Result<Int32, any Error>
             do {
-                let status = try await CommandRunner.stream(cloudflared.executable, arguments, environment: ["PATH": CommandLineTool.searchPath]) { @MainActor [weak tunnel] line in
+                result = .success(try await CommandRunner.stream(cloudflared, arguments) { @MainActor [weak tunnel] line in
                     tunnel?.receive(line)
-                }
-                guard let tunnel else { return }
-                if tunnel.status == .stopping || status == 0 {
-                    tunnel.status = .stopped
-                } else {
-                    tunnel.status = .failed
-                    tunnel.lastError = tunnel.lastError ?? "cloudflared exited with status \(status)"
-                }
+                })
             } catch {
-                if tunnel?.status == .stopping {
-                    tunnel?.status = .stopped
-                } else {
-                    tunnel?.status = .failed
-                    tunnel?.lastError = error.localizedDescription
-                }
+                result = .failure(error)
             }
-            tunnel?.activeConnections = 0
-            tunnel?.metricsPort = nil
-            tunnel?.task = nil
+            tunnel?.finish(result)
         }
     }
 
@@ -350,8 +334,24 @@ final class TunnelStore {
 }
 
 private extension NamedTunnel {
+    func finish(_ result: Result<Int32, any Error>) {
+        task = nil
+        activeConnections = 0
+        metricsPort = nil
+        switch (status, result) {
+        case (.stopping, _), (_, .success(0)):
+            status = .stopped
+        case (_, .success(let code)):
+            status = .failed
+            lastError = lastError ?? "cloudflared exited with status \(code)"
+        case (_, .failure(let error)):
+            status = .failed
+            lastError = error.localizedDescription
+        }
+    }
+
     func receive(_ line: String) {
-        append(line)
+        logs.append(TunnelLogEntry(message: line), limit: 500)
         for event in CloudflaredOutput.namedTunnelEvents(in: line) {
             switch event {
             case .connectionRegistered:
@@ -366,7 +366,7 @@ private extension NamedTunnel {
                 ingressSource = .dashboard
             }
         }
-        if status != .running, TunnelLogLevel.classify(line) == .error {
+        if status != .running, logs.last?.level == .error {
             lastError = line
         }
     }

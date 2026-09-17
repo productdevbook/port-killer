@@ -49,7 +49,7 @@ struct ServiceBrowser: View {
         }
         .frame(width: 860, height: 540)
         .task { await loadNamespaces() }
-        .onChange(of: namespace) { Task { await loadServices() } }
+        .task(id: namespace) { await loadServices() }
         .onChange(of: serviceID) {
             remotePort = services.first { $0.id == serviceID }?.ports.first?.port
         }
@@ -141,7 +141,7 @@ struct ServiceBrowser: View {
                     TextField("Local Port", value: $localPort, format: .number.grouping(.never))
                     Toggle("Proxy through socat", isOn: $useProxy)
                     LabeledContent("Connect to") {
-                        Text(verbatim: "localhost:\(useProxy ? localPort - 1 : localPort)")
+                        Text(verbatim: "localhost:\(proxyPort ?? localPort)")
                             .monospacedDigit()
                     }
                 }
@@ -156,7 +156,11 @@ struct ServiceBrowser: View {
     }
 
     private var allNamespaces: [String] {
-        Array(Set(namespaces + model.preferences.customNamespaces)).sorted()
+        model.forwards.namespaces(merging: namespaces)
+    }
+
+    private var proxyPort: Int? {
+        useProxy ? localPort - 1 : nil
     }
 
     private func loadNamespaces() async {
@@ -180,11 +184,19 @@ struct ServiceBrowser: View {
         serviceID = nil
         guard let namespace, let kubectl = model.forwards.kubectl else { return }
         loadingServices = true
-        defer { loadingServices = false }
+        let result: Result<[KubernetesService], KubectlError>
         do {
-            services = try await kubectl.services(namespace: namespace)
-            serviceError = nil
+            result = .success(try await kubectl.services(namespace: namespace))
         } catch {
+            result = .failure(error)
+        }
+        guard !Task.isCancelled else { return }
+        loadingServices = false
+        switch result {
+        case .success(let loaded):
+            services = loaded
+            serviceError = nil
+        case .failure(let error):
             serviceError = error.localizedDescription
         }
     }
@@ -197,7 +209,7 @@ struct ServiceBrowser: View {
             service: service.name,
             localPort: localPort,
             remotePort: remotePort,
-            proxyPort: useProxy ? localPort - 1 : nil
+            proxyPort: proxyPort
         )
         model.forwards.add(configuration, start: startNow)
         dismiss()

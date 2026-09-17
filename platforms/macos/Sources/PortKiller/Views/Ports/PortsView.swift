@@ -5,7 +5,6 @@ import SwiftUI
 struct PortsView: View {
     let item: SidebarItem
     @Environment(AppModel.self) private var model
-    @State private var pendingKill: [ListeningPort] = []
     @State private var showingRange = false
 
     var body: some View {
@@ -68,13 +67,13 @@ struct PortsView: View {
             .width(min: 70, ideal: 96)
         }
         .contextMenu(forSelectionType: PortRow.ID.self) { ids in
-            PortContextMenu(ids: ids, onKill: requestKill)
+            PortContextMenu(ids: ids) { model.ports.requestKill($0) }
         } primaryAction: { ids in
             model.ports.selection = ids
             model.inspectorVisible = true
         }
         .onDeleteCommand {
-            requestKill(model.ports.selectedListeners)
+            model.ports.requestKill(model.selectedListeners)
         }
         .overlay {
             if data.isEmpty {
@@ -88,7 +87,7 @@ struct PortsView: View {
         .safeAreaBar(edge: .bottom) {
             PortsStatusBar(visible: rows.count)
         }
-        .confirmationDialog(killTitle, isPresented: Binding(get: { !pendingKill.isEmpty }, set: { if !$0 { pendingKill = [] } }), presenting: pendingKill) { targets in
+        .confirmationDialog(killTitle, isPresented: Binding(get: { !ports.pendingKill.isEmpty }, set: { if !$0 { ports.pendingKill = [] } }), presenting: ports.pendingKill) { targets in
             Button("Kill", role: .destructive) { kill(targets, .graceful) }
             Button("Force Kill") { kill(targets, .force) }
             Button("Kill Process Tree") { kill(targets, .tree) }
@@ -101,13 +100,9 @@ struct PortsView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup {
-            Button("Kill", systemImage: "xmark.octagon") {
-                requestKill(model.ports.selectedListeners)
-            }
-            .disabled(model.ports.selectedListeners.isEmpty)
-            .help("Kill the selected processes")
+            KillSelectionButton()
 
-            Picker("Layout", selection: Binding(get: { model.preferences.useTreeView }, set: { model.preferences.useTreeView = $0 })) {
+            Picker("Layout", selection: Bindable(model.preferences).useTreeView) {
                 Label("List", systemImage: "list.bullet").tag(false)
                 Label("Group by Process", systemImage: "list.bullet.indent").tag(true)
             }
@@ -133,16 +128,7 @@ struct PortsView: View {
             Toggle("Hide System Processes", isOn: $preferences.hideSystemProcesses)
             Section("Categories") {
                 ForEach(ProcessCategory.allCases) { category in
-                    Toggle(category.rawValue, isOn: Binding(
-                        get: { ports.filter.categories.contains(category) },
-                        set: { enabled in
-                            if enabled {
-                                ports.filter.categories.insert(category)
-                            } else {
-                                ports.filter.categories.remove(category)
-                            }
-                        }
-                    ))
+                    Toggle(category.rawValue, isOn: $ports.filter.categories.contains(category))
                 }
             }
             Divider()
@@ -180,22 +166,27 @@ struct PortsView: View {
     }
 
     private var killTitle: String {
+        let pendingKill = model.ports.pendingKill
         guard pendingKill.count == 1, let port = pendingKill.first else { return "Kill \(pendingKill.count) Processes?" }
         return "Kill \(port.processName) on Port \(port.port)?"
     }
 
-    private func requestKill(_ targets: [ListeningPort]) {
-        guard !targets.isEmpty else { return }
-        if model.preferences.skipKillConfirmation {
-            kill(targets, .graceful)
-        } else {
-            pendingKill = targets
-        }
-    }
-
     private func kill(_ targets: [ListeningPort], _ mode: KillMode) {
-        pendingKill = []
+        model.ports.pendingKill = []
         Task { await model.ports.kill(targets, mode: mode) }
+    }
+}
+
+private struct KillSelectionButton: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let selected = model.selectedListeners
+        Button("Kill", systemImage: "xmark.octagon") {
+            model.ports.requestKill(selected)
+        }
+        .disabled(selected.isEmpty)
+        .help("Kill the selected processes")
     }
 }
 
@@ -316,7 +307,7 @@ struct PortsStatusBar: View {
             if model.forwards.connectedCount > 0 {
                 Label("\(model.forwards.connectedCount) forwarded", systemImage: "point.3.connected.trianglepath.dotted")
             }
-            let tunnels = model.tunnels.activeQuickCount + model.tunnels.runningNamedCount
+            let tunnels = model.tunnels.activeCount
             if tunnels > 0 {
                 Label("\(tunnels) tunneled", systemImage: "cloud")
             }

@@ -29,7 +29,7 @@ final class ToolInstaller {
                 preferences.toolsChanged()
             }
             do {
-                let result = try await CommandRunner.run(brew, ["install", tool.formula], environment: ["PATH": CommandLineTool.searchPath])
+                let result = try await CommandRunner.run(brew, ["install", tool.formula])
                 if !result.succeeded { errors[tool.name] = String(result.combined.suffix(300)) }
             } catch {
                 errors[tool.name] = error.localizedDescription
@@ -40,27 +40,30 @@ final class ToolInstaller {
 
 @Observable
 final class LoginItem {
-    private(set) var isEnabled = SMAppService.mainApp.status == .enabled
-    private(set) var requiresApproval = SMAppService.mainApp.status == .requiresApproval
+    private(set) var status = SMAppService.mainApp.status
     var error: String?
 
-    func refresh() {
-        isEnabled = SMAppService.mainApp.status == .enabled
-        requiresApproval = SMAppService.mainApp.status == .requiresApproval
+    var isEnabled: Bool {
+        get { status == .enabled }
+        set {
+            do {
+                if newValue {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+                error = nil
+            } catch {
+                self.error = error.localizedDescription
+            }
+            refresh()
+        }
     }
 
-    func setEnabled(_ enabled: Bool) {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-            error = nil
-        } catch {
-            self.error = error.localizedDescription
-        }
-        refresh()
+    var requiresApproval: Bool { status == .requiresApproval }
+
+    func refresh() {
+        status = SMAppService.mainApp.status
     }
 
     func openSystemSettings() {
@@ -102,7 +105,7 @@ final class Updater {
     }
 
     func start() {
-        guard controller == nil, Bundle.main.bundleURL.pathExtension == "app" else { return }
+        guard controller == nil, AppInfo.isBundled else { return }
         let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
         self.controller = controller
         canCheckForUpdates = controller.updater.canCheckForUpdates
@@ -129,6 +132,7 @@ final class Updater {
 }
 
 enum AppInfo {
+    static let isBundled = Bundle.main.bundleURL.pathExtension == "app"
     static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "4.0.0"
     static let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
     static let repository = URL(string: "https://github.com/productdevbook/port-killer")

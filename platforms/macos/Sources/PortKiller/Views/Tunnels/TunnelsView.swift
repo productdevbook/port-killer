@@ -12,9 +12,10 @@ struct TunnelsView: View {
         let running = named.filter(\.isRunningHere)
         let available = named.filter { !$0.isRunningHere && $0.runSafety != .managedElsewhere }
         let elsewhere = named.filter { !$0.isRunningHere && $0.runSafety == .managedElsewhere }
+        let isInstalled = tunnels.isInstalled
 
         List(selection: $tunnels.selection) {
-            if !tunnels.isInstalled {
+            if !isInstalled {
                 Section {
                     MissingToolBanner(tool: .cloudflared, message: "Share local ports on a public URL and run your named tunnels.")
                 }
@@ -63,7 +64,7 @@ struct TunnelsView: View {
             }
         }
         .overlay {
-            if tunnels.isInstalled, named.isEmpty, tunnels.quickTunnels.isEmpty {
+            if isInstalled, named.isEmpty, tunnels.quickTunnels.isEmpty {
                 if tunnels.isDiscovering {
                     ProgressView("Looking for tunnels…")
                 } else {
@@ -122,14 +123,14 @@ struct QuickTunnelRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Port \(String(tunnel.port))")
                     .fontWeight(.medium)
-                Text(tunnel.url?.replacingOccurrences(of: "https://", with: "") ?? tunnel.lastError ?? tunnel.status.title)
+                Text(tunnel.host ?? tunnel.lastError ?? tunnel.status.title)
                     .font(.caption)
                     .foregroundStyle(tunnel.status == .failed ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
                     .lineLimit(1)
             }
             Spacer()
             if let url = tunnel.url {
-                Button("Copy URL", systemImage: "doc.on.doc") { Pasteboard.copy(url) }
+                Button("Copy URL", systemImage: "doc.on.doc") { Pasteboard.copy(url.absoluteString) }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.glass)
                     .buttonBorderShape(.circle)
@@ -141,9 +142,8 @@ struct QuickTunnelRow: View {
         }
         .padding(.vertical, 4)
         .contextMenu {
-            if let url = tunnel.url, let link = URL(string: url) {
-                Button("Open in Browser") { NSWorkspace.shared.open(link) }
-                Button("Copy URL") { Pasteboard.copy(url) }
+            if let url = tunnel.url {
+                URLActions(url: url)
                 Divider()
             }
             Button("Stop Tunnel", role: .destructive) { model.tunnels.stopQuickTunnel(tunnel) }

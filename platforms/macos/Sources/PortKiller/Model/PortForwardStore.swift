@@ -105,6 +105,10 @@ final class PortForwardStore {
         _ = try? await CommandRunner.run(pkill, ["-9", "-f", "socat.*TCP-LISTEN"])
     }
 
+    func namespaces(merging fetched: [String]) -> [String] {
+        Array(Set(fetched + preferences.customNamespaces)).sorted()
+    }
+
     func addCustomNamespaces(_ names: [String]) {
         for name in names.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }) where !name.isEmpty && !preferences.customNamespaces.contains(name) {
             preferences.customNamespaces.append(name)
