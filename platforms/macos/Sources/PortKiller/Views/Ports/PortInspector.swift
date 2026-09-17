@@ -14,7 +14,6 @@ struct PortInspector: View {
                 ProcessDetails(name: name, ports: selected)
             } else if selected.count == 1, let port = selected.first {
                 PortDetails(port: port)
-                    .id(port.id)
             } else if selected.count > 1 {
                 MultiplePortsSummary(ports: selected)
             } else if selection.count == 1, case .inactivePort(let port) = selection.first {
@@ -178,11 +177,19 @@ private struct PortDetails: View {
             label = preferences.label(for: port.port) ?? ""
             note = preferences.note(for: port.port) ?? ""
         }
+        .onChange(of: port.port) { previous, current in
+            preferences.setLabel(label, for: previous)
+            preferences.setNote(note, for: previous)
+            label = preferences.label(for: current) ?? ""
+            note = preferences.note(for: current) ?? ""
+        }
         .onDisappear {
             preferences.setLabel(label, for: port.port)
             preferences.setNote(note, for: port.port)
         }
-        .task {
+        .task(id: port.id) {
+            model.explainer.refreshAvailability()
+            parent = nil
             parent = await model.ports.parent(of: port)
         }
     }

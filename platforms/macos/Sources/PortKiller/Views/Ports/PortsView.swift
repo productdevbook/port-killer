@@ -33,7 +33,6 @@ struct PortsView: View {
                 Text(row.address)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .help(row.address)
             }
             .width(min: 80, ideal: 130)
 

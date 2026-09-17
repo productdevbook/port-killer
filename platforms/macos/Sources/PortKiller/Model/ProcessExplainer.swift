@@ -35,9 +35,11 @@ final class ProcessExplainer {
     }
 
     private(set) var states: [String: State] = [:]
+    private(set) var availability = SystemLanguageModel.default.availability
 
-    var availability: SystemLanguageModel.Availability {
-        SystemLanguageModel.default.availability
+    func refreshAvailability() {
+        let current = SystemLanguageModel.default.availability
+        if current != availability { availability = current }
     }
 
     var unavailableReason: String? {

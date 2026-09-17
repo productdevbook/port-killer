@@ -37,8 +37,8 @@ struct ProcessIcon: View {
     var size: CGFloat = 18
 
     var body: some View {
-        if let image = AppIcons.icon(for: process) {
-            Image(nsImage: image)
+        if let image = AppIcons.shared.image(for: process) {
+            Image(decorative: image, scale: 1)
                 .resizable()
                 .interpolation(.high)
                 .frame(width: size, height: size)
@@ -52,19 +52,42 @@ struct ProcessIcon: View {
     }
 }
 
-enum AppIcons {
-    private static var cache: [String: NSImage?] = [:]
+@Observable
+final class AppIcons {
+    static let shared = AppIcons()
 
-    static func icon(for process: ProcessSnapshot?) -> NSImage? {
+    private var images: [String: CGImage] = [:]
+    @ObservationIgnored private var requested: Set<String> = []
+
+    func image(for process: ProcessSnapshot?) -> CGImage? {
         guard let process, let executable = process.executablePath else { return nil }
-        if let cached = cache[executable] { return cached }
-        let bundle = process.appBundleURLs.first { url in
+        if let image = images[executable] { return image }
+        guard requested.insert(executable).inserted else { return nil }
+        let bundles = process.appBundleURLs
+        Task(name: "Load icon") {
+            if let image = await Self.render(bundles) {
+                images[executable] = image
+            }
+        }
+        return nil
+    }
+
+    @concurrent
+    private static func render(_ bundles: [URL]) async -> CGImage? {
+        let bundle = bundles.first { url in
             let info = Bundle(url: url)?.infoDictionary
             return info?["CFBundleIconFile"] != nil || info?["CFBundleIconName"] != nil
         }
-        let image = bundle.map { NSWorkspace.shared.icon(forFile: $0.path) }
-        cache[executable] = image
-        return image
+        guard let bundle, let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        let pixels = 64
+        let icon = NSWorkspace.shared.icon(forFile: bundle.path)
+        var rect = CGRect(x: 0, y: 0, width: pixels, height: pixels)
+        guard let source = unsafe icon.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+              let context = unsafe CGContext(data: nil, width: pixels, height: pixels, bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.interpolationQuality = .high
+        context.draw(source, in: CGRect(x: 0, y: 0, width: pixels, height: pixels))
+        return context.makeImage()
     }
 }
 
