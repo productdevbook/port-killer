@@ -194,27 +194,30 @@ public struct PortGraph: Hashable, Sendable {
         }
     }
 
-    public func layout(saved: [String: GraphPoint], columnSpacing: Double = 340, rowSpacing: Double = 96) -> [String: GraphPoint] {
-        var rows: [String: Double] = [:]
-        let ports = nodes.filter { $0.column == .ports }
-        for (index, node) in ports.enumerated() {
-            rows[node.id] = Double(index)
+    public func pins(of id: String) -> [GraphNode] {
+        let ports = Set(edges.filter { $0.from == id && $0.origin == .system }.map(\.to))
+        return nodes.filter { $0.column == .ports && ports.contains($0.id) }
+    }
+
+    public var blocks: [GraphNode] {
+        let providers = Set(nodes.filter { $0.column == .providers }.map(\.id))
+        let owned = Set(edges.filter { providers.contains($0.from) }.map(\.to))
+        return nodes.filter { $0.column != .ports || !owned.contains($0.id) }
+    }
+
+    public func owner(of portID: String) -> String? {
+        let providers = Set(nodes.filter { $0.column == .providers }.map(\.id))
+        return edges.first { $0.to == portID && providers.contains($0.from) }?.from
+    }
+
+    public func layout(saved: [String: GraphPoint], columnSpacing: Double, gap: Double, height: (GraphNode) -> Double) -> [String: GraphPoint] {
+        var positions: [String: GraphPoint] = [:]
+        var bottoms = [0.0, 0.0]
+        for node in blocks {
+            let column = node.column == .consumers ? 1 : 0
+            positions[node.id] = saved[node.id] ?? GraphPoint(x: Double(column) * columnSpacing, y: bottoms[column])
+            bottoms[column] += height(node) + gap
         }
-        var nextRow = 0.0
-        for node in nodes where node.column == .providers {
-            let linked = edges.filter { $0.from == node.id }.compactMap { rows[$0.to] }
-            let row = linked.isEmpty ? nextRow : max(nextRow, linked.reduce(0, +) / Double(linked.count))
-            rows[node.id] = row
-            nextRow = row + 1
-        }
-        let consumers = nodes.filter { $0.column == .consumers }
-        let top = Double(max(ports.count, 1) - consumers.count) / 2
-        for (index, node) in consumers.enumerated() {
-            rows[node.id] = top + Double(index)
-        }
-        let points = nodes.map { node in
-            (node.id, saved[node.id] ?? GraphPoint(x: Double(node.column.rawValue) * columnSpacing, y: (rows[node.id] ?? 0) * rowSpacing))
-        }
-        return Dictionary(points) { first, _ in first }
+        return positions
     }
 }

@@ -2,85 +2,224 @@ import AppKit
 import PortKillerKit
 import SwiftUI
 
-struct GraphNodeView: View {
+struct GraphBlockView: View {
+    enum LinkState {
+        case idle
+        case candidate
+        case target
+        case dimmed
+    }
+
     @Environment(AppModel.self) private var model
     let node: GraphNode
-    let isSelected: Bool
-    let isLinkTarget: Bool
+    let pins: [GraphNode]
+    let graph: PortGraph
+    let selected: Set<String>
+    let linkState: LinkState
+    let onLinkChanged: (Int, CGPoint) -> Void
+    let onLinkEnded: () -> Void
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        let tint = node.kind.tint
+        VStack(spacing: 0) {
+            header
+                .frame(height: GraphMetrics.header)
+                .background(tint.opacity(0.08), in: UnevenRoundedRectangle(
+                    topLeadingRadius: 14,
+                    bottomLeadingRadius: pins.isEmpty ? 14 : 0,
+                    bottomTrailingRadius: pins.isEmpty ? 14 : 0,
+                    topTrailingRadius: 14,
+                    style: .continuous
+                ))
+                .overlay(alignment: .bottom) {
+                    if !pins.isEmpty { Divider() }
+                }
+                .overlay(alignment: .trailing) {
+                    if let port = node.port {
+                        PinHandle(port: port, tint: .accentColor, onChanged: onLinkChanged, onEnded: onLinkEnded)
+                    }
+                }
+                .contentShape(.rect)
+                .onTapGesture { model.select(node) }
+                .contextMenu { GraphNodeMenu(node: node, graph: graph) }
+            if !pins.isEmpty {
+                ForEach(pins) { pin in
+                    PinRow(pin: pin, owner: node, graph: graph, isSelected: selected.contains(pin.id), onLinkChanged: onLinkChanged, onLinkEnded: onLinkEnded)
+                }
+                Spacer(minLength: GraphMetrics.footer)
+            }
+        }
+        .frame(width: GraphMetrics.width, height: GraphMetrics.height(pins: pins.count), alignment: .top)
+        .background(Color(nsColor: .controlBackgroundColor), in: shape)
+        .overlay { shape.strokeBorder(borderColor, lineWidth: borderWidth) }
+        .overlay(alignment: .topLeading) {
+            if node.column == .consumers {
+                Circle()
+                    .fill(connections > 0 ? tint : Color(nsColor: .controlBackgroundColor))
+                    .strokeBorder(connections > 0 ? tint : Color(nsColor: .tertiaryLabelColor), lineWidth: 2)
+                    .frame(width: 12, height: 12)
+                    .offset(x: -6, y: GraphMetrics.header / 2 - 6)
+            }
+        }
+        .opacity(linkState == .dimmed ? 0.4 : node.isActive ? 1 : 0.6)
+        .animation(.snappy(duration: 0.2), value: linkState)
+    }
+
+    @ViewBuilder
+    private var header: some View {
         HStack(spacing: 10) {
-            icon
+            switch node.kind {
+            case .process(let pid):
+                ItemIcon(symbol: node.symbol, process: model.ports.process(pid: pid)?.process)
+            case .port:
+                StatusDot(color: node.isActive ? .green : Color(nsColor: .tertiaryLabelColor), size: 9)
+                    .frame(width: 34)
+            default:
+                ItemIcon(symbol: node.symbol, tint: node.kind.tint)
+            }
             VStack(alignment: .leading, spacing: 1) {
                 Text(node.title)
-                    .font(node.port == nil ? .title3.weight(.semibold) : .title2.monospacedDigit().weight(.semibold))
+                    .font(node.port == nil ? .title3.weight(.semibold) : .title3.monospacedDigit().weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(subtitle)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .truncationMode(.tail)
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
-        .frame(width: GraphCanvas.nodeSize.width, height: GraphCanvas.nodeSize.height)
-        .background(Color(nsColor: .controlBackgroundColor), in: shape)
-        .overlay {
-            shape.strokeBorder(isSelected || isLinkTarget ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isSelected || isLinkTarget ? 2 : 1)
+    }
+
+    private var connections: Int {
+        graph.edges.count { $0.to == node.id }
+    }
+
+    private var subtitle: String {
+        if let port = node.port {
+            return model.preferences.label(for: port) ?? node.subtitle
         }
-        .overlay(alignment: .leading) {
-            if node.column != .providers {
-                Socket().offset(x: -5)
+        guard node.acceptsLinks else { return node.subtitle }
+        return switch connections {
+        case 0: "Drag a port here"
+        case 1: "1 port"
+        default: "\(connections) ports"
+        }
+    }
+
+    private var borderColor: Color {
+        switch linkState {
+        case .target: node.kind.tint
+        case .candidate: node.kind.tint.opacity(0.5)
+        case .idle, .dimmed: selected.contains(node.id) ? .accentColor : Color(nsColor: .separatorColor)
+        }
+    }
+
+    private var borderWidth: CGFloat {
+        linkState == .target || linkState == .candidate || selected.contains(node.id) ? 2 : 1
+    }
+}
+
+private struct PinRow: View {
+    @Environment(AppModel.self) private var model
+    let pin: GraphNode
+    let owner: GraphNode
+    let graph: PortGraph
+    let isSelected: Bool
+    let onLinkChanged: (Int, CGPoint) -> Void
+    let onLinkEnded: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        let port = pin.port ?? 0
+        let listener = listener(port)
+        HStack(spacing: 8) {
+            StatusDot(color: pin.isActive ? .green : Color(nsColor: .tertiaryLabelColor))
+            Text(pin.title)
+                .font(.body.monospacedDigit().weight(.semibold))
+            Text(model.preferences.label(for: port) ?? listener.map(Self.addresses) ?? pin.subtitle)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 4)
+            if hovering, let listener {
+                Button {
+                    model.ports.requestKill([listener])
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Kill the process to free port \(String(port))")
             }
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 20)
+        .frame(height: GraphMetrics.pin)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isSelected ? Color.accentColor.opacity(0.14) : hovering ? Color.primary.opacity(0.05) : .clear)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
         }
         .overlay(alignment: .trailing) {
-            if node.column == .providers {
-                Socket().offset(x: 5)
-            }
+            PinHandle(port: port, tint: .accentColor, onChanged: onLinkChanged, onEnded: onLinkEnded)
         }
-        .opacity(node.isActive ? 1 : 0.6)
-        .contentShape(shape)
+        .contentShape(.rect)
+        .onHover { hovering = $0 }
+        .onTapGesture { model.select(pin) }
+        .contextMenu { GraphNodeMenu(node: pin, graph: graph) }
     }
 
-    @ViewBuilder
-    private var icon: some View {
-        switch node.kind {
-        case .process(let pid):
-            ItemIcon(symbol: node.symbol, process: model.ports.process(pid: pid)?.process)
-        case .port:
-            StatusDot(color: node.isActive ? .green : Color(nsColor: .tertiaryLabelColor), size: 9)
-                .frame(width: 20)
-        default:
-            ItemIcon(symbol: node.symbol, tint: tint)
+    private func listener(_ port: Int) -> ListeningPort? {
+        if case .process(let pid) = owner.kind {
+            return model.ports.ports.first { $0.port == port && $0.pid == pid }
         }
+        return model.ports.ports.first { $0.port == port }
     }
 
-    private var tint: Color {
-        switch node.kind {
+    private static func addresses(_ port: ListeningPort) -> String {
+        let addresses = port.addresses.map { $0 == "*" ? "All interfaces" : $0 }.joined(separator: ", ")
+        return port.isLoopbackOnly ? "\(addresses) · This Mac only" : addresses
+    }
+}
+
+private struct PinHandle: View {
+    let port: Int
+    let tint: Color
+    let onChanged: (Int, CGPoint) -> Void
+    let onEnded: () -> Void
+
+    var body: some View {
+        Circle()
+            .fill(tint)
+            .strokeBorder(Color(nsColor: .controlBackgroundColor), lineWidth: 2)
+            .frame(width: 14, height: 14)
+            .padding(6)
+            .contentShape(.circle)
+            .offset(x: 13)
+            .gesture(
+                DragGesture(minimumDistance: 1, coordinateSpace: .named(GraphCanvas.space))
+                    .onChanged { onChanged(port, $0.location) }
+                    .onEnded { _ in onEnded() }
+            )
+            .help("Drag to Favorites, Watch, Quick Tunnel or a plugin action")
+    }
+}
+
+extension GraphNode.Kind {
+    var tint: Color {
+        switch self {
         case .favorites: .yellow
         case .watch: .blue
         case .share, .quickTunnel, .namedTunnel: .orange
         case .autoKill: .red
         case .pluginItem, .pluginAction: .purple
-        default: .accentColor
+        case .process, .forward, .port: .accentColor
         }
-    }
-
-    private var subtitle: String {
-        guard let port = node.port else { return node.subtitle }
-        return model.preferences.label(for: port) ?? node.subtitle
-    }
-}
-
-private struct Socket: View {
-    var body: some View {
-        Circle()
-            .fill(Color(nsColor: .controlBackgroundColor))
-            .strokeBorder(Color(nsColor: .tertiaryLabelColor), lineWidth: 1.5)
-            .frame(width: 10, height: 10)
     }
 }
 

@@ -65,17 +65,26 @@ struct PortGraphTests {
         #expect(graph.change(unlinking: GraphEdge(from: "process:node", to: "port:3000", origin: .system)) == nil)
     }
 
-    @Test func laysOutColumnsAndKeepsMovedNodes() {
+    @Test func nestsPortsInTheirProviders() {
         let graph = graph
-        let positions = graph.layout(saved: ["watch": GraphPoint(x: 900, y: -40)], columnSpacing: 300, rowSpacing: 100)
-        #expect(positions.count == graph.nodes.count)
-        #expect(positions["process:node"]?.x == 0)
-        #expect(positions["port:3000"]?.x == 300)
-        #expect(positions["favorites"]?.x == 600)
+        #expect(graph.pins(of: "process:node").map(\.id) == ["port:3000", "port:9229"])
+        #expect(graph.pins(of: "favorites").isEmpty)
+        #expect(graph.owner(of: "port:5173") == "process:vite")
+        #expect(graph.owner(of: "port:8080") == nil)
+        #expect(graph.blocks.map(\.id) == ["process:node", "process:vite", "port:8080", "favorites", "watch", "share", "quick:\(tunnelID)", "tunnel:dev", "action:editor:code"])
+    }
+
+    @Test func stacksBlocksInTwoColumnsAndKeepsMovedOnes() {
+        let graph = graph
+        let positions = graph.layout(saved: ["watch": GraphPoint(x: 900, y: -40)], columnSpacing: 300, gap: 10) { node in
+            node.column == .providers ? 100 : 50
+        }
+        #expect(positions.count == graph.blocks.count)
+        #expect(positions["process:node"] == GraphPoint(x: 0, y: 0))
+        #expect(positions["process:vite"] == GraphPoint(x: 0, y: 110))
+        #expect(positions["port:8080"] == GraphPoint(x: 0, y: 220))
+        #expect(positions["favorites"] == GraphPoint(x: 300, y: 0))
         #expect(positions["watch"] == GraphPoint(x: 900, y: -40))
-        #expect(graph.nodes.filter { $0.column == .ports }.compactMap { positions[$0.id]?.y } == [0, 100, 200, 300])
-        #expect(positions["process:node"]?.y == 50)
-        #expect(positions["process:vite"]?.y == 200)
-        #expect(positions["favorites"]?.y == -100)
+        #expect(positions["share"] == GraphPoint(x: 300, y: 120))
     }
 }

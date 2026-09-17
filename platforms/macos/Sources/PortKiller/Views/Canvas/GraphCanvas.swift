@@ -2,8 +2,24 @@ import AppKit
 import PortKillerKit
 import SwiftUI
 
+enum GraphMetrics {
+    static let width: CGFloat = 270
+    static let header: CGFloat = 60
+    static let pin: CGFloat = 34
+    static let footer: CGFloat = 6
+    static let gap: CGFloat = 20
+    static let columnSpacing: CGFloat = 400
+
+    static func height(pins: Int) -> CGFloat {
+        pins == 0 ? header : header + CGFloat(pins) * pin + footer
+    }
+
+    static func pinCenter(_ index: Int) -> CGFloat {
+        header + CGFloat(index) * pin + pin / 2
+    }
+}
+
 struct GraphCanvas: View {
-    static let nodeSize = CGSize(width: 250, height: 68)
     static let space = "graph"
     private static let margin: CGFloat = 160
 
@@ -14,10 +30,14 @@ struct GraphCanvas: View {
     @State private var link: GraphLink?
 
     var body: some View {
-        let positions = graph.layout(saved: model.graphLayout(layoutKey), columnSpacing: 360, rowSpacing: 88)
-        let placed = Dictionary(graph.nodes.map { node in
+        let blocks = graph.blocks
+        let pins = Dictionary(uniqueKeysWithValues: blocks.filter { $0.column == .providers }.map { ($0.id, graph.pins(of: $0.id)) })
+        let positions = graph.layout(saved: model.graphLayout(layoutKey), columnSpacing: GraphMetrics.columnSpacing, gap: GraphMetrics.gap) { node in
+            GraphMetrics.height(pins: pins[node.id]?.count ?? 0)
+        }
+        let placed = Dictionary(blocks.map { node in
             let point = positions[node.id] ?? GraphPoint(x: 0, y: 0)
-            return (node.id, CGRect(origin: CGPoint(x: point.x, y: point.y), size: Self.nodeSize))
+            return (node.id, CGRect(x: point.x, y: point.y, width: GraphMetrics.width, height: GraphMetrics.height(pins: pins[node.id]?.count ?? 0)))
         }) { first, _ in first }
         let union = placed.values.reduce(CGRect.null) { $0.union($1) }
         let bounds = union.isNull ? .zero : union.insetBy(dx: -Self.margin, dy: -Self.margin)
@@ -26,53 +46,86 @@ struct GraphCanvas: View {
             return (id, frame.offsetBy(dx: translation.width - bounds.minX, dy: translation.height - bounds.minY))
         })
         let selected = Set(graph.nodes.filter(model.isSelected).map(\.id))
+        let focusID = selected.sorted().first
+        let outputs = outputs(blocks: blocks, pins: pins, frames: frames)
 
-        GraphViewport(layoutKey: layoutKey, bounds: bounds, extent: union.isNull ? .zero : union, focus: selected.sorted().first.flatMap { placed[$0] }, focusID: selected.sorted().first) {
+        GraphViewport(layoutKey: layoutKey, bounds: bounds, extent: union.isNull ? .zero : union, focus: focusID.flatMap { placed[graph.owner(of: $0) ?? $0] }, focusID: focusID) {
             ZStack(alignment: .topLeading) {
-                GraphEdges(edges: graph.edges, frames: frames, highlighted: selected, link: link)
-                    .allowsHitTesting(false)
-                ForEach(graph.nodes) { node in
+                GraphWires(wires: wires(outputs: outputs, frames: frames, selected: selected), link: link.flatMap { link in
+                    outputs[PortGraph.portID(link.port)].map { GraphWire(from: $0, to: link.location, tint: .accentColor, isHighlighted: true) }
+                })
+                .allowsHitTesting(false)
+                ForEach(blocks) { node in
                     let frame = frames[node.id] ?? .zero
-                    GraphNodeView(node: node, isSelected: selected.contains(node.id), isLinkTarget: link?.target == node.id)
-                        .overlay(alignment: .trailing) {
-                            if let port = node.port {
-                                LinkHandle()
-                                    .offset(x: 11)
-                                    .gesture(
-                                        DragGesture(minimumDistance: 1, coordinateSpace: .named(Self.space))
-                                            .onChanged { value in
-                                                let target = graph.nodes.first { candidate in
-                                                    candidate.acceptsLinks && (frames[candidate.id]?.insetBy(dx: -12, dy: -12).contains(value.location) ?? false)
-                                                }
-                                                link = GraphLink(port: port, location: value.location, target: target?.id)
-                                            }
-                                            .onEnded { _ in
-                                                if let link, let target = link.target.flatMap(graph.node(id:)),
-                                                   let change = graph.change(linking: link.port, to: target) {
-                                                    model.apply(change)
-                                                }
-                                                link = nil
-                                            }
-                                    )
+                    GraphBlockView(
+                        node: node,
+                        pins: pins[node.id] ?? [],
+                        graph: graph,
+                        selected: selected,
+                        linkState: linkState(for: node),
+                        onLinkChanged: { port, location in
+                            let target = blocks.first { candidate in
+                                candidate.acceptsLinks && (frames[candidate.id]?.insetBy(dx: -12, dy: -12).contains(location) ?? false)
                             }
+                            link = GraphLink(port: port, location: location, target: target?.id)
+                        },
+                        onLinkEnded: {
+                            if let link, let target = link.target.flatMap(graph.node(id:)),
+                               let change = graph.change(linking: link.port, to: target) {
+                                model.apply(change)
+                            }
+                            link = nil
                         }
-                        .offset(x: frame.minX, y: frame.minY)
-                        .onTapGesture { model.select(node) }
-                        .gesture(
-                            DragGesture(minimumDistance: 3, coordinateSpace: .named(Self.space))
-                                .onChanged { moving = (node.id, $0.translation) }
-                                .onEnded { value in
-                                    let point = positions[node.id] ?? GraphPoint(x: 0, y: 0)
-                                    model.saveGraphPosition(GraphPoint(x: point.x + value.translation.width, y: point.y + value.translation.height), for: node.id, in: layoutKey)
-                                    moving = nil
-                                }
-                        )
-                        .contextMenu { GraphNodeMenu(node: node, graph: graph) }
+                    )
+                    .offset(x: frame.minX, y: frame.minY)
+                    .gesture(
+                        DragGesture(minimumDistance: 3, coordinateSpace: .named(Self.space))
+                            .onChanged { moving = (node.id, $0.translation) }
+                            .onEnded { value in
+                                let point = positions[node.id] ?? GraphPoint(x: 0, y: 0)
+                                model.saveGraphPosition(GraphPoint(x: point.x + value.translation.width, y: point.y + value.translation.height), for: node.id, in: layoutKey)
+                                moving = nil
+                            }
+                    )
                 }
             }
             .frame(width: bounds.width, height: bounds.height, alignment: .topLeading)
             .coordinateSpace(.named(Self.space))
         }
+    }
+
+    private func outputs(blocks: [GraphNode], pins: [String: [GraphNode]], frames: [String: CGRect]) -> [String: CGPoint] {
+        var outputs: [String: CGPoint] = [:]
+        for block in blocks {
+            guard let frame = frames[block.id] else { continue }
+            if block.column == .ports {
+                outputs[block.id] = CGPoint(x: frame.maxX, y: frame.minY + GraphMetrics.header / 2)
+            }
+            for (index, pin) in (pins[block.id] ?? []).enumerated() where outputs[pin.id] == nil {
+                outputs[pin.id] = CGPoint(x: frame.maxX, y: frame.minY + GraphMetrics.pinCenter(index))
+            }
+        }
+        return outputs
+    }
+
+    private func wires(outputs: [String: CGPoint], frames: [String: CGRect], selected: Set<String>) -> [GraphWire] {
+        graph.edges.compactMap { edge in
+            guard let from = outputs[edge.from], let to = frames[edge.to], let target = graph.node(id: edge.to) else { return nil }
+            let owner = graph.owner(of: edge.from)
+            return GraphWire(
+                from: from,
+                to: CGPoint(x: to.minX, y: to.minY + GraphMetrics.header / 2),
+                tint: target.kind.tint,
+                isHighlighted: selected.contains(edge.from) || selected.contains(edge.to) || owner.map(selected.contains) == true
+            )
+        }
+    }
+
+    private func linkState(for node: GraphNode) -> GraphBlockView.LinkState {
+        guard let link else { return .idle }
+        if link.target == node.id { return .target }
+        if node.acceptsLinks { return .candidate }
+        return node.column == .consumers ? .dimmed : .idle
     }
 }
 
@@ -82,15 +135,11 @@ struct GraphLink: Equatable {
     var target: String?
 }
 
-private struct LinkHandle: View {
-    var body: some View {
-        Circle()
-            .fill(Color.accentColor)
-            .frame(width: 10, height: 10)
-            .padding(6)
-            .contentShape(.circle)
-            .help("Drag to Favorites, Watch, Quick Tunnel or a plugin action")
-    }
+struct GraphWire: Hashable {
+    var from: CGPoint
+    var to: CGPoint
+    var tint: Color
+    var isHighlighted: Bool
 }
 
 private struct GraphViewport<Content: View>: View {
@@ -198,39 +247,29 @@ private struct GraphViewport<Content: View>: View {
     }
 }
 
-private struct GraphEdges: View {
-    let edges: [GraphEdge]
-    let frames: [String: CGRect]
-    let highlighted: Set<String>
-    let link: GraphLink?
+private struct GraphWires: View {
+    let wires: [GraphWire]
+    let link: GraphWire?
 
     var body: some View {
         Canvas { context, _ in
-            for edge in edges {
-                guard let from = frames[edge.from], let to = frames[edge.to] else { continue }
-                let isHighlighted = highlighted.contains(edge.from) || highlighted.contains(edge.to)
-                let color = edge.origin == .link ? Color.accentColor : Color(nsColor: .tertiaryLabelColor)
-                context.stroke(
-                    Self.curve(from: CGPoint(x: from.maxX, y: from.midY), to: CGPoint(x: to.minX, y: to.midY)),
-                    with: .color(isHighlighted ? .accentColor : color),
-                    style: StrokeStyle(lineWidth: isHighlighted ? 2.5 : 1.5, lineCap: .round)
-                )
+            for wire in wires where !wire.isHighlighted {
+                context.stroke(Self.curve(wire), with: .color(wire.tint.opacity(0.45)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
             }
-            if let link, let from = frames[PortGraph.portID(link.port)] {
-                context.stroke(
-                    Self.curve(from: CGPoint(x: from.maxX, y: from.midY), to: link.location),
-                    with: .color(.accentColor),
-                    style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 5])
-                )
+            for wire in wires where wire.isHighlighted {
+                context.stroke(Self.curve(wire), with: .color(wire.tint), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            }
+            if let link {
+                context.stroke(Self.curve(link), with: .color(link.tint), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [7, 6]))
             }
         }
     }
 
-    private static func curve(from start: CGPoint, to end: CGPoint) -> Path {
-        let handle = max(48, abs(end.x - start.x) / 2)
+    private static func curve(_ wire: GraphWire) -> Path {
+        let handle = max(60, abs(wire.to.x - wire.from.x) / 2)
         var path = Path()
-        path.move(to: start)
-        path.addCurve(to: end, control1: CGPoint(x: start.x + handle, y: start.y), control2: CGPoint(x: end.x - handle, y: end.y))
+        path.move(to: wire.from)
+        path.addCurve(to: wire.to, control1: CGPoint(x: wire.from.x + handle, y: wire.from.y), control2: CGPoint(x: wire.to.x - handle, y: wire.to.y))
         return path
     }
 }
