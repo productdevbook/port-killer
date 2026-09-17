@@ -146,10 +146,6 @@ public enum PortForwardOutput {
         return ["error", "failed", "unable to", "connection refused", "lost connection", "an error occurred"].contains(where: lowercased.contains)
     }
 
-    public static func isReady(_ line: String) -> Bool {
-        line.hasPrefix("Forwarding from 127.0.0.1:")
-    }
-
     public static func conflictingPort(in line: String) -> Int? {
         guard line.lowercased().contains("address already in use") else { return nil }
         for pattern in [/127\.0\.0\.1:(\d+)/, /0\.0\.0\.0:(\d+)/] {

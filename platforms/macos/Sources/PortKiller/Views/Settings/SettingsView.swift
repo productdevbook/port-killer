@@ -62,7 +62,7 @@ private struct GeneralSettings: View {
                 }
                 Toggle("Hide system processes", isOn: $preferences.hideSystemProcesses)
                 Toggle("Kill without asking", isOn: $preferences.skipKillConfirmation)
-                Toggle("Group ports by process", isOn: $preferences.useTreeView)
+                Toggle("Group menu bar ports by process", isOn: $preferences.useTreeView)
             }
             Section {
                 Toggle("Explain processes with Apple Intelligence", isOn: $preferences.explainProcesses)

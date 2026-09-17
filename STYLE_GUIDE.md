@@ -28,9 +28,10 @@ PortKiller for macOS targets macOS 27 on Apple silicon and Swift 6.4. There is n
 
 ## Views
 
-- The window works like Activity Monitor: tabs in the toolbar, one `Table` per tab, and details in an `.inspector` that opens on request.
-- Build with native containers: `Table`, `Form` with `.formStyle(.grouped)`, `.inspector`, `Settings` with `Tab`. Label form rows with `Label` and an SF Symbol, and put row actions in trailing buttons.
-- Leave Liquid Glass to the system toolbar and controls. Use `.glassEffect(_:in:)` only for controls that float over content, such as the menu bar footer. Don't draw custom materials or shadows.
+- The window follows Liman: a searchable sidebar with one row per process, port forward, tunnel and plugin item; a canvas in the middle with the item's artwork, name, one primary capsule button and a floating glass control bar; and an inspector whose tabs are toolbar toggles.
+- Keep the toolbar the same for every selection and disable what doesn't apply, so switching items doesn't move controls.
+- Sidebar rows use `ItemRow` and `ItemIcon`. Inspector tabs are grouped `Form`s; use `InfoRow` for read-only values and `Label` with an SF Symbol for controls. A tab that doesn't apply shows `ContentUnavailableView` with the tab's symbol.
+- Use Liquid Glass only for controls that float over content, such as `ControlsBar` and the menu bar footer. Don't draw custom materials or shadows.
 - Use `ContentUnavailableView` for empty, missing and error states.
 - Keep view structs small and put actions in the stores. Views don't run processes or call the scanner; persisted settings go through `Preferences`, and `@AppStorage` is only for view state such as the selected settings tab.
 - Use `.safeAreaBar` for status and action bars, `.alert(error:)` and `.confirmationDialog` for errors and destructive actions.

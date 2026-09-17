@@ -25,7 +25,7 @@ final class PluginStore {
         plugins.filter { enabledIDs.contains($0.id) }
     }
 
-    var tabPlugins: [Plugin] {
+    var itemPlugins: [Plugin] {
         enabledPlugins.filter { $0.manifest.items != nil }
     }
 

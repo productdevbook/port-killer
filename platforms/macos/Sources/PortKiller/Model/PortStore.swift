@@ -12,11 +12,12 @@ enum PortScope: String, CaseIterable, Identifiable {
 }
 
 nonisolated enum ItemID: Hashable {
-    case listener(ListeningPort.ID)
-    case process(String)
+    case process(Int32)
     case inactivePort(Int)
+    case forward(UUID)
     case quickTunnel(UUID)
     case namedTunnel(String)
+    case pluginItem(plugin: String, item: String)
 }
 
 enum KillMode: Hashable {
@@ -34,20 +35,15 @@ struct PresentedError: LocalizedError {
     var recoverySuggestion: String? { message }
 }
 
-nonisolated struct PortRow: Identifiable, Hashable {
-    var id: ItemID
-    var port: Int
-    var listener: ListeningPort?
+struct ProcessItem: Identifiable, Hashable {
+    var process: ProcessSnapshot
+    var ports: [ListeningPort]
     var category: ProcessCategory
     var label: String?
     var isFavorite: Bool
-    var isWatched: Bool
-    var children: [PortRow]?
 
-    var processName: String { listener?.processName ?? "Not Running" }
-    var pid: Int { Int(listener?.pid ?? 0) }
-    var address: String { listener?.address ?? "" }
-    var user: String { listener?.process.user ?? "" }
+    var id: ItemID { .process(process.pid) }
+    var portList: String { ports.map { String($0.port) }.joined(separator: ", ") }
 }
 
 @Observable
@@ -57,9 +53,8 @@ final class PortStore {
 
     private(set) var ports: [ListeningPort] = []
     private(set) var isScanning = false
-    private(set) var terminating: Set<String> = []
+    private(set) var terminating: Set<Int32> = []
     var filter = PortFilter()
-    var sortOrder = [KeyPathComparator(\PortRow.port)]
     var pendingKill: [ListeningPort] = []
     var error: PresentedError?
 
@@ -79,7 +74,7 @@ final class PortStore {
         guard loop == nil else { return }
         notifier.onKill = { [weak self] request in
             guard let self, let port = ports.first(where: { $0.port == request.port && $0.pid == request.pid }) else { return }
-            Task(name: "Kill from notification") { await self.kill(port) }
+            Task(name: "Kill from notification") { await self.kill([port]) }
         }
         loop = Task(name: "Port scan loop") { [weak self] in
             var unchangedScans = 0
@@ -122,91 +117,58 @@ final class PortStore {
         return detected
     }
 
-    func rows(for scope: PortScope, filter: PortFilter? = nil) -> [PortRow] {
+    func listeners(for scope: PortScope, filter: PortFilter? = nil) -> [ListeningPort] {
         let filter = filter ?? self.filter
-        let listening = ports.map(row(for:))
-        var rows = listening.filter { !(preferences.hideSystemProcesses && $0.category == .system) }
-        switch scope {
-        case .all:
-            break
-        case .favorites:
-            rows = rows.filter(\.isFavorite) + inactiveRows(for: preferences.favorites, active: listening)
-        case .watched:
-            rows = rows.filter(\.isWatched) + inactiveRows(for: Set(preferences.watchedPorts.map(\.port)), active: listening)
-        }
-        return rows.filter { row in
-            guard let listener = row.listener else {
-                return filter.searchText.isEmpty || String(row.port).contains(filter.searchText)
+        return ports.filter { port in
+            let category = category(for: port)
+            guard !(preferences.hideSystemProcesses && category == .system) else { return false }
+            switch scope {
+            case .all: break
+            case .favorites: guard preferences.favorites.contains(port.port) else { return false }
+            case .watched: guard preferences.isWatching(port.port) else { return false }
             }
-            return filter.matches(listener, category: row.category, label: row.label)
+            return filter.matches(port, category: category, label: preferences.label(for: port.port))
         }
     }
 
-    static func grouped(_ rows: [PortRow]) -> [PortRow] {
-        let groups = OrderedDictionary(grouping: rows.filter { $0.listener != nil }, by: \.processName)
-        return groups.map { name, members in
-            guard members.count > 1, let first = members.first else { return members[0] }
-            return PortRow(
-                id: .process(name),
-                port: first.port,
-                listener: first.listener,
-                category: first.category,
-                label: nil,
-                isFavorite: members.contains(where: \.isFavorite),
-                isWatched: members.contains(where: \.isWatched),
-                children: members
+    func processes(for scope: PortScope) -> [ProcessItem] {
+        OrderedDictionary(grouping: listeners(for: scope), by: \.pid).values.map { members in
+            let first = members[0]
+            return ProcessItem(
+                process: first.process,
+                ports: members,
+                category: category(for: first),
+                label: members.lazy.compactMap { self.preferences.label(for: $0.port) }.first,
+                isFavorite: members.contains { preferences.favorites.contains($0.port) }
             )
-        } + rows.filter { $0.listener == nil }
+        }
     }
 
-    func row(for listener: ListeningPort) -> PortRow {
-        PortRow(
-            id: .listener(listener.id),
-            port: listener.port,
-            listener: listener,
-            category: category(for: listener),
-            label: preferences.label(for: listener.port),
-            isFavorite: preferences.favorites.contains(listener.port),
-            isWatched: preferences.isWatching(listener.port)
+    func inactivePorts(for scope: PortScope) -> [Int] {
+        let wanted: Set<Int> = switch scope {
+        case .all: []
+        case .favorites: preferences.favorites
+        case .watched: Set(preferences.watchedPorts.map(\.port))
+        }
+        let active = Set(ports.map(\.port))
+        let query = filter.searchText.trimmingCharacters(in: .whitespaces)
+        return wanted.subtracting(active).sorted().filter { query.isEmpty || String($0).contains(query) }
+    }
+
+    func process(pid: Int32) -> ProcessItem? {
+        let members = ports.filter { $0.pid == pid }
+        guard let first = members.first else { return nil }
+        return ProcessItem(
+            process: first.process,
+            ports: members,
+            category: category(for: first),
+            label: members.lazy.compactMap { self.preferences.label(for: $0.port) }.first,
+            isFavorite: members.contains { preferences.favorites.contains($0.port) }
         )
     }
 
-    private func inactiveRows(for ports: Set<Int>, active: [PortRow]) -> [PortRow] {
-        let activePorts = Set(active.map(\.port))
-        return ports.subtracting(activePorts).sorted().map { port in
-            PortRow(
-                id: .inactivePort(port),
-                port: port,
-                listener: nil,
-                category: .other,
-                label: preferences.label(for: port),
-                isFavorite: preferences.favorites.contains(port),
-                isWatched: preferences.isWatching(port)
-            )
-        }
-    }
-
-    func parent(of port: ListeningPort) async -> ProcessSnapshot? {
-        await PortScanner.parent(of: port.process)
-    }
-
-    func listeners(ids: Set<ItemID>, in scope: PortScope) -> [ListeningPort] {
-        var processes: Set<String> = []
-        var result: [ListeningPort] = []
-        for id in ids {
-            switch id {
-            case .listener(let listenerID):
-                if let port = ports.first(where: { $0.id == listenerID }) { result.append(port) }
-            case .process(let name):
-                processes.insert(name)
-            default:
-                break
-            }
-        }
-        if !processes.isEmpty {
-            result += rows(for: scope).filter { processes.contains($0.processName) }.compactMap(\.listener)
-        }
-        return Array(Set(result)).sorted { $0.port < $1.port }
+    func parent(of process: ProcessSnapshot) async -> ProcessSnapshot? {
+        await PortScanner.parent(of: process)
     }
 
     func requestKill(_ targets: [ListeningPort]) {
@@ -218,40 +180,37 @@ final class PortStore {
         }
     }
 
-    func kill(_ port: ListeningPort, mode: KillMode = .graceful) async {
-        await terminate(port, mode: mode)
-        await refresh()
-    }
-
-    func kill(_ ports: [ListeningPort], mode: KillMode = .graceful) async {
+    func kill(_ targets: [ListeningPort], mode: KillMode = .graceful) async {
         await withDiscardingTaskGroup { group in
-            for port in Set(ports) {
-                group.addTask(name: "Kill \(port.id)") { await self.terminate(port, mode: mode) }
+            for (pid, members) in Dictionary(grouping: targets, by: \.pid) {
+                group.addTask(name: "Kill \(pid)") { await self.terminate(pid: pid, ports: members, mode: mode) }
             }
         }
         await refresh()
     }
 
-    private func terminate(_ port: ListeningPort, mode: KillMode) async {
-        terminating.insert(port.id)
-        defer { terminating.remove(port.id) }
+    private func terminate(pid: Int32, ports members: [ListeningPort], mode: KillMode) async {
+        terminating.insert(pid)
+        defer { terminating.remove(pid) }
         do {
             switch mode {
             case .graceful:
-                try await ProcessTerminator.terminate(port.pid)
+                try await ProcessTerminator.terminate(pid)
             case .force:
-                try await ProcessTerminator.terminate(port.pid, force: true)
+                try await ProcessTerminator.terminate(pid, force: true)
             case .tree:
-                try await ProcessTerminator.terminateTree(port.pid)
+                try await ProcessTerminator.terminateTree(pid)
             case .deep:
-                try await ProcessTerminator.terminate(port.pid)
+                try await ProcessTerminator.terminate(pid)
                 let ownPID = ProcessInfo.processInfo.processIdentifier
-                for pid in await PortScanner.establishedPIDs(port: port.port) where pid != port.pid && pid != ownPID {
-                    try? await ProcessTerminator.terminate(pid)
+                for port in Set(members.map(\.port)) {
+                    for other in await PortScanner.establishedPIDs(port: port) where other != pid && other != ownPID {
+                        try? await ProcessTerminator.terminate(other)
+                    }
                 }
             }
         } catch {
-            self.error = PresentedError(title: "Couldn't Kill \(port.processName)", message: error.localizedDescription)
+            self.error = PresentedError(title: "Couldn't Kill \(members.first?.processName ?? "PID \(pid)")", message: error.localizedDescription)
         }
     }
 
@@ -293,7 +252,7 @@ final class PortStore {
                 )
             }
             Task(name: "Auto-kill \(match.port.id)") { [weak self] in
-                await self?.kill(match.port)
+                await self?.kill([match.port])
             }
         }
     }

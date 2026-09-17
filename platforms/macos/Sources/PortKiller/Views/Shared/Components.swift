@@ -2,21 +2,84 @@ import AppKit
 import PortKillerKit
 import SwiftUI
 
-struct InspectorSegmentedPicker<Option: Hashable>: View {
-    @Binding var selection: Option
-    let options: [Option]
-    let title: (Option) -> String
+struct ItemRow<Icon: View>: View {
+    let title: String
+    let subtitle: String
+    var badge: String?
+    var isFavorite = false
+    var dimmed = false
+    @ViewBuilder let icon: Icon
 
     var body: some View {
-        Picker("", selection: $selection) {
-            ForEach(options, id: \.self) { Text(title($0)).tag($0) }
+        HStack(spacing: 10) {
+            icon
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            Spacer(minLength: 4)
+            if isFavorite {
+                Image(systemName: "star.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.yellow)
+            }
+            if let badge {
+                Text(badge)
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
+        .padding(.vertical, 5)
+        .opacity(dimmed ? 0.55 : 1)
+    }
+}
+
+struct ItemIcon: View {
+    let symbol: String
+    var tint: Color = .accentColor
+    var process: ProcessSnapshot?
+
+    var body: some View {
+        if let image = AppIcons.shared.image(for: process, pixels: 64) {
+            Image(decorative: image, scale: 2)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 30, height: 30)
+                .frame(width: 34, height: 34)
+        } else {
+            Image(systemName: symbol)
+                .symbolRenderingMode(.hierarchical)
+                .font(.system(size: 17))
+                .foregroundStyle(tint)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(.background))
+        }
+    }
+}
+
+struct InfoRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(title)
+            Spacer(minLength: 8)
+            Text(value)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .textSelection(.enabled)
+                .lineLimit(3)
+        }
+        .contextMenu {
+            Button("Copy \(title)") { Pasteboard.copy(value) }
+        }
     }
 }
 
@@ -37,8 +100,8 @@ struct ProcessIcon: View {
     var size: CGFloat = 18
 
     var body: some View {
-        if let image = AppIcons.shared.image(for: process) {
-            Image(decorative: image, scale: 1)
+        if let image = AppIcons.shared.image(for: process, pixels: 64) {
+            Image(decorative: image, scale: 2)
                 .resizable()
                 .interpolation(.high)
                 .frame(width: size, height: size)
@@ -59,27 +122,27 @@ final class AppIcons {
     private var images: [String: CGImage] = [:]
     @ObservationIgnored private var requested: Set<String> = []
 
-    func image(for process: ProcessSnapshot?) -> CGImage? {
+    func image(for process: ProcessSnapshot?, pixels: Int) -> CGImage? {
         guard let process, let executable = process.executablePath else { return nil }
-        if let image = images[executable] { return image }
-        guard requested.insert(executable).inserted else { return nil }
+        let key = "\(pixels) \(executable)"
+        if let image = images[key] { return image }
+        guard requested.insert(key).inserted else { return nil }
         let bundles = process.appBundleURLs
         Task(name: "Load icon") {
-            if let image = await Self.render(bundles) {
-                images[executable] = image
+            if let image = await Self.render(bundles, pixels: pixels) {
+                images[key] = image
             }
         }
         return nil
     }
 
     @concurrent
-    private static func render(_ bundles: [URL]) async -> CGImage? {
+    private static func render(_ bundles: [URL], pixels: Int) async -> CGImage? {
         let bundle = bundles.first { url in
             let info = Bundle(url: url)?.infoDictionary
             return info?["CFBundleIconFile"] != nil || info?["CFBundleIconName"] != nil
         }
         guard let bundle, let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
-        let pixels = 64
         let icon = NSWorkspace.shared.icon(forFile: bundle.path)
         var rect = CGRect(x: 0, y: 0, width: pixels, height: pixels)
         guard let source = unsafe icon.cgImage(forProposedRect: &rect, context: nil, hints: nil),

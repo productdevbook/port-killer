@@ -7,7 +7,7 @@ struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openSettings) private var openSettings
     @State private var query = ""
-    @State private var confirmingKill: ItemID?
+    @State private var confirmingKill: MenuKillTarget?
     @State private var confirmingKillAll = false
     @State private var expanded: Set<String> = []
 
@@ -149,8 +149,7 @@ struct MenuBarContent: View {
 
     private var visiblePorts: [ListeningPort] {
         let favorites = model.preferences.favorites
-        return model.ports.rows(for: .all, filter: PortFilter(searchText: query))
-            .compactMap(\.listener)
+        return model.ports.listeners(for: .all, filter: PortFilter(searchText: query))
             .sorted { (favorites.contains($0.port) ? 0 : 1, $0.port) < (favorites.contains($1.port) ? 0 : 1, $1.port) }
     }
 
@@ -166,6 +165,11 @@ struct MenuBarContent: View {
     private func groups(_ ports: [ListeningPort]) -> [(name: String, ports: [ListeningPort])] {
         OrderedDictionary(grouping: ports, by: \.processName).map { ($0.key, $0.value) }
     }
+}
+
+private enum MenuKillTarget: Hashable {
+    case port(ListeningPort.ID)
+    case group(String)
 }
 
 private struct MenuControlButton: View {
@@ -237,7 +241,7 @@ private struct RowActionButton: View {
 
 private struct MenuKillConfirmRow: View {
     let title: String
-    @Binding var confirmingKill: ItemID?
+    @Binding var confirmingKill: MenuKillTarget?
     let onKill: () -> Void
 
     var body: some View {
@@ -261,19 +265,19 @@ private struct MenuPortRow: View {
     let port: ListeningPort
     var nested = false
     let isShared: Bool
-    @Binding var confirmingKill: ItemID?
+    @Binding var confirmingKill: MenuKillTarget?
 
     var body: some View {
-        let id = ItemID.listener(port.id)
+        let id = MenuKillTarget.port(port.id)
         if confirmingKill == id {
             MenuKillConfirmRow(title: "Kill \(port.processName)?", confirmingKill: $confirmingKill) {
-                Task { await model.ports.kill(port) }
+                Task { await model.ports.kill([port]) }
             }
         } else {
             MenuPortRowContent(port: port, nested: nested, isShared: isShared, confirmingKill: $confirmingKill)
                 .modifier(MenuRowBackground())
                 .contextMenu {
-                    PortContextMenu(ids: [id]) { _ in confirmingKill = id }
+                    ProcessActions(ports: [port]) { confirmingKill = id }
                 }
         }
     }
@@ -285,11 +289,11 @@ private struct MenuPortRowContent: View {
     let port: ListeningPort
     let nested: Bool
     let isShared: Bool
-    @Binding var confirmingKill: ItemID?
+    @Binding var confirmingKill: MenuKillTarget?
 
     var body: some View {
         let preferences = model.preferences
-        let terminating = model.ports.terminating.contains(port.id)
+        let terminating = model.ports.terminating.contains(port.pid)
         HStack(spacing: 8) {
             if nested {
                 Color.clear.frame(width: 18)
@@ -324,9 +328,9 @@ private struct MenuPortRowContent: View {
             } else if hovered {
                 RowActionButton(title: "Kill \(port.processName)", symbol: "xmark.circle.fill") {
                     if preferences.skipKillConfirmation {
-                        Task { await model.ports.kill(port) }
+                        Task { await model.ports.kill([port]) }
                     } else {
-                        confirmingKill = .listener(port.id)
+                        confirmingKill = .port(port.id)
                     }
                 }
             }
@@ -343,14 +347,14 @@ private struct MenuProcessGroup: View {
     let ports: [ListeningPort]
     let sharedPorts: Set<Int>
     @Binding var expanded: Set<String>
-    @Binding var confirmingKill: ItemID?
+    @Binding var confirmingKill: MenuKillTarget?
 
     var body: some View {
         if ports.count == 1, let port = ports.first {
             MenuPortRow(port: port, isShared: sharedPorts.contains(port.port), confirmingKill: $confirmingKill)
         } else {
             let isExpanded = expanded.contains(name)
-            let groupID = ItemID.process(name)
+            let groupID = MenuKillTarget.group(name)
             VStack(spacing: 0) {
                 if confirmingKill == groupID {
                     MenuKillConfirmRow(title: "Kill \(name) on \(ports.count) ports?", confirmingKill: $confirmingKill) {

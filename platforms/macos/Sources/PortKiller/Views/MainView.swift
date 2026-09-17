@@ -10,119 +10,86 @@ struct MainView: View {
         @Bindable var model = model
         @Bindable var ports = model.ports
         @Bindable var plugins = model.plugins
-        content
-            .alert(error: $plugins.error) { _ in
-                Button("OK", role: .cancel) {}
-            } message: { error in
-                Text(error.message)
-            }
-            .searchable(text: $ports.filter.searchText, placement: .toolbar, prompt: searchPrompt)
-            .navigationTitle("PortKiller")
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("View", selection: $model.tab) {
-                        Text("Ports").tag(AppTab.ports)
-                        Text("Port Forwards").tag(AppTab.forwards)
-                        Text("Tunnels").tag(AppTab.tunnels)
-                        ForEach(plugins.tabPlugins) { plugin in
-                            Text(plugin.manifest.items?.title ?? plugin.manifest.name).tag(AppTab.plugin(plugin.id))
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
+        NavigationSplitView {
+            SidebarView()
+                .navigationSplitViewColumnWidth(260)
+        } detail: {
+            CanvasView()
+        }
+        .inspector(isPresented: $model.inspectorVisible) {
+            InspectorView(tab: model.inspectorTab)
+                .frame(width: 300)
+                .inspectorColumnWidth(300)
+                .toolbar {
+                    ToolbarSpacer(.flexible)
+                    InspectorTabButtons(tab: $model.inspectorTab, visible: $model.inspectorVisible)
                 }
-            }
-            .inspector(isPresented: $model.inspectorVisible) {
-                inspector
-                    .inspectorColumnWidth(min: 280, ideal: 320, max: 440)
-                    .toolbar {
-                        ToolbarSpacer(.flexible)
-                        ToolbarItem {
-                            Toggle(isOn: $model.inspectorVisible) {
-                                Label("Info", systemImage: "info.circle")
-                            }
-                            .help("Show or hide details")
-                        }
-                    }
-            }
-            .sheet(isPresented: $model.showingOnboarding) {
-                OnboardingView()
-                    .interactiveDismissDisabled()
-            }
-            .alert(error: $ports.error) { _ in
-                Button("OK", role: .cancel) {}
-            } message: { error in
-                Text(error.message)
-            }
-            .confirmationDialog(killTitle, isPresented: Binding(get: { !ports.pendingKill.isEmpty }, set: { if !$0 { ports.pendingKill = [] } }), presenting: ports.pendingKill) { targets in
-                Button("Kill", role: .destructive) { kill(targets, .graceful) }
-                Button("Force Kill") { kill(targets, .force) }
-                Button("Kill Process Tree") { kill(targets, .tree) }
-                Button("Kill and Close Connections") { kill(targets, .deep) }
-            } message: { targets in
-                Text(targets.count == 1 ? "PortKiller asks the process to quit, then stops it if it doesn't within a moment." : "PortKiller stops \(targets.count) processes.")
-            }
-            .onChange(of: plugins.tabPlugins.map(\.id)) { _, ids in
-                if case .plugin(let id) = model.tab, !ids.contains(id) { model.tab = .ports }
-            }
-            .onAppear {
-                model.openWindow = openWindow
-            }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch model.tab {
-        case .ports:
-            PortsView()
-        case .forwards:
-            ForwardsView()
-        case .tunnels:
-            TunnelsView()
-        case .plugin(let id):
-            if let plugin = model.plugins.tabPlugins.first(where: { $0.id == id }) {
-                PluginView(plugin: plugin)
-                    .id(id)
-            } else {
-                PortsView()
-            }
         }
-    }
-
-    @ViewBuilder
-    private var inspector: some View {
-        switch model.tab {
-        case .ports:
-            PortInspector()
-        case .forwards:
-            ForwardInspector()
-        case .tunnels:
-            TunnelInspector()
-        case .plugin(let id):
-            if let plugin = model.plugins.tabPlugins.first(where: { $0.id == id }) {
-                PluginInspector(plugin: plugin)
-            }
+        .sheet(isPresented: $model.showingOnboarding) {
+            OnboardingView()
+                .interactiveDismissDisabled()
         }
-    }
-
-    private var searchPrompt: String {
-        switch model.tab {
-        case .ports: "Port, process, PID or command"
-        case .forwards: "Name, namespace or service"
-        case .tunnels: "Tunnel, address or port"
-        case .plugin: "Search"
+        .alert(error: $ports.error) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { error in
+            Text(error.message)
+        }
+        .background {
+            Color.clear
+                .alert(error: $plugins.error) { _ in
+                    Button("OK", role: .cancel) {}
+                } message: { error in
+                    Text(error.message)
+                }
+        }
+        .confirmationDialog(killTitle, isPresented: Binding(get: { !ports.pendingKill.isEmpty }, set: { if !$0 { ports.pendingKill = [] } }), presenting: ports.pendingKill) { targets in
+            Button("Kill", role: .destructive) { kill(targets, .graceful) }
+            Button("Force Kill") { kill(targets, .force) }
+            Button("Kill Process Tree") { kill(targets, .tree) }
+            Button("Kill and Close Connections") { kill(targets, .deep) }
+        } message: { _ in
+            Text("PortKiller asks the process to quit, then stops it if it doesn't within a moment.")
+        }
+        .onAppear {
+            model.openWindow = openWindow
         }
     }
 
     private var killTitle: String {
-        let pendingKill = model.ports.pendingKill
-        guard pendingKill.count == 1, let port = pendingKill.first else { return "Kill \(pendingKill.count) Processes?" }
-        return "Kill \(port.processName) on Port \(port.port)?"
+        guard let first = model.ports.pendingKill.first else { return "" }
+        let ports = model.ports.pendingKill.map { String($0.port) }.joined(separator: ", ")
+        return "Kill \(first.processName) on Port \(ports)?"
     }
 
     private func kill(_ targets: [ListeningPort], _ mode: KillMode) {
         model.ports.pendingKill = []
         Task { await model.ports.kill(targets, mode: mode) }
+    }
+}
+
+struct InspectorTabButtons: ToolbarContent {
+    @Binding var tab: InspectorTab
+    @Binding var visible: Bool
+
+    var body: some ToolbarContent {
+        ToolbarItemGroup {
+            ForEach(InspectorTab.allCases) { item in
+                Toggle(isOn: Binding(
+                    get: { visible && tab == item },
+                    set: { isOn in
+                        if isOn {
+                            tab = item
+                            visible = true
+                        } else {
+                            visible = false
+                        }
+                    }
+                )) {
+                    Label(item.title, systemImage: item.symbol)
+                }
+                .help(item.title)
+            }
+        }
     }
 }
 
@@ -141,21 +108,27 @@ struct PortKillerCommands: Commands {
             Button("Check for Updates…") { model.updater.checkForUpdates() }
                 .disabled(!model.updater.canCheckForUpdates)
         }
+        CommandGroup(after: .textEditing) {
+            Button("Find") {
+                model.show()
+                model.searchFocusRequest += 1
+            }
+            .keyboardShortcut("f")
+        }
         CommandGroup(before: .toolbar) {
-            Button("Ports") { model.tab = .ports }
-                .keyboardShortcut("1")
-            Button("Port Forwards") { model.tab = .forwards }
-                .keyboardShortcut("2")
-            Button("Tunnels") { model.tab = .tunnels }
-                .keyboardShortcut("3")
-            Divider()
             Button("Refresh Ports") {
                 Task { await model.ports.refresh() }
             }
             .keyboardShortcut("r")
-            Toggle("Group Ports by Process", isOn: Bindable(model.preferences).useTreeView)
-                .keyboardShortcut("t")
-            Button(model.inspectorVisible ? "Hide Details" : "Show Details") { model.inspectorVisible.toggle() }
+            Divider()
+            ForEach(Array(InspectorTab.allCases.enumerated()), id: \.element) { index, tab in
+                Button(tab.title) {
+                    model.inspectorTab = tab
+                    model.inspectorVisible = true
+                }
+                .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [.command, .option])
+            }
+            Button(model.inspectorVisible ? "Hide Inspector" : "Show Inspector") { model.inspectorVisible.toggle() }
                 .keyboardShortcut("i")
             Divider()
         }

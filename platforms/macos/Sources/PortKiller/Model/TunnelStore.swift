@@ -133,8 +133,6 @@ final class TunnelStore {
 
     var isInstalled: Bool { cloudflared != nil }
 
-    var activeQuickCount: Int { quickTunnels.count { $0.status == .active } }
-    var runningNamedCount: Int { namedTunnels.count { $0.status == .running } }
 
     var sharedPorts: Set<Int> {
         Set(exposuresByPort.keys).union(quickTunnels.filter { $0.status == .active }.map(\.port))
@@ -153,11 +151,6 @@ final class TunnelStore {
 
     func quickTunnel(for port: Int) -> QuickTunnel? {
         quickTunnels.first { $0.port == port && $0.status != .failed } ?? quickTunnels.first { $0.port == port }
-    }
-
-    func recheckInstallation() {
-        preferences.toolsChanged()
-        isLoggedIn = Cloudflared.isLoggedIn
     }
 
     func cleanUpOrphans() {

@@ -1,68 +1,20 @@
 import PortKillerKit
 import SwiftUI
 
-struct ForwardInspector: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        let selected = model.forwards.sessions.filter { model.forwardSelection.contains($0.id) }
-        if selected.count == 1, let session = selected.first {
-            ForwardDetails(session: session)
-                .id(session.id)
-        } else if selected.count > 1 {
-            ContentUnavailableView("\(selected.count) Port Forwards Selected", systemImage: "point.3.connected.trianglepath.dotted")
-        } else {
-            ContentUnavailableView("No Port Forward Selected", systemImage: "point.3.connected.trianglepath.dotted", description: Text("Select a port forward to edit it and read its logs."))
-        }
-    }
-}
-
-private struct ForwardDetails: View {
-    enum Page: String, CaseIterable {
-        case settings = "Settings"
-        case logs = "Logs"
-    }
-
+struct ForwardInfoInspector: View {
     @Environment(AppModel.self) private var model
     let session: PortForwardSession
-    @AppStorage("forwardInspectorPage") private var page: Page = .settings
-    @State private var draft = PortForwardConfiguration.placeholder()
-    @State private var namespaces: [String] = []
-    @State private var services: [KubernetesService] = []
 
     var body: some View {
-        VStack(spacing: 0) {
-            InspectorSegmentedPicker(selection: $page, options: Page.allCases) { $0 == .logs && !session.logs.isEmpty ? "Logs (\(session.logs.count))" : $0.rawValue }
-            switch page {
-            case .settings:
-                settings
-            case .logs:
-                LogConsole(
-                    lines: session.logs.map(\.consoleLine),
-                    emptyText: "Start the port forward to see kubectl output.",
-                    exportTitle: session.configuration.name,
-                    onClear: { session.clearLogs() }
-                )
-            }
-        }
-        .onAppear { draft = session.configuration }
-        .task { await loadNamespaces() }
-        .task(id: draft.namespace) { await loadServices() }
-    }
-
-    private var settings: some View {
+        let configuration = session.configuration
         Form {
-            Section {
-                LabeledContent {
-                    statusText
-                } label: {
-                    Label {
-                        Text(session.configuration.name)
-                            .lineLimit(1)
-                    } icon: {
-                        Image(systemName: "point.3.connected.trianglepath.dotted")
-                            .foregroundStyle(session.status.tint)
-                    }
+            Section("Status") {
+                InfoRow(title: "Status", value: session.status.title)
+                if let since = session.connectedSince {
+                    InfoRow(title: "Connected", value: since.formatted(date: .omitted, time: .shortened))
+                }
+                if case .waitingToReconnect(let date) = session.status {
+                    InfoRow(title: "Next Attempt", value: date.formatted(date: .omitted, time: .standard))
                 }
                 if let error = session.lastError, session.status != .connected {
                     Text(error)
@@ -70,20 +22,39 @@ private struct ForwardDetails: View {
                         .foregroundStyle(.red)
                         .textSelection(.enabled)
                 }
-                TrailingButtons {
-                    if session.isActive {
-                        Button("Restart") { session.restart() }
-                    }
-                    Button(session.isActive ? "Stop" : "Start") { session.toggle() }
+            }
+            Section("Connection") {
+                if let context = model.forwards.context {
+                    InfoRow(title: "Context", value: context)
+                }
+                InfoRow(title: "Namespace", value: configuration.namespace)
+                InfoRow(title: "Service", value: configuration.service)
+                InfoRow(title: "Service Port", value: String(configuration.remotePort))
+                InfoRow(title: "Local Address", value: "localhost:\(configuration.effectivePort)")
+                if let proxyPort = configuration.proxyPort {
+                    InfoRow(title: "kubectl Port", value: String(configuration.localPort))
+                    InfoRow(title: "Proxy", value: configuration.useDirectExec ? "socat, one kubectl per connection" : "socat on port \(proxyPort)")
                 }
             }
-
             if model.preferences.locate(.kubectl) == nil {
                 Section {
                     ToolNotice(tool: .kubectl, message: "Port forwarding runs kubectl port-forward for you.")
                 }
             }
+        }
+        .formStyle(.grouped)
+    }
+}
 
+struct ForwardSettingsInspector: View {
+    @Environment(AppModel.self) private var model
+    let session: PortForwardSession
+    @State private var draft = PortForwardConfiguration.placeholder()
+    @State private var namespaces: [String] = []
+    @State private var services: [KubernetesService] = []
+
+    var body: some View {
+        Form {
             Section("Kubernetes") {
                 TextField(text: $draft.name) {
                     Label("Name", systemImage: "tag")
@@ -119,13 +90,6 @@ private struct ForwardDetails: View {
                     }
                     .help("Starts a separate kubectl port-forward for every client connection")
                 }
-                LabeledContent {
-                    Text(verbatim: "localhost:\(draft.effectivePort)")
-                        .monospacedDigit()
-                        .textSelection(.enabled)
-                } label: {
-                    Label("Connect To", systemImage: "link")
-                }
             }
 
             Section("Behavior") {
@@ -146,7 +110,6 @@ private struct ForwardDetails: View {
             Section {
                 TrailingButtons {
                     Button("Delete Port Forward", role: .destructive) {
-                        model.forwardSelection.remove(session.id)
                         model.forwards.remove(session.id)
                     }
                 }
@@ -167,17 +130,9 @@ private struct ForwardDetails: View {
                 .padding(.vertical, 10)
             }
         }
-    }
-
-    @ViewBuilder
-    private var statusText: some View {
-        if case .waitingToReconnect(let date) = session.status {
-            Text("Reconnecting \(date, format: .relative(presentation: .named))")
-        } else if let since = session.connectedSince {
-            Text("Connected \(since, format: .relative(presentation: .named))")
-        } else {
-            Text(session.status.title)
-        }
+        .onAppear { draft = session.configuration }
+        .task { await loadNamespaces() }
+        .task(id: draft.namespace) { await loadServices() }
     }
 
     private func loadNamespaces() async {
@@ -194,6 +149,19 @@ private struct ForwardDetails: View {
         let loaded = (try? await kubectl.services(namespace: draft.namespace)) ?? []
         guard !Task.isCancelled else { return }
         services = loaded
+    }
+}
+
+struct ForwardLogsInspector: View {
+    let session: PortForwardSession
+
+    var body: some View {
+        LogConsole(
+            lines: session.logs.map(\.consoleLine),
+            emptyText: "Start the port forward to see kubectl output.",
+            exportTitle: session.configuration.name,
+            onClear: { session.clearLogs() }
+        )
     }
 }
 

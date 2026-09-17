@@ -17,10 +17,6 @@ final class PortForwardStore {
         sessions = preferences.portForwards.map { PortForwardSession(configuration: $0, preferences: preferences, notifier: notifier) }
     }
 
-    var connectedCount: Int {
-        sessions.count(where: \.isConnected)
-    }
-
     var activeCount: Int {
         sessions.count(where: \.isActive)
     }
