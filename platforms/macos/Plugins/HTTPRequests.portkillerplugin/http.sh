@@ -53,7 +53,7 @@ send() {
 }
 
 describe() {
-  printf '%s %s → %s · %s ms · %s' "$1" "${2#*://}" "$3" "$4" "$(size "$5")"
+  printf '%s %s → %s · %s ms · %s' "$1" "${2#http://}" "$3" "$4" "$(size "$5")"
 }
 
 index_of() {
@@ -169,17 +169,25 @@ perform() {
 }
 
 port_action() {
-  local action port url summary message
+  local action port url body summary message
   action=$(field action)
   port=$(field port.port)
-  url="http://localhost:$port/"
   scratch=$(mktemp -d)
   trap 'rm -rf "$scratch"' EXIT
-  summary=$(send GET "$url" "$scratch/body")
+  url="http://localhost:$port/"
+  body="$scratch/http"
+  if ! summary=$(send GET "$url" "$body" --max-time 4 2>/dev/null); then
+    url="https://localhost:$port/"
+    body="$scratch/https"
+    if ! summary=$(send GET "$url" "$body" --max-time 4 --insecure 2>/dev/null); then
+      echo "Port $port didn't answer HTTP or HTTPS, so it may not be a web server. $(cat "$scratch/http.error")" >&2
+      exit 1
+    fi
+  fi
   message=$(describe GET "$url" $summary)
   case $action in
     get) printf '{"message":%s}\n' "$(json "$message")" ;;
-    copy) printf '{"message":%s,"copy":%s}\n' "$(json "$message")" "$(json "$(cat "$scratch/body")")" ;;
+    copy) printf '{"message":%s,"copy":%s}\n' "$(json "$message")" "$(json "$(cat "$body")")" ;;
     *) echo "Unknown action: $action" >&2; exit 1 ;;
   esac
 }
