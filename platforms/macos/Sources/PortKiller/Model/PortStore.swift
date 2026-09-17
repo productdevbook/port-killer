@@ -61,6 +61,7 @@ final class PortStore {
 
     @ObservationIgnored private var loop: Task<Void, Never>?
     @ObservationIgnored private var pendingRefresh = false
+    @ObservationIgnored var onScan: (([ListeningPort]) -> Void)?
     @ObservationIgnored private var watchMonitor = WatchMonitor()
     @ObservationIgnored private var autoKillMonitor = AutoKillMonitor()
     @ObservationIgnored private var arrivalMonitor = ArrivalMonitor()
@@ -106,6 +107,7 @@ final class PortStore {
                 changed = true
             }
             evaluateRules(scanned)
+            onScan?(scanned)
         } while pendingRefresh
         return changed
     }

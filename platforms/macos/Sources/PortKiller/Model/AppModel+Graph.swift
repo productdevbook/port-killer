@@ -199,7 +199,7 @@ extension AppModel {
                         symbol: action.icon ?? plugin.manifest.icon ?? "puzzlepiece.extension",
                         detail: action.summary ?? plugin.manifest.summary ?? ""
                     ),
-                    ports: [],
+                    ports: plugins.connections.ports(plugin: plugin.id, action: action.id),
                     origin: .link
                 ))
             }
@@ -221,12 +221,13 @@ extension AppModel {
             tunnels.startQuickTunnel(port: port)
         case .stopSharing(let id):
             if let tunnel = tunnels.quickTunnels.first(where: { $0.id == id }) { tunnels.stopQuickTunnel(tunnel) }
-        case .runPluginAction(let pluginID, let actionID, let port):
+        case .connectPluginAction(let pluginID, let actionID, let port):
             guard let plugin = plugins.enabledPlugins.first(where: { $0.id == pluginID }),
-                  let action = plugin.manifest.portActions?.first(where: { $0.id == actionID }),
-                  let listener = ports.ports.first(where: { $0.port == port })
+                  let action = plugin.manifest.portActions?.first(where: { $0.id == actionID })
             else { return }
-            plugins.run(action, on: listener, in: plugin)
+            plugins.connect(action, port: port, in: plugin)
+        case .disconnectPluginAction(let plugin, let action, let port):
+            plugins.disconnect(plugin: plugin, action: action, port: port)
         }
     }
 

@@ -2,16 +2,12 @@
   "apiVersion": 1,
   "id": "dev.portkiller.http-requests",
   "name": "HTTP Requests",
-  "version": "1.1.0",
-  "description": "Sends HTTP requests to your ports and saves the ones you reuse.",
+  "version": "1.2.0",
+  "description": "Sends HTTP requests to your ports and shows the responses.",
   "author": "PortKiller",
   "homepage": "https://github.com/productdevbook/port-killer/tree/main/platforms/macos/Plugins",
   "icon": "paperplane",
   "executable": "http.sh",
-  "items": {
-    "title": "HTTP Requests",
-    "refreshInterval": 10
-  },
   "settings": [
     {
       "id": "timeout",
@@ -36,23 +32,10 @@
     },
     {
       "id": "send",
-      "title": "Send Request…",
-      "description": "Sends a request with the method, path, headers and body you choose.",
+      "title": "HTTP Request…",
+      "description": "Sends the request you set up for each connection, such as a health check or an API call.",
       "icon": "paperplane.circle",
       "inputs": [
-        { "id": "method", "label": "Method", "type": "choice", "options": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
-        { "id": "path", "label": "Path", "default": "/", "placeholder": "/api/health", "required": true },
-        { "id": "headers", "label": "Headers", "type": "multiline", "placeholder": "Accept: application/json", "help": "One header per line." },
-        { "id": "body", "label": "Body", "type": "multiline", "placeholder": "{\"name\": \"Ada\"}" }
-      ]
-    },
-    {
-      "id": "save",
-      "title": "Save Request…",
-      "description": "Saves a request to send again later from the sidebar.",
-      "icon": "square.and.arrow.down",
-      "inputs": [
-        { "id": "name", "label": "Name", "placeholder": "Health Check", "required": true },
         { "id": "method", "label": "Method", "type": "choice", "options": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
         { "id": "path", "label": "Path", "default": "/", "placeholder": "/api/health", "required": true },
         { "id": "headers", "label": "Headers", "type": "multiline", "placeholder": "Accept: application/json", "help": "One header per line." },

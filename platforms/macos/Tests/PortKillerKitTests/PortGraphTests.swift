@@ -52,7 +52,7 @@ struct PortGraphTests {
         #expect(graph.change(linking: 5173, to: try #require(graph.node(id: "favorites"))) == .favorite(5173))
         #expect(graph.change(linking: 3000, to: try #require(graph.node(id: "favorites"))) == nil)
         #expect(graph.change(linking: 9229, to: try #require(graph.node(id: "share"))) == .share(9229))
-        #expect(graph.change(linking: 9229, to: try #require(graph.node(id: "action:editor:code"))) == .runPluginAction(plugin: "editor", action: "code", port: 9229))
+        #expect(graph.change(linking: 9229, to: try #require(graph.node(id: "action:editor:code"))) == .connectPluginAction(plugin: "editor", action: "code", port: 9229))
         #expect(graph.change(linking: 9229, to: try #require(graph.node(id: "tunnel:dev"))) == nil)
         #expect(graph.change(linking: 9229, to: try #require(graph.node(id: "process:vite"))) == nil)
     }
@@ -63,6 +63,7 @@ struct PortGraphTests {
         #expect(graph.change(unlinking: GraphEdge(from: "port:3000", to: "quick:\(tunnelID)", origin: .link)) == .stopSharing(tunnelID))
         #expect(graph.change(unlinking: GraphEdge(from: "port:5173", to: "tunnel:dev", origin: .system)) == nil)
         #expect(graph.change(unlinking: GraphEdge(from: "process:node", to: "port:3000", origin: .system)) == nil)
+        #expect(graph.change(unlinking: GraphEdge(from: "port:3000", to: "action:editor:code", origin: .link)) == .disconnectPluginAction(plugin: "editor", action: "code", port: 3000))
     }
 
     @Test func nestsPortsInTheirProviders() {

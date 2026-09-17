@@ -29,20 +29,21 @@ struct ExamplePluginTests {
         }
     }
 
-    @Test func httpRequestsSendsAndSavesRequests() async throws {
+    @Test func httpRequestsSendsRequests() async throws {
         let server = try EchoServer()
         let port = try await server.start()
         defer { server.stop() }
         let plugin = try PluginHost.load(examples.appending(path: "HTTPRequests.portkillerplugin"), dataRoot: dataRoot)
         let target = context(port: port)
-
-        #expect(try await PluginHost.items(of: plugin).isEmpty)
+        #expect(plugin.manifest.items == nil)
+        #expect(plugin.manifest.portActions?.map(\.id) == ["get", "send"])
 
         let get = try await PluginHost.perform("get", onPort: target, in: plugin)
         #expect(get.message?.hasPrefix("GET localhost:\(port)/ → 200 · ") == true)
         #expect(get.details?.title == "GET localhost:\(port)/")
         #expect(get.details?.fields?.first == PluginField(label: "Status", value: "HTTP/1.1 200 OK"))
         #expect(get.details?.fields?.contains(PluginField(label: "X-Test", value: "echo")) == true)
+        #expect(get.details?.fields?.last == PluginField(label: "curl", value: "curl -X GET 'http://localhost:\(port)/'"))
         #expect(try echo(get)["method"] == "GET")
 
         let request = [
@@ -51,44 +52,20 @@ struct ExamplePluginTests {
             "headers": "Content-Type: application/json\nX-Extra: \"quoted\"",
             "body": #"{"name": "Ada", "note": "line\nbreak"}"#,
         ]
-        let post = try await PluginHost.perform("send", onPort: target, inputs: request, in: plugin)
+        let post = try await PluginHost.perform("send", onPort: target, inputs: request, connection: UUID(), in: plugin)
         #expect(post.message?.hasPrefix("POST localhost:\(port)/users?role=admin → 201 · ") == true)
         let posted = try echo(post)
         #expect(posted["path"] == "/users?role=admin")
         #expect(posted["body"] == request["body"])
         #expect(posted["content-type"] == "application/json")
         #expect(posted["x-extra"] == "\"quoted\"")
+        #expect(post.details?.fields?.last == PluginField(
+            label: "curl",
+            value: #"curl -X POST 'http://localhost:\#(port)/users?role=admin' -H 'Content-Type: application/json' -H 'X-Extra: "quoted"' --data-binary '{"name": "Ada", "note": "line\nbreak"}'"#
+        ))
 
         let missing = try await PluginHost.perform("send", onPort: target, inputs: ["method": "GET", "path": "/missing"], in: plugin)
         #expect(missing.message?.hasPrefix("GET localhost:\(port)/missing → 404 · ") == true)
-
-        let saved = try await PluginHost.perform("save", onPort: target, inputs: request.merging(["name": "Create “Ada”"]) { $1 }, in: plugin)
-        #expect(saved.message == "Saved Create “Ada”. It's in the HTTP Requests section of the sidebar.")
-        var items = try await PluginHost.items(of: plugin)
-        let item = try #require(items.first)
-        #expect(items.count == 1)
-        #expect(item.title == "Create “Ada”")
-        #expect(item.subtitle == "POST · Not sent yet")
-        #expect(item.status == .stopped)
-        #expect(item.targetPorts == [port])
-        #expect(item.actions?.map(\.id) == ["send", "curl", "edit", "delete"])
-        #expect(item.actions?.last?.confirmation == "Delete the saved request “Create “Ada””?")
-
-        let sent = try await PluginHost.perform("send", onItem: item.id, in: plugin)
-        #expect(try echo(sent)["body"] == request["body"])
-        items = try await PluginHost.items(of: plugin)
-        #expect(items.first?.status == .running)
-        #expect(items.first?.subtitle?.hasPrefix("POST · 201 · ") == true)
-
-        let curl = try await PluginHost.perform("curl", onItem: item.id, in: plugin)
-        #expect(curl.copy == #"curl -X POST 'http://localhost:\#(port)/users?role=admin' -H 'Content-Type: application/json' -H 'X-Extra: "quoted"' --data-binary '{"name": "Ada", "note": "line\nbreak"}'"#)
-
-        let edit = try await PluginHost.perform("edit", onItem: item.id, in: plugin)
-        #expect(edit.open?.path == plugin.dataURL.appending(path: "requests.json").path)
-
-        let deleted = try await PluginHost.perform("delete", onItem: item.id, in: plugin)
-        #expect(deleted.message == "Deleted Create “Ada”.")
-        #expect(try await PluginHost.items(of: plugin).isEmpty)
     }
 
     @Test func httpRequestsExplainsPortsThatArentWebServers() async throws {

@@ -76,7 +76,7 @@ final class AppModel {
         tunnels = TunnelStore(preferences: preferences, notifier: notifier)
         sponsors = SponsorStore(preferences: preferences)
         installer = ToolInstaller(preferences: preferences)
-        plugins = PluginStore(notifier: notifier)
+        plugins = PluginStore(notifier: notifier, ports: ports)
         showingOnboarding = !preferences.hasCompletedOnboarding
         graphOffsets = UserDefaults.standard.decodedValue(of: [String: [String: GraphPoint]].self, forKey: "graphOffsets") ?? [:]
         portScope = UserDefaults.standard.string(forKey: "portScope").flatMap(PortScope.init(rawValue:)) ?? .all

@@ -6,11 +6,36 @@ struct PluginRunSheet: View {
     @Environment(\.dismiss) private var dismiss
     let request: PluginRunRequest
     @State private var values: [String: String] = [:]
+    @State private var runsWhenPortStarts = false
     @State private var showsProblems = false
 
     private var height: CGFloat {
         let fields = request.inputs.reduce(0) { total, input in total + (input.kind == .multiline ? 100 : 40) + (input.help == nil ? 0 : 20) }
-        return min(180 + CGFloat(fields) + (request.confirmation == nil ? 0 : 30), 680)
+        return min(180 + CGFloat(fields) + (request.confirmation == nil ? 0 : 30) + (isConnection ? 90 : 0), 720)
+    }
+
+    private var isConnection: Bool {
+        switch request.purpose {
+        case .connect, .edit: true
+        case .run: false
+        }
+    }
+
+    private var buttonTitle: String {
+        switch request.purpose {
+        case .run: request.title.trimmingCharacters(in: ["…"])
+        case .connect:
+            if case .port(_, .some) = request.target { "Connect and Run" } else { "Connect" }
+        case .edit: "Save"
+        }
+    }
+
+    private var navigationTitle: String {
+        switch request.purpose {
+        case .run: request.plugin.manifest.name
+        case .connect: "New Connection"
+        case .edit: "Edit Connection"
+        }
     }
 
     var body: some View {
@@ -45,27 +70,39 @@ struct PluginRunSheet: View {
                         }
                     }
                 }
+                if isConnection, case .port(let port, _) = request.target {
+                    Section {
+                        Toggle("Run when port \(String(port)) starts listening", isOn: $runsWhenPortStarts)
+                    } footer: {
+                        Text("The connection keeps these values. Run it again from its wire in the graph or from the inspector.")
+                    }
+                }
             }
             .formStyle(.grouped)
-            .navigationTitle(request.plugin.manifest.name)
+            .navigationTitle(navigationTitle)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(request.title.trimmingCharacters(in: ["…"]), role: request.isDestructive ? .destructive : nil) {
+                    Button(buttonTitle, role: request.isDestructive ? .destructive : nil) {
                         guard problems.isEmpty else {
                             showsProblems = true
                             return
                         }
-                        plugins.start(request, inputs: values)
+                        plugins.submit(request, inputs: values, runsWhenPortStarts: runsWhenPortStarts)
                         dismiss()
                     }
                 }
             }
         }
         .frame(width: 480, height: height)
-        .onAppear { values = plugins.initialInputs(for: request) }
+        .onAppear {
+            values = plugins.initialInputs(for: request)
+            if case .edit(let connection) = request.purpose {
+                runsWhenPortStarts = connection.runsWhenPortStarts
+            }
+        }
     }
 }
 

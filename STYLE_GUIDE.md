@@ -42,7 +42,7 @@ PortKiller for macOS targets macOS 27 on Apple silicon and Swift 6.4. There is n
 - Plugins are executables that exchange JSON with PortKiller; [PLUGINS.md](platforms/macos/PLUGINS.md) is the contract. Change it together with `PluginManifest` and `PluginProtocol`, and keep `apiVersion` compatible.
 - Plugins only provide data. PortKiller draws their sections, forms, results and actions with the same native views as everything else.
 - Never run a plugin that isn't turned on in Settings, or one whose required settings are empty.
-- Run plugin actions through `PluginStore.run`, so confirmations, inputs, history and results behave the same from every menu, the inspector and the graph.
+- Run plugin actions through `PluginStore.run` and connect them through `PluginStore.connect`, so confirmations, inputs, connections, history and results behave the same from every menu, the inspector and the graph.
 - Example plugins in `platforms/macos/Plugins` run on the `/bin/bash` that ships with macOS and are covered by `ExamplePluginTests`.
 
 ## System APIs

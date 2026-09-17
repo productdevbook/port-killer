@@ -274,6 +274,7 @@ struct PluginPortActionRequest: Codable, Sendable {
     var action: String
     var port: PluginPortContext
     var inputs: [String: String]?
+    var connection: UUID?
 }
 
 struct PluginEmptyRequest: Codable, Sendable {}

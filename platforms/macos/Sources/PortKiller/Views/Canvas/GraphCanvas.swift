@@ -115,7 +115,10 @@ struct GraphCanvas: View {
                     )
                     .offset(x: frame.minX, y: frame.minY)
                 }
-                if let chosenWire, let change = chosenWire.change {
+                if let chosenWire, let connection = chosenWire.connection {
+                    ConnectionControls(connection: connection) { selectedWire = nil }
+                        .position(chosenWire.midpoint)
+                } else if let chosenWire, let change = chosenWire.change {
                     Button {
                         model.apply(change)
                         selectedWire = nil
@@ -173,9 +176,15 @@ struct GraphCanvas: View {
                 tint: target.kind.tint,
                 isHighlighted: selected.contains(edge.from) || selected.contains(edge.to) || owner.map(selected.contains) == true,
                 title: "\(graph.node(id: edge.from)?.port.map { "Port \(String($0))" } ?? edge.from) from \(target.title)",
-                change: graph.change(unlinking: edge)
+                change: graph.change(unlinking: edge),
+                connection: connectionKey(edge: edge, target: target)
             )
         }
+    }
+
+    private func connectionKey(edge: GraphEdge, target: GraphNode) -> GraphWire.Connection? {
+        guard case .pluginAction(let plugin, let action) = target.kind, let port = graph.node(id: edge.from)?.port else { return nil }
+        return GraphWire.Connection(plugin: plugin, action: action, port: port)
     }
 
     private func linkState(for node: GraphNode) -> GraphBlockView.LinkState {
@@ -193,6 +202,12 @@ struct GraphLink: Equatable {
 }
 
 nonisolated struct GraphWire: Hashable {
+    struct Connection: Hashable {
+        var plugin: String
+        var action: String
+        var port: Int
+    }
+
     var id: String
     var from: CGPoint
     var to: CGPoint
@@ -200,6 +215,7 @@ nonisolated struct GraphWire: Hashable {
     var isHighlighted: Bool
     var title = ""
     var change: GraphChange?
+    var connection: Connection?
 
     var midpoint: CGPoint {
         CGPoint(x: (from.x + to.x) / 2, y: (from.y + to.y) / 2)
@@ -224,6 +240,68 @@ nonisolated struct GraphWire: Hashable {
             let y = u * u * u * from.y + 3 * u * u * t * control1.y + 3 * u * t * t * control2.y + t * t * t * to.y
             return hypot(x - point.x, y - point.y)
         }.min() ?? .infinity
+    }
+}
+
+private struct ConnectionControls: View {
+    @Environment(AppModel.self) private var model
+    let connection: GraphWire.Connection
+    let onDisconnect: () -> Void
+
+    var body: some View {
+        let plugins = model.plugins
+        let list = plugins.connections.connections(plugin: connection.plugin, action: connection.action, port: connection.port)
+        let definitions = list.first.flatMap(plugins.portAction(for:))?.action.inputs ?? []
+        HStack(spacing: 2) {
+            if list.count == 1, let only = list.first {
+                control("Run", symbol: "play.fill") { plugins.run(only) }
+                control("Edit", symbol: "slider.horizontal.3") { plugins.edit(only) }
+            } else {
+                Menu {
+                    ForEach(list) { item in
+                        Button(item.summary(using: definitions) ?? "Connection") { plugins.run(item) }
+                    }
+                } label: {
+                    Image(systemName: "play.fill")
+                        .frame(width: 30, height: 30)
+                }
+                .menuIndicator(.hidden)
+                .buttonStyle(.plain)
+                .help("Run")
+                Menu {
+                    ForEach(list) { item in
+                        Button(item.summary(using: definitions) ?? "Connection") { plugins.edit(item) }
+                    }
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .frame(width: 30, height: 30)
+                }
+                .menuIndicator(.hidden)
+                .buttonStyle(.plain)
+                .help("Edit")
+            }
+            control(list.count > 1 ? "Disconnect All" : "Disconnect", symbol: "xmark", tint: .red) {
+                plugins.disconnect(plugin: connection.plugin, action: connection.action, port: connection.port)
+                onDisconnect()
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        .fixedSize()
+    }
+
+    private func control(_ title: String, symbol: String, tint: Color = .primary, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 30, height: 30)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 

@@ -205,7 +205,8 @@ struct ProcessPluginsInspector: View {
         let ports = model.focusedPorts(in: item)
         let entries = ports.flatMap { port in plugins.portActions(for: port).map { (port: port, plugin: $0.plugin, action: $0.action) } }
         let runs = ports.flatMap { plugins.activity.runs(for: .port($0.port)) }.sorted { $0.started > $1.started }
-        if entries.isEmpty, runs.isEmpty {
+        let connections = ports.flatMap { plugins.connections.connections(port: $0.port) }
+        if entries.isEmpty, runs.isEmpty, connections.isEmpty {
             ContentUnavailableView {
                 Label("No Plugin Actions", systemImage: InspectorTab.plugins.symbol)
             } description: {
@@ -217,6 +218,17 @@ struct ProcessPluginsInspector: View {
             }
         } else {
             Form {
+                if !connections.isEmpty {
+                    Section {
+                        ForEach(connections) { connection in
+                            PluginConnectionRow(connection: connection)
+                        }
+                    } header: {
+                        Text("Connections")
+                    } footer: {
+                        Text("Drag a port onto a plugin action in the graph to add a connection with its own settings.")
+                    }
+                }
                 ForEach(ports) { port in
                     let actions = entries.filter { $0.port == port }
                     if !actions.isEmpty {
@@ -226,7 +238,8 @@ struct ProcessPluginsInspector: View {
                                     title: entry.action.title,
                                     subtitle: entry.plugin.manifest.name,
                                     icon: entry.action.icon ?? entry.plugin.manifest.icon,
-                                    isRunning: plugins.isRunning(entry.action.id, on: .port(port.port), in: entry.plugin)
+                                    isRunning: plugins.isRunning(entry.action.id, on: .port(port.port), in: entry.plugin),
+                                    connect: { plugins.connect(entry.action, port: port.port, in: entry.plugin) }
                                 ) {
                                     plugins.run(entry.action, on: port, in: entry.plugin)
                                 }
@@ -252,6 +265,7 @@ struct PluginActionRow: View {
     let subtitle: String
     let icon: String?
     let isRunning: Bool
+    var connect: (() -> Void)?
     let action: () -> Void
 
     var body: some View {
@@ -259,6 +273,14 @@ struct PluginActionRow: View {
             if isRunning {
                 ProgressView()
                     .controlSize(.small)
+            } else if let connect {
+                Menu(title.hasSuffix("…") ? "Run…" : "Run") {
+                    Button("Connect…", systemImage: "link", action: connect)
+                } primaryAction: {
+                    action()
+                }
+                .fixedSize()
+                .help("Run once, or connect to keep this action on the port with its own settings")
             } else {
                 Button(title.hasSuffix("…") ? "Run…" : "Run", action: action)
             }
@@ -343,6 +365,65 @@ private struct ExplanationSection: View {
         case .safe: .green
         case .caution: .orange
         case .avoid: .red
+        }
+    }
+}
+
+struct PluginConnectionRow: View {
+    @Environment(AppModel.self) private var model
+    let connection: PluginConnection
+
+    var body: some View {
+        let plugins = model.plugins
+        let pair = plugins.portAction(for: connection)
+        let run = plugins.activity.latest(connection: connection.id)
+        let details = [
+            "Port \(String(connection.port))",
+            connection.summary(using: pair?.action.inputs ?? []),
+            connection.runsWhenPortStarts ? "Runs when the port starts" : nil,
+        ]
+        LabeledContent {
+            HStack(spacing: 6) {
+                if run?.isRunning == true {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Button("Run") { plugins.run(connection) }
+                        .disabled(pair == nil)
+                }
+                Menu {
+                    Button("Edit…", systemImage: "slider.horizontal.3") { plugins.edit(connection) }
+                        .disabled(pair == nil)
+                    Toggle("Run When the Port Starts", systemImage: "play.circle", isOn: Binding(
+                        get: { connection.runsWhenPortStarts },
+                        set: { plugins.setRunsWhenPortStarts($0, for: connection) }
+                    ))
+                    if let run, !run.isRunning {
+                        Button("Show Last Result", systemImage: "doc.text.magnifyingglass") { plugins.presentedRun = run }
+                    }
+                    Divider()
+                    Button("Disconnect", systemImage: "xmark", role: .destructive) { plugins.disconnect(connection) }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .menuIndicator(.hidden)
+                .fixedSize()
+            }
+        } label: {
+            Label {
+                Text(pair?.action.title.trimmingCharacters(in: ["…"]) ?? connection.actionID)
+                Text(details.compactMap { $0 }.joined(separator: " · "))
+                if let run {
+                    HStack(spacing: 4) {
+                        PluginRunStatus(run: run)
+                            .controlSize(.mini)
+                        Text(run.summary)
+                            .lineLimit(1)
+                    }
+                }
+            } icon: {
+                Image(systemName: pair?.action.icon ?? "puzzlepiece.extension")
+            }
         }
     }
 }

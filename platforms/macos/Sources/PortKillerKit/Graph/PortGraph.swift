@@ -97,7 +97,8 @@ public enum GraphChange: Hashable, Sendable {
     case unwatch(Int)
     case share(Int)
     case stopSharing(UUID)
-    case runPluginAction(plugin: String, action: String, port: Int)
+    case connectPluginAction(plugin: String, action: String, port: Int)
+    case disconnectPluginAction(plugin: String, action: String, port: Int)
 }
 
 public struct PortGraph: Hashable, Sendable {
@@ -177,12 +178,14 @@ public struct PortGraph: Hashable, Sendable {
     }
 
     public func change(linking port: Int, to target: GraphNode) -> GraphChange? {
+        if case .pluginAction(let plugin, let action) = target.kind {
+            return .connectPluginAction(plugin: plugin, action: action, port: port)
+        }
         guard !edges.contains(GraphEdge(from: Self.portID(port), to: target.id, origin: .link)) else { return nil }
         switch target.kind {
         case .favorites: return .favorite(port)
         case .watch: return .watch(port)
         case .share: return .share(port)
-        case .pluginAction(let plugin, let action): return .runPluginAction(plugin: plugin, action: action, port: port)
         default: return nil
         }
     }
@@ -193,6 +196,7 @@ public struct PortGraph: Hashable, Sendable {
         case .favorites: return .unfavorite(port)
         case .watch: return .unwatch(port)
         case .quickTunnel(let id): return .stopSharing(id)
+        case .pluginAction(let plugin, let action): return .disconnectPluginAction(plugin: plugin, action: action, port: port)
         default: return nil
         }
     }

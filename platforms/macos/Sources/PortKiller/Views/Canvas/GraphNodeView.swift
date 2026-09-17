@@ -111,7 +111,7 @@ struct GraphBlockView: View {
             } else if node.acceptsLinks {
                 Image(systemName: "arrow.left")
                     .foregroundStyle(.tertiary)
-                Text(node.kind.isPluginAction ? "Drag a port here to run it" : "Drag a port here")
+                Text(node.kind.isPluginAction ? "Drag a port here to connect it" : "Drag a port here")
                     .foregroundStyle(.tertiary)
             } else {
                 Text("No ports")

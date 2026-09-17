@@ -3,7 +3,7 @@
 Plugins add your own tools to PortKiller. A plugin can:
 
 - **Add a sidebar section** listing anything with a status, such as Docker containers, saved HTTP requests or dev servers, with actions for each item.
-- **Add actions to ports**, shown in a port's menu, in the inspector and as nodes in the graph that ports can be dragged onto.
+- **Add actions to ports**, shown in a port's menu, in the inspector and as nodes in the graph. Dragging a port onto an action connects them, and each [connection](#connections) keeps its own settings.
 - **Ask for input** with a native form before an action runs, and ask for confirmation before destructive ones.
 - **Show results** as a message, a copied value, an opened URL, or a details window with fields and text.
 - **Have settings**, such as an editor name or an API token, that people fill in under **Settings › Plugins**.
@@ -23,7 +23,7 @@ Three examples live in [`Plugins`](Plugins):
 
 - **Docker** lists your containers with their logs, and starts, stops, restarts or removes them. It has a setting for the Docker context.
 - **Open in Editor** opens the folder a dev server runs from in the editor you choose in its settings.
-- **HTTP Requests** sends requests to any port, shows the response, and saves requests you reuse. Saved requests appear in the sidebar and connect to their port in the graph.
+- **HTTP Requests** sends requests to a port and shows the response. Each connection keeps its own method, path, headers and body, so a port can have a health check and an API call side by side.
 
 ## Layout
 
@@ -110,6 +110,17 @@ Settings, `portActions` and item actions describe their fields the same way. Bef
 
 Values always reach the plugin as strings: toggles are `"true"` or `"false"`, and numbers are what was typed. Secret settings are stored in the Keychain.
 
+## Connections
+
+Dragging a port onto one of a plugin's `portActions` in the graph connects them. If the action has inputs, PortKiller asks for them once and keeps them with the connection; the plugin doesn't need to store anything.
+
+- The connection runs right away if the port is listening, and runs again from its wire in the graph, or from the port's Plugins tab in the inspector, without asking for the inputs again.
+- **Edit** changes a connection's values. A port can have several connections to the same action with different values.
+- A connection can **run when the port starts listening**, such as sending a health check or opening an editor when a dev server starts.
+- Menus and the inspector's **Run** still run an action once without connecting it.
+
+The `port-action` request carries the connection's `id` in `connection`, which a plugin can use to keep data per connection.
+
 ## Protocol
 
 PortKiller runs the executable with one command as its argument, writes a JSON request to its standard input, and reads a JSON response from its standard output.
@@ -181,7 +192,7 @@ Called when someone runs one of an item's actions. `inputs` is present when the 
 
 ### `port-action`
 
-Called when someone runs one of the plugin's `portActions` on a port, from a menu, the inspector or by dragging the port onto the action in the graph.
+Called when someone runs one of the plugin's `portActions` on a port from a menu or the inspector, and when a [connection](#connections) runs.
 
 ```json
 {
@@ -195,9 +206,12 @@ Called when someone runs one of the plugin's `portActions` on a port, from a men
     "user": "you",
     "addresses": ["127.0.0.1"]
   },
-  "inputs": { "branch": "main" }
+  "inputs": { "branch": "main" },
+  "connection": "6F1C2A9E-4B5D-4E8F-9A7B-2C3D4E5F6A7B"
 }
 ```
+
+`inputs` is present when the action has inputs, and `connection` when the run belongs to a [connection](#connections).
 
 ### Action Results
 
