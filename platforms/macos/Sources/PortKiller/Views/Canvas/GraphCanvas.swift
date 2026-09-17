@@ -31,7 +31,13 @@ struct GraphCanvas: View {
 
     var body: some View {
         let blocks = graph.blocks
-        let pins = Dictionary(uniqueKeysWithValues: blocks.filter { $0.column == .providers }.map { ($0.id, graph.pins(of: $0.id)) })
+        let pins = Dictionary(uniqueKeysWithValues: blocks.compactMap { node -> (String, [GraphNode])? in
+            switch node.column {
+            case .providers: (node.id, graph.pins(of: node.id))
+            case .ports: (node.id, [node])
+            case .consumers: nil
+            }
+        })
         let positions = graph.layout(saved: model.graphLayout(layoutKey), columnSpacing: GraphMetrics.columnSpacing, gap: GraphMetrics.gap) { node in
             GraphMetrics.height(pins: pins[node.id]?.count ?? 0)
         }
@@ -65,7 +71,7 @@ struct GraphCanvas: View {
                         linkState: linkState(for: node),
                         onLinkChanged: { port, location in
                             let target = blocks.first { candidate in
-                                candidate.acceptsLinks && (frames[candidate.id]?.insetBy(dx: -12, dy: -12).contains(location) ?? false)
+                                candidate.acceptsLinks && (frames[candidate.id]?.insetBy(dx: -24, dy: -12).contains(location) ?? false)
                             }
                             link = GraphLink(port: port, location: location, target: target?.id)
                         },
@@ -75,18 +81,15 @@ struct GraphCanvas: View {
                                 model.apply(change)
                             }
                             link = nil
+                        },
+                        onMoveChanged: { moving = (node.id, $0) },
+                        onMoveEnded: { translation in
+                            let point = positions[node.id] ?? GraphPoint(x: 0, y: 0)
+                            model.saveGraphPosition(GraphPoint(x: point.x + translation.width, y: point.y + translation.height), for: node.id, in: layoutKey)
+                            moving = nil
                         }
                     )
                     .offset(x: frame.minX, y: frame.minY)
-                    .gesture(
-                        DragGesture(minimumDistance: 3, coordinateSpace: .named(Self.space))
-                            .onChanged { moving = (node.id, $0.translation) }
-                            .onEnded { value in
-                                let point = positions[node.id] ?? GraphPoint(x: 0, y: 0)
-                                model.saveGraphPosition(GraphPoint(x: point.x + value.translation.width, y: point.y + value.translation.height), for: node.id, in: layoutKey)
-                                moving = nil
-                            }
-                    )
                 }
             }
             .frame(width: bounds.width, height: bounds.height, alignment: .topLeading)
@@ -98,9 +101,6 @@ struct GraphCanvas: View {
         var outputs: [String: CGPoint] = [:]
         for block in blocks {
             guard let frame = frames[block.id] else { continue }
-            if block.column == .ports {
-                outputs[block.id] = CGPoint(x: frame.maxX, y: frame.minY + GraphMetrics.header / 2)
-            }
             for (index, pin) in (pins[block.id] ?? []).enumerated() where outputs[pin.id] == nil {
                 outputs[pin.id] = CGPoint(x: frame.maxX, y: frame.minY + GraphMetrics.pinCenter(index))
             }

@@ -18,6 +18,8 @@ struct GraphBlockView: View {
     let linkState: LinkState
     let onLinkChanged: (Int, CGPoint) -> Void
     let onLinkEnded: () -> Void
+    let onMoveChanged: (CGSize) -> Void
+    let onMoveEnded: (CGSize) -> Void
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -35,17 +37,25 @@ struct GraphBlockView: View {
                 .overlay(alignment: .bottom) {
                     if !pins.isEmpty { Divider() }
                 }
-                .overlay(alignment: .trailing) {
-                    if let port = node.port {
-                        PinHandle(port: port, tint: .accentColor, onChanged: onLinkChanged, onEnded: onLinkEnded)
-                    }
-                }
                 .contentShape(.rect)
+                .pointerStyle(.grabIdle)
+                .gesture(
+                    DragGesture(minimumDistance: 3, coordinateSpace: .named(GraphCanvas.space))
+                        .onChanged { onMoveChanged($0.translation) }
+                        .onEnded { onMoveEnded($0.translation) }
+                )
                 .onTapGesture { model.select(node) }
                 .contextMenu { GraphNodeMenu(node: node, graph: graph) }
             if !pins.isEmpty {
                 ForEach(pins) { pin in
-                    PinRow(pin: pin, owner: node, graph: graph, isSelected: selected.contains(pin.id), onLinkChanged: onLinkChanged, onLinkEnded: onLinkEnded)
+                    PinRow(
+                        pin: pin,
+                        owner: node,
+                        graph: graph,
+                        isSelected: selected.contains(pin.id) && pin.id != node.id,
+                        onLinkChanged: onLinkChanged,
+                        onLinkEnded: onLinkEnded
+                    )
                 }
                 Spacer(minLength: GraphMetrics.footer)
             }
@@ -55,11 +65,9 @@ struct GraphBlockView: View {
         .overlay { shape.strokeBorder(borderColor, lineWidth: borderWidth) }
         .overlay(alignment: .topLeading) {
             if node.column == .consumers {
-                Circle()
-                    .fill(connections > 0 ? tint : Color(nsColor: .controlBackgroundColor))
-                    .strokeBorder(connections > 0 ? tint : Color(nsColor: .tertiaryLabelColor), lineWidth: 2)
-                    .frame(width: 12, height: 12)
-                    .offset(x: -6, y: GraphMetrics.header / 2 - 6)
+                PinCircle(tint: connections > 0 ? tint : Color(nsColor: .tertiaryLabelColor), isFilled: connections > 0 || linkState == .target, isEmphasized: linkState == .target)
+                    .offset(x: -GraphMetrics.pin / 2, y: (GraphMetrics.header - GraphMetrics.pin) / 2)
+                    .allowsHitTesting(false)
             }
         }
         .opacity(linkState == .dimmed ? 0.4 : node.isActive ? 1 : 0.6)
@@ -73,14 +81,13 @@ struct GraphBlockView: View {
             case .process(let pid):
                 ItemIcon(symbol: node.symbol, process: model.ports.process(pid: pid)?.process)
             case .port:
-                StatusDot(color: node.isActive ? .green : Color(nsColor: .tertiaryLabelColor), size: 9)
-                    .frame(width: 34)
+                ItemIcon(symbol: node.isActive ? "dot.radiowaves.left.and.right" : "moon.zzz", tint: .secondary)
             default:
                 ItemIcon(symbol: node.symbol, tint: node.kind.tint)
             }
             VStack(alignment: .leading, spacing: 1) {
-                Text(node.title)
-                    .font(node.port == nil ? .title3.weight(.semibold) : .title3.monospacedDigit().weight(.semibold))
+                Text(node.port.map { "Port \(String($0))" } ?? node.title)
+                    .font(.title3.weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(subtitle)
@@ -131,6 +138,7 @@ private struct PinRow: View {
     let onLinkChanged: (Int, CGPoint) -> Void
     let onLinkEnded: () -> Void
     @State private var hovering = false
+    @State private var linking = false
 
     var body: some View {
         let port = pin.port ?? 0
@@ -157,7 +165,7 @@ private struct PinRow: View {
             }
         }
         .padding(.leading, 14)
-        .padding(.trailing, 20)
+        .padding(.trailing, 24)
         .frame(height: GraphMetrics.pin)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -165,13 +173,26 @@ private struct PinRow: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
         }
-        .overlay(alignment: .trailing) {
-            PinHandle(port: port, tint: .accentColor, onChanged: onLinkChanged, onEnded: onLinkEnded)
-        }
         .contentShape(.rect)
+        .overlay(alignment: .trailing) {
+            PinCircle(tint: .accentColor, isFilled: linking || graph.edges.contains { $0.from == pin.id }, isEmphasized: hovering || linking)
+                .offset(x: GraphMetrics.pin / 2)
+        }
         .onHover { hovering = $0 }
+        .gesture(
+            DragGesture(minimumDistance: 4, coordinateSpace: .named(GraphCanvas.space))
+                .onChanged { value in
+                    linking = true
+                    onLinkChanged(port, value.location)
+                }
+                .onEnded { _ in
+                    linking = false
+                    onLinkEnded()
+                }
+        )
         .onTapGesture { model.select(pin) }
         .contextMenu { GraphNodeMenu(node: pin, graph: graph) }
+        .help("Click to select port \(String(port)). Drag to connect it.")
     }
 
     private func listener(_ port: Int) -> ListeningPort? {
@@ -182,31 +203,24 @@ private struct PinRow: View {
     }
 
     private static func addresses(_ port: ListeningPort) -> String {
-        let addresses = port.addresses.map { $0 == "*" ? "All interfaces" : $0 }.joined(separator: ", ")
-        return port.isLoopbackOnly ? "\(addresses) · This Mac only" : addresses
+        port.isLoopbackOnly ? "This Mac only" : port.addresses.map { $0 == "*" ? "All interfaces" : $0 }.joined(separator: ", ")
     }
 }
 
-private struct PinHandle: View {
-    let port: Int
+private struct PinCircle: View {
     let tint: Color
-    let onChanged: (Int, CGPoint) -> Void
-    let onEnded: () -> Void
+    let isFilled: Bool
+    let isEmphasized: Bool
 
     var body: some View {
+        let size: CGFloat = isEmphasized ? 22 : 18
         Circle()
-            .fill(tint)
-            .strokeBorder(Color(nsColor: .controlBackgroundColor), lineWidth: 2)
-            .frame(width: 14, height: 14)
-            .padding(6)
-            .contentShape(.circle)
-            .offset(x: 13)
-            .gesture(
-                DragGesture(minimumDistance: 1, coordinateSpace: .named(GraphCanvas.space))
-                    .onChanged { onChanged(port, $0.location) }
-                    .onEnded { _ in onEnded() }
-            )
-            .help("Drag to Favorites, Watch, Quick Tunnel or a plugin action")
+            .fill(isFilled ? tint : Color(nsColor: .controlBackgroundColor))
+            .strokeBorder(tint, lineWidth: 3)
+            .frame(width: size, height: size)
+            .frame(width: GraphMetrics.pin, height: GraphMetrics.pin)
+            .contentShape(.rect)
+            .animation(.snappy(duration: 0.15), value: isEmphasized)
     }
 }
 
