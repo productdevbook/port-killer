@@ -28,6 +28,9 @@ struct GraphCanvas: View {
     let layoutKey: String
     @State private var moving: (id: String, translation: CGSize)?
     @State private var link: GraphLink?
+    @State private var hoveredWire: String?
+    @State private var selectedWire: String?
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         let blocks = graph.blocks
@@ -54,13 +57,33 @@ struct GraphCanvas: View {
         let selected = Set(graph.nodes.filter(model.isSelected).map(\.id))
         let focusID = selected.sorted().first
         let outputs = outputs(blocks: blocks, pins: pins, frames: frames)
+        let wires = wires(outputs: outputs, frames: frames, selected: selected)
+        let chosenWire = wires.first { $0.id == selectedWire && $0.change != nil }
 
-        GraphViewport(layoutKey: layoutKey, bounds: bounds, extent: union.isNull ? .zero : union, focus: focusID.flatMap { placed[graph.owner(of: $0) ?? $0] }, focusID: focusID) {
+        GraphViewport(
+            layoutKey: layoutKey,
+            bounds: bounds,
+            extent: union.isNull ? .zero : union,
+            focus: focusID.flatMap { placed[graph.owner(of: $0) ?? $0] },
+            focusID: focusID,
+            onBackgroundTap: {
+                selectedWire = nil
+                model.focusedPort = nil
+            }
+        ) {
             ZStack(alignment: .topLeading) {
-                GraphWires(wires: wires(outputs: outputs, frames: frames, selected: selected), link: link.flatMap { link in
-                    outputs[PortGraph.portID(link.port)].map { GraphWire(from: $0, to: link.location, tint: .accentColor, isHighlighted: true) }
-                })
+                GraphWires(
+                    wires: wires,
+                    emphasized: Set([hoveredWire, selectedWire].compactMap(\.self)),
+                    link: link.flatMap { link in
+                        outputs[PortGraph.portID(link.port)].map { GraphWire(id: "link", from: $0, to: link.location, tint: .accentColor, isHighlighted: true) }
+                    }
+                )
                 .allowsHitTesting(false)
+                WireHitLayer(wires: wires.filter { $0.change != nil }, hovered: $hoveredWire) { id in
+                    selectedWire = id
+                    isFocused = true
+                }
                 ForEach(blocks) { node in
                     let frame = frames[node.id] ?? .zero
                     GraphBlockView(
@@ -91,9 +114,39 @@ struct GraphCanvas: View {
                     )
                     .offset(x: frame.minX, y: frame.minY)
                 }
+                if let chosenWire, let change = chosenWire.change {
+                    Button {
+                        model.apply(change)
+                        selectedWire = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(.red, in: .circle)
+                            .overlay { Circle().strokeBorder(Color(nsColor: .controlBackgroundColor), lineWidth: 2) }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Disconnect \(chosenWire.title)")
+                    .position(chosenWire.midpoint)
+                }
             }
             .frame(width: bounds.width, height: bounds.height, alignment: .topLeading)
             .coordinateSpace(.named(Self.space))
+            .focusable()
+            .focusEffectDisabled()
+            .focused($isFocused)
+            .onKeyPress(keys: [.delete, .deleteForward]) { _ in
+                guard let change = chosenWire?.change else { return .ignored }
+                model.apply(change)
+                selectedWire = nil
+                return .handled
+            }
+            .onKeyPress(.escape) {
+                guard selectedWire != nil else { return .ignored }
+                selectedWire = nil
+                return .handled
+            }
         }
     }
 
@@ -113,10 +166,13 @@ struct GraphCanvas: View {
             guard let from = outputs[edge.from], let to = frames[edge.to], let target = graph.node(id: edge.to) else { return nil }
             let owner = graph.owner(of: edge.from)
             return GraphWire(
+                id: edge.id,
                 from: from,
                 to: CGPoint(x: to.minX, y: to.minY + GraphMetrics.header / 2),
                 tint: target.kind.tint,
-                isHighlighted: selected.contains(edge.from) || selected.contains(edge.to) || owner.map(selected.contains) == true
+                isHighlighted: selected.contains(edge.from) || selected.contains(edge.to) || owner.map(selected.contains) == true,
+                title: "\(graph.node(id: edge.from)?.port.map { "Port \(String($0))" } ?? edge.from) from \(target.title)",
+                change: graph.change(unlinking: edge)
             )
         }
     }
@@ -135,11 +191,80 @@ struct GraphLink: Equatable {
     var target: String?
 }
 
-struct GraphWire: Hashable {
+nonisolated struct GraphWire: Hashable {
+    var id: String
     var from: CGPoint
     var to: CGPoint
     var tint: Color
     var isHighlighted: Bool
+    var title = ""
+    var change: GraphChange?
+
+    var midpoint: CGPoint {
+        CGPoint(x: (from.x + to.x) / 2, y: (from.y + to.y) / 2)
+    }
+
+    var path: Path {
+        let handle = max(60, abs(to.x - from.x) / 2)
+        var path = Path()
+        path.move(to: from)
+        path.addCurve(to: to, control1: CGPoint(x: from.x + handle, y: from.y), control2: CGPoint(x: to.x - handle, y: to.y))
+        return path
+    }
+
+    func distance(to point: CGPoint) -> CGFloat {
+        let handle = max(60, abs(to.x - from.x) / 2)
+        let control1 = CGPoint(x: from.x + handle, y: from.y)
+        let control2 = CGPoint(x: to.x - handle, y: to.y)
+        return (0...32).map { step in
+            let t = CGFloat(step) / 32
+            let u = 1 - t
+            let x = u * u * u * from.x + 3 * u * u * t * control1.x + 3 * u * t * t * control2.x + t * t * t * to.x
+            let y = u * u * u * from.y + 3 * u * u * t * control1.y + 3 * u * t * t * control2.y + t * t * t * to.y
+            return hypot(x - point.x, y - point.y)
+        }.min() ?? .infinity
+    }
+}
+
+private struct WireHitLayer: View {
+    let wires: [GraphWire]
+    @Binding var hovered: String?
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        Color.clear
+            .contentShape(WiresShape(wires: wires))
+            .onContinuousHover(coordinateSpace: .named(GraphCanvas.space)) { phase in
+                switch phase {
+                case .active(let location): hovered = nearest(to: location)
+                case .ended: hovered = nil
+                }
+            }
+            .pointerStyle(hovered == nil ? nil : .link)
+            .onTapGesture(coordinateSpace: .named(GraphCanvas.space)) { location in
+                if let id = nearest(to: location) { onSelect(id) }
+            }
+    }
+
+    private func nearest(to location: CGPoint) -> String? {
+        wires
+            .map { (id: $0.id, distance: $0.distance(to: location)) }
+            .filter { $0.distance <= 10 }
+            .min { $0.distance < $1.distance }?
+            .id
+    }
+}
+
+private nonisolated struct WiresShape: Shape {
+    let wires: [GraphWire]
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        for wire in wires {
+            path.addPath(wire.path.strokedPath(StrokeStyle(lineWidth: 20, lineCap: .round)))
+        }
+        return path
+    }
 }
 
 private struct GraphViewport<Content: View>: View {
@@ -149,6 +274,7 @@ private struct GraphViewport<Content: View>: View {
     let extent: CGRect
     let focus: CGRect?
     let focusID: String?
+    let onBackgroundTap: () -> Void
     @ViewBuilder var content: Content
     @State private var scale: CGFloat = 1
     @State private var offset: CGSize = .zero
@@ -170,7 +296,7 @@ private struct GraphViewport<Content: View>: View {
                     }
                     .onEnded { _ in panStart = nil }
             )
-            .onTapGesture { model.focusedPort = nil }
+            .onTapGesture { onBackgroundTap() }
             .contextMenu {
                 Button(GraphZoomRequest.Kind.fit.title, systemImage: GraphZoomRequest.Kind.fit.symbol) { model.graphZoomRequest = GraphZoomRequest(kind: .fit) }
                 Button("Reset Layout", systemImage: "rectangle.3.group") { model.resetGraphLayout(layoutKey) }
@@ -249,28 +375,21 @@ private struct GraphViewport<Content: View>: View {
 
 private struct GraphWires: View {
     let wires: [GraphWire]
+    let emphasized: Set<String>
     let link: GraphWire?
 
     var body: some View {
         Canvas { context, _ in
-            for wire in wires where !wire.isHighlighted {
-                context.stroke(Self.curve(wire), with: .color(wire.tint.opacity(0.45)), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            for wire in wires where !wire.isHighlighted && !emphasized.contains(wire.id) {
+                context.stroke(wire.path, with: .color(wire.tint.opacity(0.75)), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
             }
-            for wire in wires where wire.isHighlighted {
-                context.stroke(Self.curve(wire), with: .color(wire.tint), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            for wire in wires where wire.isHighlighted || emphasized.contains(wire.id) {
+                context.stroke(wire.path, with: .color(wire.tint), style: StrokeStyle(lineWidth: emphasized.contains(wire.id) ? 5 : 3, lineCap: .round))
             }
             if let link {
-                context.stroke(Self.curve(link), with: .color(link.tint), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [7, 6]))
+                context.stroke(link.path, with: .color(link.tint), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [7, 6]))
             }
         }
-    }
-
-    private static func curve(_ wire: GraphWire) -> Path {
-        let handle = max(60, abs(wire.to.x - wire.from.x) / 2)
-        var path = Path()
-        path.move(to: wire.from)
-        path.addCurve(to: wire.to, control1: CGPoint(x: wire.from.x + handle, y: wire.from.y), control2: CGPoint(x: wire.to.x - handle, y: wire.to.y))
-        return path
     }
 }
 
