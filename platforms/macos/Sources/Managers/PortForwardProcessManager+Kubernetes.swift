@@ -1,9 +1,26 @@
 import Foundation
 
 extension PortForwardProcessManager {
+    /// Fetches the context names available in the (optionally custom) kubeconfig.
+    func fetchContexts(target: KubectlTarget = .default) async throws -> [String] {
+        let output = try await executeKubectl(
+            arguments: target.kubeconfigOnly.arguments(["config", "get-contexts", "-o", "name"])
+        )
+        return KubernetesContextParser.parseContextNames(output)
+    }
+
+    /// Returns the kubeconfig's current context, or `nil` if none is set.
+    func fetchCurrentContext(target: KubectlTarget = .default) async -> String? {
+        guard let output = try? await executeKubectl(
+            arguments: target.kubeconfigOnly.arguments(["config", "current-context"])
+        ) else { return nil }
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     /// Fetches all Kubernetes namespaces.
-    func fetchNamespaces() async throws -> [KubernetesNamespace] {
-        let output = try await executeKubectl(arguments: ["get", "namespaces", "-o", "json"])
+    func fetchNamespaces(target: KubectlTarget = .default) async throws -> [KubernetesNamespace] {
+        let output = try await executeKubectl(arguments: target.arguments(["get", "namespaces", "-o", "json"]))
 
         do {
             let response = try JSONDecoder().decode(
@@ -18,8 +35,10 @@ extension PortForwardProcessManager {
     }
 
     /// Fetches services in a specific namespace.
-    func fetchServices(namespace: String) async throws -> [KubernetesService] {
-        let output = try await executeKubectl(arguments: ["get", "services", "-n", namespace, "-o", "json"])
+    func fetchServices(namespace: String, target: KubectlTarget = .default) async throws -> [KubernetesService] {
+        let output = try await executeKubectl(
+            arguments: target.arguments(["get", "services", "-n", namespace, "-o", "json"])
+        )
 
         do {
             let response = try JSONDecoder().decode(

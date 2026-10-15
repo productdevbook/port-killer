@@ -7,7 +7,8 @@ extension PortForwardProcessManager {
         namespace: String,
         service: String,
         localPort: Int,
-        remotePort: Int
+        remotePort: Int,
+        target: KubectlTarget = .default
     ) async throws -> Process {
         guard let kubectlPath = DependencyChecker.shared.kubectlPath else {
             throw KubectlError.kubectlNotFound
@@ -15,13 +16,12 @@ extension PortForwardProcessManager {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: kubectlPath)
-        process.arguments = [
-            "port-forward",
-            "-n", namespace,
-            "svc/\(service)",
-            "\(localPort):\(remotePort)",
-            "--address=127.0.0.1"
-        ]
+        process.arguments = Self.portForwardArguments(
+            namespace: namespace,
+            service: service,
+            portMapping: "\(localPort):\(remotePort)",
+            target: target
+        )
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -88,7 +88,8 @@ extension PortForwardProcessManager {
         namespace: String,
         service: String,
         externalPort: Int,
-        remotePort: Int
+        remotePort: Int,
+        target: KubectlTarget = .default
     ) async throws -> Process {
         guard let kubectlPath = DependencyChecker.shared.kubectlPath else {
             throw KubectlError.kubectlNotFound
@@ -103,7 +104,8 @@ extension PortForwardProcessManager {
             socatPath: socatPath,
             namespace: namespace,
             service: service,
-            remotePort: remotePort
+            remotePort: remotePort,
+            target: target
         )
 
         let scriptPath = "/tmp/pf-wrapper-\(id.uuidString).sh"
@@ -143,28 +145,61 @@ extension PortForwardProcessManager {
         return process
     }
 
+    /// Builds the kubectl argument array for a service port-forward.
+    nonisolated static func portForwardArguments(
+        namespace: String,
+        service: String,
+        portMapping: String,
+        target: KubectlTarget
+    ) -> [String] {
+        target.arguments([
+            "port-forward",
+            "-n", namespace,
+            "svc/\(service)",
+            portMapping,
+            "--address=127.0.0.1"
+        ])
+    }
+
+    /// Quotes a string for safe use as a single word in a POSIX shell script.
+    nonisolated static func shellQuote(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
     /// Creates a bash wrapper script for multi-connection proxy.
-    func createWrapperScript(
+    nonisolated func createWrapperScript(
         kubectlPath: String,
         socatPath: String,
         namespace: String,
         service: String,
-        remotePort: Int
+        remotePort: Int,
+        target: KubectlTarget = .default
     ) -> String {
-        """
+        // Every argument is single-quoted except the port mapping, which needs $PORT expansion.
+        let portMappingPlaceholder = "__PORT_MAPPING__"
+        let kubectlCommand = ([kubectlPath] + Self.portForwardArguments(
+            namespace: namespace,
+            service: service,
+            portMapping: portMappingPlaceholder,
+            target: target
+        ))
+        .map { $0 == portMappingPlaceholder ? "\"$PORT:\(remotePort)\"" : Self.shellQuote($0) }
+        .joined(separator: " ")
+
+        return """
         #!/bin/bash
         PORT=$((30000 + ($$ % 30000)))
         while /usr/bin/nc -z 127.0.0.1 $PORT 2>/dev/null; do
             PORT=$((PORT + 1))
         done
-        \(kubectlPath) port-forward -n \(namespace) svc/\(service) $PORT:\(remotePort) --address=127.0.0.1 >/dev/null 2>&1 &
+        \(kubectlCommand) >/dev/null 2>&1 &
         KPID=$!
         trap "kill $KPID 2>/dev/null" EXIT
         for i in 1 2 3 4 5 6 7 8 9 10; do
             if /usr/bin/nc -z 127.0.0.1 $PORT 2>/dev/null; then break; fi
             sleep 0.5
         done
-        \(socatPath) - TCP:127.0.0.1:$PORT
+        \(Self.shellQuote(socatPath)) - TCP:127.0.0.1:$PORT
         """
     }
 }

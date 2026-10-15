@@ -16,6 +16,8 @@ struct PortForwardConnectionEditForm: View {
     @State private var useDirectExec: Bool
     @State private var notifyOnConnect: Bool
     @State private var notifyOnDisconnect: Bool
+    @State private var kubeContext: String
+    @State private var kubeconfigPath: String
 
     init(connection: PortForwardConnectionState) {
         self.connection = connection
@@ -31,6 +33,8 @@ struct PortForwardConnectionEditForm: View {
         _useDirectExec = State(initialValue: connection.config.useDirectExec)
         _notifyOnConnect = State(initialValue: connection.config.notifyOnConnect)
         _notifyOnDisconnect = State(initialValue: connection.config.notifyOnDisconnect)
+        _kubeContext = State(initialValue: connection.config.kubeContext ?? "")
+        _kubeconfigPath = State(initialValue: connection.config.kubeconfigPath ?? "")
     }
 
     var body: some View {
@@ -67,6 +71,24 @@ struct PortForwardConnectionEditForm: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 180)
                         .onChange(of: name) { save() }
+                }
+
+                GridRow {
+                    Text("Context").foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
+                    KubeContextPicker(
+                        processManager: appState.portForwardManager.processManager,
+                        context: $kubeContext,
+                        kubeconfigPath: kubeconfigPath
+                    )
+                    .frame(maxWidth: 260)
+                    .onChange(of: kubeContext) { save() }
+                }
+
+                GridRow {
+                    Text("Kubeconfig").foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
+                    KubeconfigPathField(path: $kubeconfigPath)
+                        .frame(maxWidth: 260)
+                        .onChange(of: kubeconfigPath) { save() }
                 }
 
                 GridRow {
@@ -160,6 +182,8 @@ struct PortForwardConnectionEditForm: View {
         config.useDirectExec = useDirectExec
         config.notifyOnConnect = notifyOnConnect
         config.notifyOnDisconnect = notifyOnDisconnect
+        config.kubeContext = kubeContext.isEmpty ? nil : kubeContext
+        config.kubeconfigPath = kubeconfigPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : kubeconfigPath
         appState.portForwardManager.updateConnection(config)
     }
 }

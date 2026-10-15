@@ -20,6 +20,15 @@ struct PortForwardConnectionConfig: Identifiable, Codable, Equatable, Hashable, 
     /// Notification settings
     var notifyOnConnect: Bool
     var notifyOnDisconnect: Bool
+    /// Kubernetes context to use (`--context`). `nil` means kubectl's current context.
+    var kubeContext: String?
+    /// Custom kubeconfig file (`--kubeconfig`). `nil` means kubectl's default resolution.
+    var kubeconfigPath: String?
+
+    /// The kubectl target (context + kubeconfig) for every kubectl call of this connection.
+    var kubectlTarget: KubectlTarget {
+        KubectlTarget(context: kubeContext, kubeconfigPath: kubeconfigPath)
+    }
 
     init(
         id: UUID = UUID(),
@@ -33,7 +42,9 @@ struct PortForwardConnectionConfig: Identifiable, Codable, Equatable, Hashable, 
         autoReconnect: Bool = true,
         useDirectExec: Bool = true,
         notifyOnConnect: Bool = true,
-        notifyOnDisconnect: Bool = true
+        notifyOnDisconnect: Bool = true,
+        kubeContext: String? = nil,
+        kubeconfigPath: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -47,6 +58,8 @@ struct PortForwardConnectionConfig: Identifiable, Codable, Equatable, Hashable, 
         self.useDirectExec = useDirectExec
         self.notifyOnConnect = notifyOnConnect
         self.notifyOnDisconnect = notifyOnDisconnect
+        self.kubeContext = kubeContext
+        self.kubeconfigPath = kubeconfigPath
     }
 
     // MARK: - Codable Migration
@@ -68,12 +81,15 @@ struct PortForwardConnectionConfig: Identifiable, Codable, Equatable, Hashable, 
         // New fields with defaults for migration
         notifyOnConnect = try container.decodeIfPresent(Bool.self, forKey: .notifyOnConnect) ?? true
         notifyOnDisconnect = try container.decodeIfPresent(Bool.self, forKey: .notifyOnDisconnect) ?? true
+        kubeContext = try container.decodeIfPresent(String.self, forKey: .kubeContext)
+        kubeconfigPath = try container.decodeIfPresent(String.self, forKey: .kubeconfigPath)
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, namespace, service, localPort, remotePort, proxyPort
         case isEnabled, autoReconnect, useDirectExec
         case notifyOnConnect, notifyOnDisconnect
+        case kubeContext, kubeconfigPath
     }
 }
 

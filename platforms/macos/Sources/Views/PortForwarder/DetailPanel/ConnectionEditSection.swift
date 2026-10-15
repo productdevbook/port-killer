@@ -18,6 +18,8 @@ struct ConnectionEditSection: View {
     @State private var useDirectExec: Bool = true
     @State private var notifyOnConnect: Bool = true
     @State private var notifyOnDisconnect: Bool = true
+    @State private var kubeContext: String = ""
+    @State private var kubeconfigPath: String = ""
 
     // Kubernetes discovery
     @State private var namespaces: [KubernetesNamespace] = []
@@ -38,6 +40,9 @@ struct ConnectionEditSection: View {
                         namespace: $namespace,
                         service: $service,
                         remotePort: $remotePort,
+                        kubeContext: $kubeContext,
+                        kubeconfigPath: $kubeconfigPath,
+                        processManager: appState.portForwardManager.processManager,
                         namespaces: namespaces,
                         services: services,
                         isLoadingNamespaces: isLoadingNamespaces,
@@ -45,7 +50,8 @@ struct ConnectionEditSection: View {
                         showNamespacePicker: $showNamespacePicker,
                         showServicePicker: $showServicePicker,
                         onLoadNamespaces: loadNamespaces,
-                        onLoadServices: loadServices
+                        onLoadServices: loadServices,
+                        onTargetChanged: reloadDiscovery
                     )
 
                     Divider()
@@ -98,6 +104,11 @@ struct ConnectionEditSection: View {
         .onChange(of: useDirectExec) { saveToConnection() }
         .onChange(of: notifyOnConnect) { saveToConnection() }
         .onChange(of: notifyOnDisconnect) { saveToConnection() }
+        .onChange(of: kubeContext) {
+            saveToConnection()
+            reloadDiscovery()
+        }
+        .onChange(of: kubeconfigPath) { saveToConnection() }
     }
 
     // MARK: - Header
@@ -140,11 +151,23 @@ struct ConnectionEditSection: View {
 
     // MARK: - Kubernetes Loading
 
+    private var kubectlTarget: KubectlTarget {
+        KubectlTarget(context: kubeContext, kubeconfigPath: kubeconfigPath)
+    }
+
+    /// Reloads namespaces and services after the context or kubeconfig changed.
+    private func reloadDiscovery() {
+        loadNamespaces()
+        if !namespace.isEmpty {
+            loadServices(for: namespace)
+        }
+    }
+
     private func loadNamespaces() {
         isLoadingNamespaces = true
         Task {
             do {
-                let fetchedNamespaces = try await appState.portForwardManager.processManager.fetchNamespaces()
+                let fetchedNamespaces = try await appState.portForwardManager.processManager.fetchNamespaces(target: kubectlTarget)
                 await MainActor.run {
                     // Merge with manual namespaces
                     let customNamespaceNames = Defaults[.customNamespaces]
@@ -180,7 +203,7 @@ struct ConnectionEditSection: View {
         services = []
         Task {
             do {
-                let result = try await appState.portForwardManager.processManager.fetchServices(namespace: ns)
+                let result = try await appState.portForwardManager.processManager.fetchServices(namespace: ns, target: kubectlTarget)
                 await MainActor.run {
                     services = result
                     isLoadingServices = false
@@ -232,6 +255,8 @@ struct ConnectionEditSection: View {
         useDirectExec = connection.config.useDirectExec
         notifyOnConnect = connection.config.notifyOnConnect
         notifyOnDisconnect = connection.config.notifyOnDisconnect
+        kubeContext = connection.config.kubeContext ?? ""
+        kubeconfigPath = connection.config.kubeconfigPath ?? ""
     }
 
     private func saveToConnection() {
@@ -247,7 +272,9 @@ struct ConnectionEditSection: View {
             autoReconnect: autoReconnect,
             useDirectExec: useDirectExec,
             notifyOnConnect: notifyOnConnect,
-            notifyOnDisconnect: notifyOnDisconnect
+            notifyOnDisconnect: notifyOnDisconnect,
+            kubeContext: kubeContext.isEmpty ? nil : kubeContext,
+            kubeconfigPath: kubeconfigPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : kubeconfigPath
         )
         appState.portForwardManager.updateConnection(newConfig)
     }

@@ -53,6 +53,17 @@ struct ServiceBrowserEmbedded: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            KubeTargetBar(
+                processManager: discoveryManager.processManager,
+                context: $discoveryManager.kubeContext,
+                kubeconfigPath: $discoveryManager.kubeconfigPath,
+                onTargetChanged: {
+                    Task { await discoveryManager.loadNamespaces() }
+                }
+            )
+
+            Divider()
+
             // 3 panel layout
             HStack(spacing: 0) {
                 // Namespace List

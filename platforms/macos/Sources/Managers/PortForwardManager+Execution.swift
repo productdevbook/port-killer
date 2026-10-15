@@ -16,7 +16,8 @@ extension PortForwardManager {
                 namespace: config.namespace,
                 service: config.service,
                 localPort: config.localPort,
-                remotePort: config.remotePort
+                remotePort: config.remotePort,
+                target: config.kubectlTarget
             )
 
             try await Task.sleep(for: .seconds(2))
@@ -55,7 +56,8 @@ extension PortForwardManager {
                 namespace: config.namespace,
                 service: config.service,
                 externalPort: proxyPort,
-                remotePort: config.remotePort
+                remotePort: config.remotePort,
+                target: config.kubectlTarget
             )
 
             try await Task.sleep(for: .seconds(1))

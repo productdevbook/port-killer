@@ -23,11 +23,23 @@ final class KubernetesDiscoveryManager: Identifiable {
     var selectedService: KubernetesService?
     var selectedPort: KubernetesService.ServicePort?
     var proxyEnabled = true
+    /// Selected Kubernetes context; empty means kubectl's current context.
+    var kubeContext = ""
+    /// Custom kubeconfig path; empty means kubectl's default.
+    var kubeconfigPath = ""
+
+    /// The kubectl target used for discovery and for new connections.
+    var target: KubectlTarget {
+        KubectlTarget(
+            context: kubeContext.isEmpty ? nil : kubeContext,
+            kubeconfigPath: kubeconfigPath.isEmpty ? nil : kubeconfigPath
+        )
+    }
 
     var namespaceState: KubernetesDiscoveryState = .idle
     var serviceState: KubernetesDiscoveryState = .idle
 
-    private let processManager: PortForwardProcessManager
+    let processManager: PortForwardProcessManager
 
     init(processManager: PortForwardProcessManager) {
         self.processManager = processManager
@@ -44,7 +56,7 @@ final class KubernetesDiscoveryManager: Identifiable {
         selectedPort = nil
 
         do {
-            let fetchedNamespaces = try await processManager.fetchNamespaces()
+            let fetchedNamespaces = try await processManager.fetchNamespaces(target: target)
             // Merge with custom namespaces
             let customNamespaceNames = Defaults[.customNamespaces]
             let customNamespaces = customNamespaceNames.map { KubernetesNamespace(name: $0, isCustom: true) }
@@ -81,7 +93,7 @@ final class KubernetesDiscoveryManager: Identifiable {
         serviceState = .loading
 
         do {
-            services = try await processManager.fetchServices(namespace: namespace.name)
+            services = try await processManager.fetchServices(namespace: namespace.name, target: target)
             serviceState = .loaded
         } catch {
             let message = (error as? KubectlError)?.errorDescription ?? error.localizedDescription
@@ -117,7 +129,9 @@ final class KubernetesDiscoveryManager: Identifiable {
             service: service.name,
             localPort: localPort,
             remotePort: remotePort,
-            proxyPort: proxyPort
+            proxyPort: proxyPort,
+            kubeContext: target.resolvedContext,
+            kubeconfigPath: target.resolvedKubeconfigPath
         )
     }
 

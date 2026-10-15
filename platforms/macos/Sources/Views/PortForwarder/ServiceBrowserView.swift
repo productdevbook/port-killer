@@ -24,6 +24,17 @@ struct ServiceBrowserView: View {
 
             Divider()
 
+            KubeTargetBar(
+                processManager: discoveryManager.processManager,
+                context: $discoveryManager.kubeContext,
+                kubeconfigPath: $discoveryManager.kubeconfigPath,
+                onTargetChanged: {
+                    Task { await discoveryManager.loadNamespaces() }
+                }
+            )
+
+            Divider()
+
             // Content - 3 panel layout
             HStack(spacing: 0) {
                 // Namespace List (left panel)

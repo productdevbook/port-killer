@@ -5,6 +5,9 @@ struct ConnectionInfoSection: View {
     @Binding var namespace: String
     @Binding var service: String
     @Binding var remotePort: String
+    @Binding var kubeContext: String
+    @Binding var kubeconfigPath: String
+    let processManager: PortForwardProcessManager
 
     let namespaces: [KubernetesNamespace]
     let services: [KubernetesService]
@@ -15,6 +18,7 @@ struct ConnectionInfoSection: View {
 
     let onLoadNamespaces: () -> Void
     let onLoadServices: (String) -> Void
+    let onTargetChanged: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -29,6 +33,25 @@ struct ConnectionInfoSection: View {
                         .frame(width: 16, height: 22, alignment: .center)
                     TextField("Connection name", text: $name)
                         .textFieldStyle(.roundedBorder)
+                }
+
+                HStack(spacing: 10) {
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 16, height: 22, alignment: .center)
+                    KubeContextPicker(
+                        processManager: processManager,
+                        context: $kubeContext,
+                        kubeconfigPath: kubeconfigPath
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                HStack(spacing: 10) {
+                    Image(systemName: "doc.badge.gearshape")
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 16, height: 22, alignment: .center)
+                    KubeconfigPathField(path: $kubeconfigPath, onCommit: onTargetChanged)
                 }
 
                 HStack(spacing: 10) {

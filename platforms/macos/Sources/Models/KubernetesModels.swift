@@ -1,5 +1,72 @@
 import Foundation
 
+// MARK: - kubectl Target
+
+/// Identifies which cluster a kubectl invocation talks to: an optional context
+/// and an optional kubeconfig file. Empty values fall back to kubectl's defaults
+/// (current context, `$KUBECONFIG` / `~/.kube/config`).
+nonisolated struct KubectlTarget: Equatable, Hashable, Sendable {
+    var context: String?
+    var kubeconfigPath: String?
+
+    static let `default` = KubectlTarget()
+
+    init(context: String? = nil, kubeconfigPath: String? = nil) {
+        self.context = context
+        self.kubeconfigPath = kubeconfigPath
+    }
+
+    /// Context name, or `nil` when the current context should be used.
+    var resolvedContext: String? {
+        guard let trimmed = context?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
+    /// Absolute kubeconfig path (tilde expanded), or `nil` for kubectl's default.
+    var resolvedKubeconfigPath: String? {
+        guard let trimmed = kubeconfigPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else { return nil }
+        return (trimmed as NSString).expandingTildeInPath
+    }
+
+    /// Only the kubeconfig part, used for `kubectl config` queries that list contexts.
+    var kubeconfigOnly: KubectlTarget {
+        KubectlTarget(kubeconfigPath: kubeconfigPath)
+    }
+
+    /// Global kubectl flags selecting this target. Uses the `--flag=value` form so a
+    /// value can never be parsed as a separate flag.
+    var globalArguments: [String] {
+        var args: [String] = []
+        if let path = resolvedKubeconfigPath {
+            args.append("--kubeconfig=\(path)")
+        }
+        if let context = resolvedContext {
+            args.append("--context=\(context)")
+        }
+        return args
+    }
+
+    /// Prefixes the given kubectl arguments with the target's global flags.
+    func arguments(_ arguments: [String]) -> [String] {
+        globalArguments + arguments
+    }
+}
+
+// MARK: - Context List Parsing
+
+nonisolated enum KubernetesContextParser {
+    /// Parses the output of `kubectl config get-contexts -o name`.
+    static func parseContextNames(_ output: String) -> [String] {
+        var seen = Set<String>()
+        return output
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+}
+
 // MARK: - Namespace
 
 struct KubernetesNamespace: Identifiable, Codable, Sendable, Hashable {
