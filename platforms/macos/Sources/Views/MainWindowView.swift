@@ -1,10 +1,12 @@
 import SwiftUI
+import Defaults
 
 struct MainWindowView: View {
     @Environment(AppState.self) private var appState
     @Environment(SponsorManager.self) private var sponsorManager
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var showKillAllConfirmation = false
+    @Default(.showInspector) private var showInspector
 
     var body: some View {
         @Bindable var state = appState
@@ -12,13 +14,14 @@ struct MainWindowView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
-        } content: {
+        } detail: {
             contentView
                 .searchable(text: $state.filter.searchText, prompt: "Search ports, processes...")
                 .navigationSplitViewColumnWidth(min: 300, ideal: 400, max: .infinity)
-        } detail: {
-            detailView
-                .navigationSplitViewColumnWidth(min: 400, ideal: 500, max: 600)
+                .inspector(isPresented: inspectorBinding) {
+                    detailView
+                        .inspectorColumnWidth(min: 400, ideal: 500, max: 600)
+                }
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
@@ -60,6 +63,21 @@ struct MainWindowView: View {
             }
             return .ignored
         }
+    }
+
+    /// Pages that have something to show in the inspector pane
+    private var hasInspector: Bool {
+        appState.selectedSidebarItem != .settings && appState.selectedSidebarItem != .sponsors
+    }
+
+    /// Persisted inspector visibility, forced hidden on pages without inspector content
+    private var inspectorBinding: Binding<Bool> {
+        Binding(
+            get: { showInspector && hasInspector },
+            set: { newValue in
+                if hasInspector { showInspector = newValue }
+            }
+        )
     }
 
     @ViewBuilder
@@ -172,6 +190,15 @@ struct MainWindowView: View {
             }
             .keyboardShortcut(",", modifiers: .command)
             .help("Open Settings (Cmd+,)")
+
+            Button {
+                showInspector.toggle()
+            } label: {
+                Label(showInspector ? "Hide Inspector" : "Show Inspector", systemImage: "sidebar.right")
+            }
+            .keyboardShortcut("i", modifiers: [.command, .option])
+            .disabled(!hasInspector)
+            .help("Toggle Inspector (Opt+Cmd+I)")
         }
     }
 }

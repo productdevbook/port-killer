@@ -15,6 +15,9 @@ extension Defaults.Keys {
     static let refreshInterval = Key<Int>("refreshInterval", default: 5)
     static let cloudflaredProtocol = Key<CloudflaredProtocol>("cloudflaredProtocol", default: .http2)
 
+    // Main window: whether the right-hand inspector (detail) pane is visible
+    static let showInspector = Key<Bool>("showInspector", default: true)
+
     // Process type overrides (processName → ProcessType.rawValue)
     static let processTypeOverrides = Key<[String: String]>("processTypeOverrides", default: [:])
 
