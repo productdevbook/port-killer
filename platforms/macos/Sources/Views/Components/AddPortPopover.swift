@@ -13,12 +13,22 @@ struct AddPortPopover: View {
     @State private var portText = ""
     @State private var notifyOnStart = true
     @State private var notifyOnStop = true
+    @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isTextFieldFocused: Bool
 
+    private var parsedPort: Int? {
+        guard let port = Int(portText), (1...65535).contains(port) else { return nil }
+        return port
+    }
+
     private var isValidPort: Bool {
-        guard let port = Int(portText) else { return false }
-        return port > 0 && port <= 65535
+        parsedPort != nil
+    }
+
+    private var matchingListener: PortInfo? {
+        guard let port = parsedPort else { return nil }
+        return appState.ports.first { $0.isActive && $0.port == port }
     }
 
     private var title: String {
@@ -38,6 +48,31 @@ struct AddPortPopover: View {
                         handleAdd()
                     }
                 }
+
+            if let port = parsedPort {
+                HStack(spacing: 6) {
+                    if appState.isScanning {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    if let listener = matchingListener {
+                        Label(
+                            "Port \(port) is in use by \(listener.processName) (PID \(listener.pid))",
+                            systemImage: "exclamationmark.circle.fill"
+                        )
+                        .foregroundStyle(.orange)
+                    } else {
+                        Label(
+                            "No TCP listener on port \(port)",
+                            systemImage: "checkmark.circle.fill"
+                        )
+                        .foregroundStyle(.green)
+                    }
+                }
+                .font(.caption)
+                .lineLimit(2)
+            }
 
             if mode == .watch {
                 VStack(alignment: .leading, spacing: 8) {
@@ -82,7 +117,7 @@ struct AddPortPopover: View {
     }
 
     private func handleAdd() {
-        guard let port = Int(portText), port > 0, port <= 65535 else { return }
+        guard let port = parsedPort else { return }
         onAdd(port, notifyOnStart, notifyOnStop)
         dismiss()
     }
