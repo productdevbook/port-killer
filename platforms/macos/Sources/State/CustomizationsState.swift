@@ -66,7 +66,9 @@ final class CustomizationsState {
     func update(for port: Int, _ mutate: (inout PortCustomization) -> Void) {
         var record = customizations[port] ?? PortCustomization()
         mutate(&record)
-        customizations[port] = record.isEmpty ? nil : record
+        let updated = record.isEmpty ? nil : record
+        guard updated != customizations[port] else { return }
+        customizations[port] = updated
         Defaults[key] = customizations.reduce(into: [:]) { result, entry in
             result[String(entry.key)] = entry.value
         }

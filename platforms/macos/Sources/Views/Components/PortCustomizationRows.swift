@@ -33,7 +33,12 @@ struct PortNameField: View {
                 if !isFocused { appState.customizationsState.setName(draft, for: port.port) }
             }
             .onAppear { reseed() }
-            .onChange(of: port.port) { _, _ in reseed() }
+            .onChange(of: port.port) { oldPort, _ in
+                // Switching ports can happen before focus loss fires; save the
+                // pending draft to the port it was typed for, not the new one.
+                appState.customizationsState.setName(draft, for: oldPort)
+                reseed()
+            }
     }
 
     private func reseed() {
@@ -96,7 +101,11 @@ struct PortDescriptionEditor: View {
                 }
         }
         .onAppear { reseed() }
-        .onChange(of: port.port) { _, _ in reseed() }
+        .onChange(of: port.port) { oldPort, _ in
+            // Save the pending draft to the port it was typed for (see PortNameField)
+            appState.customizationsState.setDescription(draft, for: oldPort)
+            reseed()
+        }
     }
 
     private func reseed() {
