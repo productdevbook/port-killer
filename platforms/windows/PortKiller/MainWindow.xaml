@@ -560,9 +560,18 @@
                                     </StackPanel>
 
                                     <StackPanel Margin="0,0,0,20">
-                                        <TextBlock Text="COMMAND" FontSize="10" FontWeight="Bold" Foreground="#808080" Margin="0,0,0,4"/>
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="COMMAND" FontSize="10" FontWeight="Bold" Foreground="#808080" VerticalAlignment="Center"/>
+                                            <Button x:Name="CopyCommandButton" Click="CopyCommandButton_Click" HorizontalAlignment="Right"
+                                                    Background="Transparent" BorderThickness="0" Foreground="#808080" FontSize="10"
+                                                    Cursor="Hand" Padding="4,0" Content="Copy" ToolTip="Copy full command"/>
+                                        </Grid>
                                         <Border CornerRadius="8" Padding="12,8" Background="#2A2A2A">
-                                            <TextBlock x:Name="DetailCommand" Text="-" TextWrapping="Wrap" FontSize="12" Foreground="#E0E0E0"/>
+                                            <!-- Read-only TextBox so long commands can be selected, copied and scrolled -->
+                                            <TextBox x:Name="DetailCommand" Text="-" IsReadOnly="True" TextWrapping="Wrap"
+                                                     MaxHeight="200" VerticalScrollBarVisibility="Auto"
+                                                     Background="Transparent" BorderThickness="0" Padding="0"
+                                                     FontSize="12" Foreground="#E0E0E0" CaretBrush="#E0E0E0"/>
                                         </Border>
                                     </StackPanel>
 

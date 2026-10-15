@@ -216,6 +216,19 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CopyCommandButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(DetailCommand.Text)) return;
+        try
+        {
+            Clipboard.SetText(DetailCommand.Text);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to copy command: {ex.Message}");
+        }
+    }
+
     private void PortItem_Click(object sender, MouseButtonEventArgs e)
     {
         if (sender is Border border && border.Tag is PortInfo port)
