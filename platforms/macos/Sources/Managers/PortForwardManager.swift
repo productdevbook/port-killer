@@ -136,6 +136,15 @@ final class PortForwardManager {
     func startConnection(_ id: UUID) {
         guard !isKillingProcesses else { return }
         guard let state = connection(for: id) else { return }
+        // Tasks are never reset when they finish, so once a connection has dropped
+        // (both sides disconnected/error) its leftover tasks are stale. Clear them,
+        // otherwise every auto-reconnect attempt would return early below.
+        if state.portForwardStatus.isIdle && state.proxyStatus.isIdle {
+            state.portForwardTask?.cancel()
+            state.portForwardTask = nil
+            state.proxyTask?.cancel()
+            state.proxyTask = nil
+        }
         guard state.portForwardTask == nil, state.proxyTask == nil else { return }
         guard state.portForwardStatus != .connecting, state.proxyStatus != .connecting else { return }
         guard !state.isFullyConnected else { return }
