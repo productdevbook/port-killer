@@ -284,7 +284,9 @@ final class NamedTunnelManager {
             try? await Task.sleep(for: .seconds(3))
 
             if !process.isRunning && tunnel.status != .running {
-                await cloudflaredService.removeHandlers(for: runID)
+                // stopTunnel (not just removeHandlers) so the exited Process, its Pipe and
+                // the output task are released too — runIDs are never reused.
+                await cloudflaredService.stopTunnel(id: runID)
                 tunnel.status = .error
                 if tunnel.lastError == nil {
                     tunnel.lastError = "cloudflared exited unexpectedly"
@@ -307,8 +309,11 @@ final class NamedTunnelManager {
             try? await Task.sleep(for: .seconds(1))
         }
 
+        // The process exited (on its own or via stop()); release its tracked
+        // Process/Pipe/output task even if stop() already moved the tunnel on.
+        await cloudflaredService.stopTunnel(id: runID)
+
         guard tunnel.runID == runID else { return }
-        await cloudflaredService.removeHandlers(for: runID)
 
         tunnel.runID = nil
         tunnel.activeConnectionCount = 0

@@ -86,7 +86,10 @@ final class TunnelManager {
                 }
                 return
             }
-            // Prevent accumulating stale error entries for repeated retries.
+            // Prevent accumulating stale error entries for repeated retries. The error
+            // status can come from a log line while cloudflared is still running, so stop
+            // the old process and drop its tracked Process/Pipe/handlers, not just the UI row.
+            await cloudflaredService.stopTunnel(id: existing.id)
             state.removeTunnel(id: existing.id)
         }
 
@@ -142,8 +145,8 @@ final class TunnelManager {
                 try? await Task.sleep(for: .seconds(3))
 
                 if !process.isRunning && tunnelState.status != .active {
-                    // Clean up handlers when process terminates unexpectedly
-                    await self.cloudflaredService.removeHandlers(for: tunnelState.id)
+                    // Release the exited Process, its Pipe, output task and handlers
+                    await self.cloudflaredService.stopTunnel(id: tunnelState.id)
                     await MainActor.run {
                         tunnelState.status = .error
                         tunnelState.lastError = "Process terminated unexpectedly"

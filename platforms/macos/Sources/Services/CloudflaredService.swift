@@ -12,9 +12,17 @@ actor CloudflaredService {
     private var errorHandlers: [UUID: @Sendable (String) -> Void] = [:]
     private var logHandlers: [UUID: @Sendable (String) -> Void] = [:]
 
+    /// Fixed executable path, bypassing detection. Used by tests to stand in a fake binary.
+    private nonisolated let executablePathOverride: String?
+
+    init(executablePathOverride: String? = nil) {
+        self.executablePathOverride = executablePathOverride
+    }
+
     // MARK: - Dependency Check
 
     nonisolated var cloudflaredPath: String? {
+        if let executablePathOverride { return executablePathOverride }
         // Check custom path first
         if let custom = Defaults[.customCloudflaredPath],
            !custom.isEmpty,
@@ -108,14 +116,22 @@ actor CloudflaredService {
         return process
     }
 
+    /// Stops the tunnel (if still running) and drops every entry tracked for `id`.
+    ///
+    /// Also call this when the process has already exited on its own: the `Process`
+    /// (and the `Pipe` it retains), the output task and the handler closures are only
+    /// released here, and each run uses a fresh id, so skipping it leaks one set per run.
     func stopTunnel(id: UUID) async {
         // Cancel output reading task
         outputTasks[id]?.cancel()
         outputTasks.removeValue(forKey: id)
 
-        // Terminate process gracefully
-        guard let process = processes[id] else { return }
+        guard let process = processes[id] else {
+            removeHandlers(for: id)
+            return
+        }
 
+        // Terminate process gracefully
         if process.isRunning {
             let pid = process.processIdentifier
             process.terminate()  // SIGTERM
@@ -140,6 +156,15 @@ actor CloudflaredService {
     func isRunning(for id: UUID) -> Bool {
         processes[id]?.isRunning ?? false
     }
+
+    /// Whether any process, output task or handler is still tracked for `id`.
+    func isTracking(id: UUID) -> Bool {
+        processes[id] != nil || outputTasks[id] != nil
+            || urlHandlers[id] != nil || errorHandlers[id] != nil || logHandlers[id] != nil
+    }
+
+    /// Number of ids with a tracked process (diagnostics / tests).
+    var trackedProcessCount: Int { processes.count }
 
     // MARK: - Output Parsing
 
