@@ -75,36 +75,20 @@ struct PortKillerApp: App {
     var body: some Scene {
         // Main Window - Single instance only
         Window("PortKiller", id: "main") {
-            MainWindowView()
-                .environment(state)
-                .environment(sponsorManager)
-                .sheet(isPresented: $showOnboarding) {
-                    OnboardingView()
-                }
-                .task {
-                    // Pass state to AppDelegate for termination handling
-                    appDelegate.appState = state
-
-                    // Auto-start port-forward connections if enabled
-                    if Defaults[.portForwardAutoStart] {
-                        try? await Task.sleep(for: .seconds(1))
-                        state.portForwardManager.startAll()
+            ReleasedWhenClosed(windowTitle: "PortKiller") {
+                MainWindowView()
+                    .environment(state)
+                    .environment(sponsorManager)
+                    .sheet(isPresented: $showOnboarding) {
+                        OnboardingView()
                     }
-
-                    try? await Task.sleep(for: .seconds(3))
-                    sponsorManager.checkAndShowIfNeeded()
-                }
-                .onChange(of: sponsorManager.shouldShowWindow) { _, shouldShow in
-                    if shouldShow {
-                        state.selectedSidebarItem = .sponsors
-                        NSApp.activate(ignoringOtherApps: true)
-                        openWindow(id: "main")
-                        sponsorManager.markWindowShown()
-                    }
-                }
+            }
         }
         .windowStyle(.automatic)
         .defaultSize(width: 1000, height: 600)
+        // Menu bar app: only open the main window at launch for onboarding.
+        // Keeping it closed avoids holding the whole window view graph in memory.
+        .defaultLaunchBehavior(Defaults[.hasCompletedOnboarding] ? .suppressed : .presented)
         .commands {
             CommandGroup(replacing: .newItem) {} // Disable Cmd+N
 
@@ -126,8 +110,10 @@ struct PortKillerApp: App {
 
         // Port Forwarder Window
         Window("Port Forwarder", id: "port-forwarder") {
-            PortForwarderWindowView()
-                .environment(state)
+            ReleasedWhenClosed(windowTitle: "Port Forwarder") {
+                PortForwarderWindowView()
+                    .environment(state)
+            }
         }
         .windowStyle(.automatic)
         .defaultSize(width: 900, height: 650)
@@ -136,7 +122,30 @@ struct PortKillerApp: App {
         MenuBarExtra {
             MenuBarView(state: state)
         } label: {
+            // Launch-time work lives on the always-present menu bar label,
+            // since the main window is not opened at launch.
             Image(nsImage: menuBarIcon())
+                .task {
+                    // Pass state to AppDelegate for termination handling
+                    appDelegate.appState = state
+
+                    // Auto-start port-forward connections if enabled
+                    if Defaults[.portForwardAutoStart] {
+                        try? await Task.sleep(for: .seconds(1))
+                        state.portForwardManager.startAll()
+                    }
+
+                    try? await Task.sleep(for: .seconds(3))
+                    sponsorManager.checkAndShowIfNeeded()
+                }
+                .onChange(of: sponsorManager.shouldShowWindow) { _, shouldShow in
+                    if shouldShow {
+                        state.selectedSidebarItem = .sponsors
+                        NSApp.activate(ignoringOtherApps: true)
+                        openWindow(id: "main")
+                        sponsorManager.markWindowShown()
+                    }
+                }
         }
         .menuBarExtraStyle(.window)
     }
