@@ -20,7 +20,7 @@ struct MenuBarActions: View {
     var body: some View {
         VStack(spacing: 0) {
             MenuItemButton(title: "Refresh", icon: "arrow.clockwise", shortcut: "R") {
-                Task { await state.refresh() }
+                Task { await state.refreshManually() }
             }
 
             MenuItemButton(

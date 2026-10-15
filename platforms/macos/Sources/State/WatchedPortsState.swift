@@ -25,8 +25,9 @@ final class WatchedPortsState {
         }
     }
 
-    /// Tracks previous port states for change detection
-    var previousPortStates: [Int: Bool] = [:]
+    /// Tracks previous port states for change detection.
+    /// Written on every scan and never displayed, so not observed.
+    @ObservationIgnored var previousPortStates: [Int: Bool] = [:]
 
     /// Ports being watched for state changes
     var watchedPorts: [WatchedPort] {

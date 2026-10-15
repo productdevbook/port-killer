@@ -156,7 +156,7 @@ struct MainWindowView: View {
             Spacer()
 
             // Scanning indicator
-            if appState.isScanning {
+            if appState.isRefreshingManually {
                 ProgressView()
                     .controlSize(.small)
                 Text("Scanning...")
@@ -174,13 +174,13 @@ struct MainWindowView: View {
         ToolbarItemGroup(placement: .primaryAction) {
             Button {
                 Task {
-                    await appState.refresh()
+                    await appState.refreshManually()
                 }
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
             .keyboardShortcut("r", modifiers: .command)
-            .disabled(appState.isScanning)
+            .disabled(appState.isRefreshingManually)
             .help("Refresh port list (Cmd+R)")
 
             Button {

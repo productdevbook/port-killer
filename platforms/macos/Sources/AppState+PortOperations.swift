@@ -1,6 +1,14 @@
 import Foundation
 
 extension AppState {
+    /// Refreshes on user request, showing the scanning indicator meanwhile.
+    @discardableResult
+    func refreshManually() async -> Bool {
+        isRefreshingManually = true
+        defer { isRefreshingManually = false }
+        return await refresh()
+    }
+
     /// Refreshes the port list by scanning for active ports.
     @discardableResult
     func refresh() async -> Bool {

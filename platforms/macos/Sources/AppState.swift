@@ -86,8 +86,14 @@ final class AppState {
     /// invalidates cached filtered results.
     var portsRevision = 0
 
-    /// Whether a port scan is currently in progress
-    var isScanning = false
+    /// Whether a port scan is currently in progress (re-entrancy guard).
+    /// Not observed: background scans run every few seconds, and flipping an
+    /// observed flag twice per scan rebuilt the toolbar and status bar on
+    /// every tick, steadily growing SwiftUI's memory in long-running sessions.
+    @ObservationIgnored var isScanning = false
+
+    /// Whether a user-initiated refresh is in progress (drives UI indicators)
+    var isRefreshingManually = false
 
     // MARK: - Filter State
 

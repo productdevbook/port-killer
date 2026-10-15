@@ -51,7 +51,7 @@ struct AddPortPopover: View {
 
             if let port = parsedPort {
                 HStack(spacing: 6) {
-                    if appState.isScanning {
+                    if appState.isRefreshingManually {
                         ProgressView()
                             .controlSize(.small)
                     }
