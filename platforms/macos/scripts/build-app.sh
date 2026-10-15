@@ -6,8 +6,9 @@ set -e
 APP_NAME="PortKiller"
 BUNDLE_ID="com.portkiller.app"
 
-# Swift PM Universal Build Output Directory
-# When building for multiple architectures, SPM puts products in apple/Products/Release
+# Stable output location for the .app (CI workflows reference this path).
+# The actual SwiftPM product directory varies by toolchain (apple/ vs out/),
+# so it is queried after the build and stored in BIN_DIR.
 BUILD_DIR=".build/apple/Products/Release"
 APP_DIR="$BUILD_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
@@ -126,6 +127,8 @@ rm -rf .build/*/release/*.bundle
 
 echo "🔨 Building release binary with patched sources..."
 swift build -c release --arch arm64 --arch x86_64
+BIN_DIR=$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)
+echo "  → Products in $BIN_DIR"
 
 echo "📦 Creating app bundle..."
 rm -rf "$APP_DIR"
@@ -134,12 +137,12 @@ mkdir -p "$RESOURCES_DIR"
 mkdir -p "$CONTENTS_DIR/Frameworks"
 
 echo "📋 Copying files..."
-cp "$BUILD_DIR/$APP_NAME" "$MACOS_DIR/"
+cp "$BIN_DIR/$APP_NAME" "$MACOS_DIR/"
 cp "Resources/Info.plist" "$CONTENTS_DIR/"
 
 # Debug: List contents of build directory
-echo "📂 Contents of $BUILD_DIR:"
-ls -la "$BUILD_DIR/" | grep -E "\.bundle$|^total" || echo "  (no bundles found)"
+echo "📂 Contents of $BIN_DIR:"
+ls -la "$BIN_DIR/" | grep -E "\.bundle$|^total" || echo "  (no bundles found)"
 
 # Generate icons from AppIcon.icon using actool (Xcode 26+)
 if [ -d "Resources/AppIcon.icon" ]; then
@@ -174,7 +177,7 @@ elif [ -f "Resources/AppIcon.icns" ]; then
 fi
 
 # Copy all SPM resource bundles to Contents/Resources (use ditto to preserve symlinks)
-for bundle in "$BUILD_DIR"/*.bundle; do
+for bundle in "$BIN_DIR"/*.bundle; do
     if [ -d "$bundle" ]; then
         bundle_name=$(basename "$bundle")
         echo "  → Copying $bundle_name"
