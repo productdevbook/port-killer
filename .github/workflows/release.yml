@@ -354,15 +354,20 @@ jobs:
       - name: Update Homebrew Tap
         if: ${{ !inputs.dry_run && !inputs.is_pr_build }}
         env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
         run: |
           VERSION="${RELEASE_VERSION#v}"
 
           # Get SHA256 of the Universal DMG
           SHA256=$(shasum -a 256 "$DMG_NAME" | cut -d' ' -f1)
 
-          # Clone homebrew-tap repo
-          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/productdevbook/homebrew-tap.git /tmp/homebrew-tap
+          # Clone homebrew-tap repo with its write-enabled deploy key
+          # (a deploy key never expires, unlike the PAT this replaced)
+          KEY_FILE="$RUNNER_TEMP/homebrew_tap_key"
+          printf '%s\n' "$HOMEBREW_TAP_DEPLOY_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          export GIT_SSH_COMMAND="ssh -i $KEY_FILE -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone git@github.com:productdevbook/homebrew-tap.git /tmp/homebrew-tap
           cd /tmp/homebrew-tap
 
           # Update cask formula
@@ -372,7 +377,6 @@ jobs:
             sha256 "${SHA256}"
 
             url "https://github.com/productdevbook/port-killer/releases/download/v#{version}/PortKiller-v#{version}-macos.dmg"
-
             name "PortKiller"
             desc "Menu bar app to find and kill processes running on open ports"
             homepage "https://github.com/productdevbook/port-killer"
@@ -382,8 +386,8 @@ jobs:
             app "PortKiller.app"
 
             zap trash: [
-              "~/Library/Preferences/com.productdevbook.PortKiller.plist",
               "~/Library/Caches/com.productdevbook.PortKiller",
+              "~/Library/Preferences/com.productdevbook.PortKiller.plist",
             ]
           end
           EOF
@@ -392,7 +396,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/portkiller.rb
-          git commit -m "Update portkiller to ${VERSION}"
+          git commit -m "Update portkiller to ${VERSION}" || { echo "Cask already up to date"; exit 0; }
           git push
 
   build-windows:
