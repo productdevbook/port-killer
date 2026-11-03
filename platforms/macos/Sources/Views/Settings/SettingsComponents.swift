@@ -16,11 +16,11 @@ import SwiftUI
 
 /// Container for a section of related settings with icon and title
 struct SettingsGroup<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     let icon: String
     let content: Content
 
-    init(_ title: String, icon: String, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey, icon: String, @ViewBuilder content: () -> Content) {
         self.title = title
         self.icon = icon
         self.content = content()
@@ -65,8 +65,8 @@ struct SettingsRowContainer<Content: View>: View {
 
 /// Toggle row with title and subtitle text
 struct SettingsToggleRow: View {
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
     @Binding var isOn: Bool
 
     var body: some View {
@@ -89,8 +89,8 @@ struct SettingsToggleRow: View {
 
 /// Button row with icon, title, subtitle, and action
 struct SettingsButtonRow: View {
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
     let icon: String
     let action: () -> Void
 
@@ -127,8 +127,8 @@ struct SettingsButtonRow: View {
 
 /// External link row with icon, title, subtitle, and arrow indicator
 struct SettingsLinkRow: View {
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
     let icon: String
     let url: String
 

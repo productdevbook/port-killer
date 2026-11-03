@@ -107,7 +107,7 @@ struct SponsorsPageView: View {
         }
     }
 
-    private func sponsorSection(title: String, icon: String, color: Color, sponsors: [Sponsor], dimmed: Bool = false) -> some View {
+    private func sponsorSection(title: LocalizedStringKey, icon: String, color: Color, sponsors: [Sponsor], dimmed: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
@@ -129,7 +129,7 @@ struct SponsorsPageView: View {
         }
     }
     
-    private func contributorSection(title: String, icon: String, color: Color, contributors: [Contributor]) -> some View {
+    private func contributorSection(title: LocalizedStringKey, icon: String, color: Color, contributors: [Contributor]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: icon)

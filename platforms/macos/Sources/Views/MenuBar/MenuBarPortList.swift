@@ -81,7 +81,7 @@ struct MenuBarPortList: View {
         .frame(height: 400)
     }
 
-    private func sectionHeader(_ title: String, icon: String, color: Color) -> some View {
+    private func sectionHeader(_ title: LocalizedStringKey, icon: String, color: Color) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.caption2)

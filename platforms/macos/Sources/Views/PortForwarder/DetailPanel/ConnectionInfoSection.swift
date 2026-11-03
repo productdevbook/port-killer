@@ -64,7 +64,7 @@ struct ConnectionInfoSection: View {
                         showNamespacePicker.toggle()
                     } label: {
                         HStack {
-                            Text(namespace.isEmpty ? "namespace" : namespace)
+                            Text(namespace.isEmpty ? L10n.tr("namespace") : namespace)
                                 .foregroundStyle(namespace.isEmpty ? .tertiary : .primary)
                             Spacer()
                             if isLoadingNamespaces {
@@ -111,7 +111,7 @@ struct ConnectionInfoSection: View {
                         showServicePicker.toggle()
                     } label: {
                         HStack {
-                            Text(service.isEmpty ? "service" : service)
+                            Text(service.isEmpty ? L10n.tr("service") : service)
                                 .foregroundStyle(service.isEmpty ? .tertiary : .primary)
                             Spacer()
                             if isLoadingServices {

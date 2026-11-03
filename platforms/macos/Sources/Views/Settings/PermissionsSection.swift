@@ -68,7 +68,7 @@ struct PermissionsSection: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Notifications")
                                 .fontWeight(.medium)
-                            Text(notificationStatusText)
+                            Text(LocalizedStringKey(notificationStatusText))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

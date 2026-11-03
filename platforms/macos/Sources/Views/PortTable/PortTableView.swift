@@ -126,7 +126,7 @@ struct PortTableView: View {
     }
 
     /// Creates a sortable header button
-    private func headerButton(_ title: String, _ order: SortOrder, width: CGFloat) -> some View {
+    private func headerButton(_ title: LocalizedStringKey, _ order: SortOrder, width: CGFloat) -> some View {
         Button {
             if sortOrder == order {
                 sortAscending.toggle()

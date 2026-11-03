@@ -81,7 +81,7 @@ struct PortDetailView: View {
             }
 
             HStack(spacing: 8) {
-                Text(port.processType.rawValue)
+                Text(port.processType.localizedName)
                     .font(.caption)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)

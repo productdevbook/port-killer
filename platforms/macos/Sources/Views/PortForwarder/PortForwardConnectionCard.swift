@@ -95,7 +95,7 @@ struct PortForwardConnectionCard: View {
                     .foregroundStyle(.secondary)
 
                 // Status badge
-                Text(statusText)
+                Text(LocalizedStringKey(statusText))
                     .font(.caption)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)

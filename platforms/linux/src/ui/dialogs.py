@@ -2,9 +2,11 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GdkPixbuf
 
+from ..i18n import tr as _
+
 class PortDetailsDialog(Gtk.Dialog):
     def __init__(self, parent, p):
-        super().__init__(title=f"Port {p['port']} Management", transient_for=parent, flags=0)
+        super().__init__(title=_("Port {port} Management", port=p['port']), transient_for=parent, flags=0)
         self.set_default_size(440, 360)
         self.set_resizable(False)
         
@@ -51,11 +53,11 @@ class PortDetailsDialog(Gtk.Dialog):
         
         # Header text
         header_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        title_label = Gtk.Label(label=f"Port {p['port']}")
+        title_label = Gtk.Label(label=_("Port {port}", port=p['port']))
         title_label.get_style_context().add_class("header-title")
         title_label.set_xalign(0)
         
-        subtitle_label = Gtk.Label(label=f"Process: {p['process_name']}")
+        subtitle_label = Gtk.Label(label=_("Process: {name}", name=p['process_name']))
         subtitle_label.get_style_context().add_class("header-subtitle")
         subtitle_label.set_xalign(0)
         
@@ -72,10 +74,11 @@ class PortDetailsDialog(Gtk.Dialog):
         main_box.pack_start(body_box, True, True, 0)
         
         # Details text
-        details = (
-            f"PID:      {p['pid'] if p['pid'] != 0 else 'Unknown'}\n"
-            f"Address:  {p['address']}\n"
-            f"Command:  {p['command']}"
+        details = _(
+            "PID:      {pid}\nAddress:  {address}\nCommand:  {command}",
+            pid=p['pid'] if p['pid'] != 0 else _("Unknown"),
+            address=p['address'],
+            command=p['command'],
         )
         details_label = Gtk.Label(label=details)
         details_label.get_style_context().add_class("detail-label")
@@ -94,12 +97,12 @@ class PortDetailsDialog(Gtk.Dialog):
         # Row 1: Kill actions
         if p['pid'] != 0:
             kill_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            btn_kill = Gtk.Button(label="Kill Process (SIGTERM)")
+            btn_kill = Gtk.Button(label=_("Kill Process (SIGTERM)"))
             btn_kill.get_style_context().add_class("btn-kill")
             btn_kill.connect("clicked", lambda w: self.response(1))
             button_size_group.add_widget(btn_kill)
             
-            btn_force = Gtk.Button(label="Force Kill (SIGKILL)")
+            btn_force = Gtk.Button(label=_("Force Kill (SIGKILL)"))
             btn_force.get_style_context().add_class("btn-force")
             btn_force.connect("clicked", lambda w: self.response(2))
             button_size_group.add_widget(btn_force)
@@ -110,12 +113,12 @@ class PortDetailsDialog(Gtk.Dialog):
             
             # Row 2: Copy actions
             utils_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            btn_copy_pid = Gtk.Button(label="Copy PID")
+            btn_copy_pid = Gtk.Button(label=_("Copy PID"))
             btn_copy_pid.get_style_context().add_class("btn-secondary")
             btn_copy_pid.connect("clicked", lambda w: self.response(3))
             button_size_group.add_widget(btn_copy_pid)
             
-            btn_copy_port = Gtk.Button(label="Copy Port")
+            btn_copy_port = Gtk.Button(label=_("Copy Port"))
             btn_copy_port.get_style_context().add_class("btn-secondary")
             btn_copy_port.connect("clicked", lambda w: self.response(4))
             button_size_group.add_widget(btn_copy_port)
@@ -124,13 +127,13 @@ class PortDetailsDialog(Gtk.Dialog):
             utils_row.pack_start(btn_copy_port, True, True, 0)
             actions_box.pack_start(utils_row, False, False, 0)
         else:
-            btn_copy_port = Gtk.Button(label="Copy Port")
+            btn_copy_port = Gtk.Button(label=_("Copy Port"))
             btn_copy_port.get_style_context().add_class("btn-secondary")
             btn_copy_port.connect("clicked", lambda w: self.response(4))
             actions_box.pack_start(btn_copy_port, True, True, 0)
             
         # Row 3: Close
-        btn_close = Gtk.Button(label="Close")
+        btn_close = Gtk.Button(label=_("Close"))
         btn_close.get_style_context().add_class("btn-close")
         btn_close.connect("clicked", lambda w: self.response(Gtk.ResponseType.CLOSE))
         actions_box.pack_start(btn_close, True, True, 0)

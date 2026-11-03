@@ -30,13 +30,13 @@ enum PortKillerError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .scanFailed(let reason):
-            return "Failed to scan ports: \(reason)"
+            return L10n.format("Failed to scan ports: %@", reason)
         case .killFailed(let pid, let reason):
-            return "Failed to kill process \(pid): \(reason)"
+            return L10n.format("Failed to kill process %lld: %@", pid, reason)
         case .permissionDenied:
-            return "Permission denied. PortKiller requires accessibility permissions to manage processes."
+            return L10n.tr("Permission denied. PortKiller requires accessibility permissions to manage processes.")
         case .networkError(let reason):
-            return "Network error: \(reason)"
+            return L10n.format("Network error: %@", reason)
         }
     }
 
@@ -44,13 +44,13 @@ enum PortKillerError: Error, LocalizedError {
     var failureReason: String? {
         switch self {
         case .scanFailed:
-            return "The port scanning operation could not complete successfully."
+            return L10n.tr("The port scanning operation could not complete successfully.")
         case .killFailed:
-            return "The process termination request was denied or failed."
+            return L10n.tr("The process termination request was denied or failed.")
         case .permissionDenied:
-            return "PortKiller does not have the necessary system permissions."
+            return L10n.tr("PortKiller does not have the necessary system permissions.")
         case .networkError:
-            return "A network or system-level error occurred."
+            return L10n.tr("A network or system-level error occurred.")
         }
     }
 
@@ -58,13 +58,13 @@ enum PortKillerError: Error, LocalizedError {
     var recoverySuggestion: String? {
         switch self {
         case .scanFailed:
-            return "Try refreshing the port list or restarting PortKiller."
+            return L10n.tr("Try refreshing the port list or restarting PortKiller.")
         case .killFailed:
-            return "The process may require elevated privileges. Try running 'sudo kill -9 \(pid)' in Terminal."
+            return L10n.format("The process may require elevated privileges. Try running 'sudo kill -9 %lld' in Terminal.", pid)
         case .permissionDenied:
-            return "Go to System Settings > Privacy & Security > Accessibility and enable PortKiller."
+            return L10n.tr("Go to System Settings > Privacy & Security > Accessibility and enable PortKiller.")
         case .networkError:
-            return "Check your network connection and try again."
+            return L10n.tr("Check your network connection and try again.")
         }
     }
 

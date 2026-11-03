@@ -94,8 +94,8 @@ struct CloudflareTunnelsView: View {
 
     private func statusSummary(running: Int, quick: Int) -> String {
         var parts: [String] = []
-        if running > 0 { parts.append("\(running) running") }
-        if quick > 0 { parts.append("\(quick) quick") }
+        if running > 0 { parts.append(L10n.format("%lld running", running)) }
+        if quick > 0 { parts.append(L10n.format("%lld quick", quick)) }
         return parts.joined(separator: " · ")
     }
 
@@ -169,7 +169,7 @@ struct CloudflareTunnelRow: View {
 
                 // Port info
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Port " + String(tunnel.port))
+                    Text("Port \(String(tunnel.port))")
                         .font(.headline)
 
                     if let url = tunnel.tunnelURL {

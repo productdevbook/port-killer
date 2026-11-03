@@ -101,6 +101,8 @@ enum PortForwardStatus: String, Sendable {
     case connected = "Connected"
     case error = "Error"
 
+    var localizedName: String { L10n.tr(rawValue) }
+
     /// Not running and not starting (disconnected or failed)
     var isIdle: Bool { self == .disconnected || self == .error }
 

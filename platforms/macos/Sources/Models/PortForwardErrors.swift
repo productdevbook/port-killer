@@ -18,13 +18,13 @@ enum KubectlError: Error, LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .kubectlNotFound:
-            return "kubectl not found. Please install kubernetes-cli."
+            return L10n.tr("kubectl not found. Please install kubernetes-cli.")
         case .executionFailed(let message):
-            return "kubectl failed: \(message)"
+            return L10n.format("kubectl failed: %@", message)
         case .parsingFailed(let message):
-            return "Failed to parse response: \(message)"
+            return L10n.format("Failed to parse response: %@", message)
         case .clusterNotConnected:
-            return "Cannot connect to Kubernetes cluster. Check your kubectl configuration."
+            return L10n.tr("Cannot connect to Kubernetes cluster. Check your kubectl configuration.")
         }
     }
 }

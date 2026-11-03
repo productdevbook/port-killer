@@ -16,6 +16,10 @@ A powerful cross-platform port management tool for developers.<br>
 Monitor ports, manage Kubernetes port forwards, integrate Cloudflare Tunnels, and kill processes with one click.
 </p>
 
+<p align="center">
+  English | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 ### macOS
 
 <p align="center">

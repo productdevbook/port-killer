@@ -53,7 +53,7 @@ struct NamedTunnelDetailView: View {
                         .fontWeight(.semibold)
                         .lineLimit(1)
 
-                    Text(tunnel.status.rawValue)
+                    Text(tunnel.status.localizedName)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -78,11 +78,11 @@ struct NamedTunnelDetailView: View {
 
     private var statusBadges: some View {
         HStack(spacing: 8) {
-            badge(text: tunnel.status.rawValue, tint: statusColor)
+            badge(text: tunnel.status.localizedName, tint: statusColor)
 
             if tunnel.status == .running {
                 badge(
-                    text: "\(tunnel.activeConnectionCount) connections",
+                    text: L10n.format("%lld connections", tunnel.activeConnectionCount),
                     icon: "link",
                     tint: .green
                 )
@@ -91,12 +91,12 @@ struct NamedTunnelDetailView: View {
             switch tunnel.runSafety {
             case .safe:
                 if tunnel.hasLocalConfigMatch {
-                    badge(text: "Local config", icon: "doc.text", tint: .blue)
+                    badge(text: L10n.tr("Local config"), icon: "doc.text", tint: .blue)
                 }
             case .managedElsewhere:
-                badge(text: "Managed elsewhere", icon: "lock.fill", tint: .orange)
+                badge(text: L10n.tr("Managed elsewhere"), icon: "lock.fill", tint: .orange)
             case .noIngress:
-                badge(text: "No ingress", icon: "exclamationmark.triangle", tint: .yellow)
+                badge(text: L10n.tr("No ingress"), icon: "exclamationmark.triangle", tint: .yellow)
             }
 
             Spacer()
@@ -146,7 +146,7 @@ struct NamedTunnelDetailView: View {
                 }
             case .starting, .stopping:
                 Button {} label: {
-                    HStack { ProgressView().controlSize(.small); Text(tunnel.status.rawValue) }
+                    HStack { ProgressView().controlSize(.small); Text(tunnel.status.localizedName) }
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -194,11 +194,11 @@ struct NamedTunnelDetailView: View {
         switch tunnel.ingressSource {
         case .none: return "—"
         case .localConfig: return "~/.cloudflared/config.yml"
-        case .runtimeLog: return "Cloudflare dashboard"
+        case .runtimeLog: return L10n.tr("Cloudflare dashboard")
         }
     }
 
-    private func metaItem(label: String, value: String, monospaced: Bool = false) -> some View {
+    private func metaItem(label: LocalizedStringKey, value: String, monospaced: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption)

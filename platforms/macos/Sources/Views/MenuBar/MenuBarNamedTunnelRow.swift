@@ -51,7 +51,7 @@ struct MenuBarNamedTunnelRow: View {
         } else if tunnel.status == .starting {
             Text("Starting…").font(.caption2).foregroundStyle(.secondary)
         } else if tunnel.status == .running {
-            Text(tunnel.status.rawValue)
+            Text(tunnel.status.localizedName)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         } else if tunnel.ingressRules.isEmpty {

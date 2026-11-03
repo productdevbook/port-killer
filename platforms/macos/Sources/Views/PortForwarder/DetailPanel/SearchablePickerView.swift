@@ -4,7 +4,7 @@ struct SearchablePickerView: View {
     let items: [String]
     let selection: String
     let isLoading: Bool
-    let placeholder: String
+    let placeholder: LocalizedStringKey
     let onSelect: (String) -> Void
     let onRefresh: () -> Void
 
