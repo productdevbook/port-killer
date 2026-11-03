@@ -32,6 +32,9 @@ enum ProcessType: String, CaseIterable, Identifiable, Sendable, Codable {
     /// Unique identifier for this process type
     var id: String { rawValue }
 
+    /// Localized display name for UI presentation
+    var localizedName: String { L10n.tr(rawValue) }
+
     /// SF Symbol icon name for this process type
     var icon: String {
         switch self {

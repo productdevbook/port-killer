@@ -24,9 +24,9 @@ struct OnboardingFeaturesStep: View {
                         .frame(width: 28, alignment: .center)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(feature.title)
+                        Text(LocalizedStringKey(feature.title))
                             .fontWeight(.medium)
-                        Text(feature.description)
+                        Text(LocalizedStringKey(feature.description))
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }

@@ -41,7 +41,7 @@ struct NotificationsSettingsSection: View {
                     Image(systemName: type.icon)
                         .foregroundStyle(type.color)
                         .frame(width: 20)
-                    Text(type.rawValue)
+                    Text(type.localizedName)
                 }
             }
         }

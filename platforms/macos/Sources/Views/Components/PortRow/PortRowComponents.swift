@@ -109,7 +109,7 @@ struct PortTypeBadge: View {
 
     var body: some View {
         if isActive {
-            Text(processType.rawValue)
+            Text(processType.localizedName)
                 .font(font)
                 .padding(.horizontal, horizontalPadding)
                 .padding(.vertical, verticalPadding)

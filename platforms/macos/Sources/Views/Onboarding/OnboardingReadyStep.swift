@@ -30,7 +30,7 @@ struct OnboardingReadyStep: View {
         .padding(32)
     }
 
-    private func tipView(icon: String, text: String) -> some View {
+    private func tipView(icon: String, text: LocalizedStringKey) -> some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)

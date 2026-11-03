@@ -140,7 +140,7 @@ struct ConnectionEditSection: View {
     private var statusBadge: some View {
         HStack(spacing: 5) {
             StatusDot(color: statusColor)
-            Text(statusText)
+            Text(LocalizedStringKey(statusText))
                 .font(.caption.weight(.medium))
         }
         .foregroundStyle(statusColor)

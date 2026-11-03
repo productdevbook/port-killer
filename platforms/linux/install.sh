@@ -84,6 +84,7 @@ cat <<EOF > "$DESKTOP_FILE"
 Type=Application
 Name=PortKiller
 Comment=Monitor listening ports and terminate processes from system tray
+Comment[zh_CN]=从系统托盘监控监听端口并终止进程
 Exec=$INSTALL_DIR/port-killer.py
 Icon=$DESKTOP_ICON
 Terminal=false

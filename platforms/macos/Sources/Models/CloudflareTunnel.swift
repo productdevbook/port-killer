@@ -10,6 +10,8 @@ enum CloudflareTunnelStatus: String, Sendable {
     case stopping = "Stopping..."
     case error = "Error"
 
+    var localizedName: String { L10n.tr(rawValue) }
+
     var icon: String {
         switch self {
         case .idle: "circle"

@@ -7,6 +7,7 @@ import Sparkle
 // MARK: - Defaults Keys
 
 extension Defaults.Keys {
+    static let appLanguage = Key<AppLanguage>("appLanguage", default: .system)
     static let favorites = Key<Set<Int>>("favorites", default: [])
     static let watchedPorts = Key<[WatchedPort]>("watchedPorts", default: [])
     static let useTreeView = Key<Bool>("useTreeView", default: false)

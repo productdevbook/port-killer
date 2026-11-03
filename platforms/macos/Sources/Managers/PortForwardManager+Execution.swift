@@ -108,8 +108,8 @@ extension PortForwardManager {
         guard Defaults[.portForwardShowNotifications] else { return }
         guard config.notifyOnConnect else { return }
         NotificationService.shared.notify(
-            title: "Connected",
-            body: "\(config.name) is ready on port \(config.proxyPort ?? config.localPort)"
+            title: L10n.tr("Connected"),
+            body: L10n.format("%@ is ready on port %lld", config.name, config.proxyPort ?? config.localPort)
         )
     }
 
@@ -119,8 +119,8 @@ extension PortForwardManager {
         guard Defaults[.portForwardShowNotifications] else { return }
         guard config.notifyOnDisconnect else { return }
         NotificationService.shared.notify(
-            title: "Disconnected",
-            body: "\(config.name) connection lost"
+            title: L10n.tr("Disconnected"),
+            body: L10n.format("%@ connection lost", config.name)
         )
     }
 }

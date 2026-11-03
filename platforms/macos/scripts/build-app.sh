@@ -185,6 +185,15 @@ for bundle in "$BIN_DIR"/*.bundle; do
     fi
 done
 
+# Copy localization bundles (.lproj) to Contents/Resources so Bundle.main resolves them directly
+for lproj in Sources/Resources/*.lproj; do
+    if [ -d "$lproj" ]; then
+        lproj_name=$(basename "$lproj")
+        echo "  → Copying $lproj_name"
+        ditto "$lproj" "$RESOURCES_DIR/$lproj_name"
+    fi
+done
+
 # Download and copy Sparkle framework from official release (preserves symlinks)
 SPARKLE_VERSION="2.8.1"
 SPARKLE_CACHE="/tmp/Sparkle-${SPARKLE_VERSION}"

@@ -79,7 +79,7 @@ struct NamedTunnelsSection: View {
 
     // MARK: - Subviews
 
-    private func sectionLabel(_ title: String, count: Int) -> some View {
+    private func sectionLabel(_ title: LocalizedStringKey, count: Int) -> some View {
         HStack(spacing: 6) {
             Text(title)
                 .font(.caption.weight(.semibold))
@@ -132,7 +132,7 @@ struct NamedTunnelsSection: View {
         }
     }
 
-    private func placeholderMessage(icon: String, title: String, detail: String) -> some View {
+    private func placeholderMessage(icon: String, title: LocalizedStringKey, detail: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)

@@ -51,6 +51,8 @@ enum NamedTunnelStatus: String, Sendable {
     case running = "Running"
     case stopping = "Stopping"
     case error = "Error"
+
+    var localizedName: String { L10n.tr(rawValue) }
 }
 
 // MARK: - Named Tunnel

@@ -200,7 +200,7 @@ struct PortTypePicker: View {
                 Text("Automatic").tag(ProcessType?.none)
                 Divider()
                 ForEach(ProcessType.allCases) { type in
-                    Label(type.rawValue, systemImage: type.icon).tag(Optional(type))
+                    Label(type.localizedName, systemImage: type.icon).tag(Optional(type))
                 }
             }
             .pickerStyle(.menu)
@@ -221,7 +221,7 @@ struct PortTypePicker: View {
 
 /// Read-only titled value used in the detail grid
 struct DetailRow: View {
-    let title: String
+    let title: LocalizedStringKey
     let value: String
 
     var body: some View {

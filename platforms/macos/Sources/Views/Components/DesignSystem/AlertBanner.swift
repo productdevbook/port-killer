@@ -4,8 +4,8 @@ import SwiftUI
 /// trailing action area. Generalizes DependencyWarningBanner and CloudflaredMissingBanner.
 struct AlertBanner<Trailing: View>: View {
     let icon: String
-    let title: String
-    let message: String
+    let title: LocalizedStringKey
+    let message: LocalizedStringKey
     var tint: Color = Theme.Colors.statusWarning
     @ViewBuilder var trailing: Trailing
 
@@ -38,7 +38,7 @@ struct AlertBanner<Trailing: View>: View {
 }
 
 extension AlertBanner where Trailing == EmptyView {
-    init(icon: String, title: String, message: String, tint: Color = Theme.Colors.statusWarning) {
+    init(icon: String, title: LocalizedStringKey, message: LocalizedStringKey, tint: Color = Theme.Colors.statusWarning) {
         self.init(icon: icon, title: title, message: message, tint: tint) { EmptyView() }
     }
 }

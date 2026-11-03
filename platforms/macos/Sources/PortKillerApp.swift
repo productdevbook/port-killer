@@ -65,6 +65,7 @@ struct PortKillerApp: App {
     @State private var state = AppState()
     @State private var sponsorManager = SponsorManager()
     @State private var showOnboarding = !Defaults[.hasCompletedOnboarding]
+    @Default(.appLanguage) private var appLanguage
     @Environment(\.openWindow) private var openWindow
 
     init() {
@@ -78,8 +79,10 @@ struct PortKillerApp: App {
             MainWindowView()
                 .environment(state)
                 .environment(sponsorManager)
+                .environment(\.locale, appLanguage.locale)
                 .sheet(isPresented: $showOnboarding) {
                     OnboardingView()
+                        .environment(\.locale, appLanguage.locale)
                 }
                 .task {
                     // Pass state to AppDelegate for termination handling
@@ -128,6 +131,7 @@ struct PortKillerApp: App {
         Window("Port Forwarder", id: "port-forwarder") {
             PortForwarderWindowView()
                 .environment(state)
+                .environment(\.locale, appLanguage.locale)
         }
         .windowStyle(.automatic)
         .defaultSize(width: 900, height: 650)
@@ -135,6 +139,7 @@ struct PortKillerApp: App {
         // Menu Bar (quick access)
         MenuBarExtra {
             MenuBarView(state: state)
+                .environment(\.locale, appLanguage.locale)
         } label: {
             Image(nsImage: menuBarIcon())
         }

@@ -70,11 +70,6 @@ enum SponsorDisplayInterval: String, CaseIterable, Codable, Defaults.Serializabl
     }
 
     var localizedName: String {
-        switch self {
-        case .monthly: return "Monthly"
-        case .bimonthly: return "Every 2 Months"
-        case .quarterly: return "Every 3 Months"
-        case .never: return "Never"
-        }
+        L10n.tr(rawValue)
     }
 }

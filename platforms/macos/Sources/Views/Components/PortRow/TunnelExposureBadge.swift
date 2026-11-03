@@ -52,10 +52,10 @@ struct TunnelExposureBadge: View {
 
     private var tooltip: String {
         if exposures.count == 1, let one = exposures.first {
-            return "Exposed via \(one.tunnelName): \(one.publicURL)"
+            return L10n.format("Exposed via %@: %@", one.tunnelName, one.publicURL)
         }
         let list = exposures.map { $0.publicURL }.joined(separator: ", ")
-        return "\(exposures.count) routes: \(list)"
+        return L10n.format("%lld routes: %@", exposures.count, list)
     }
 
     private func open(_ urlString: String) {

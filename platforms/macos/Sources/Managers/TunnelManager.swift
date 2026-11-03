@@ -110,8 +110,8 @@ final class TunnelManager {
                     tunnelState.startTime = Date()
                     ClipboardService.copy(url)
                     NotificationService.shared.notify(
-                        title: "Tunnel Active",
-                        body: "Port \(tunnelState.port) available at \(url.shortenedTunnelURL)"
+                        title: L10n.tr("Tunnel Active"),
+                        body: L10n.format("Port %lld available at %@", tunnelState.port, url.shortenedTunnelURL)
                     )
                 }
             }

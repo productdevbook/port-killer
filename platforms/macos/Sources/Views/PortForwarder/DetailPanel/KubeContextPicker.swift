@@ -48,9 +48,9 @@ struct KubeContextPicker: View {
 
     private var currentContextLabel: String {
         if let currentContext {
-            return "Current context (\(currentContext))"
+            return L10n.format("Current context (%@)", currentContext)
         }
-        return "Current context"
+        return L10n.tr("Current context")
     }
 
     /// Known contexts plus the selected one, so a saved context stays visible even if missing.

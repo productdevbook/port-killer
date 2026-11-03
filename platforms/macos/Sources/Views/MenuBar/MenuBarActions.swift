@@ -88,7 +88,7 @@ struct MenuBarActions: View {
 
 /// Styled button component for menu bar actions
 struct MenuItemButton: View {
-    let title: String
+    let title: LocalizedStringKey
     let icon: String
     var shortcut: String? = nil
     var isDestructive: Bool = false

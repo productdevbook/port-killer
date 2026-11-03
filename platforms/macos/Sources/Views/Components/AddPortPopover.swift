@@ -31,7 +31,7 @@ struct AddPortPopover: View {
         return appState.ports.first { $0.isActive && $0.port == port }
     }
 
-    private var title: String {
+    private var title: LocalizedStringKey {
         mode == .favorite ? "Add Favorite Port" : "Add Watched Port"
     }
 

@@ -4,6 +4,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 
 from ..config import config
+from ..i18n import tr as _
 from ..scanner import PortScanner
 from ..services.cloudflare import cloudflare_service
 from ..services.k8s import k8s_service
@@ -39,7 +40,7 @@ class MenuBarWindow(Gtk.Window):
         main_box.pack_start(search_box, False, False, 0)
         
         self.search_entry = Gtk.SearchEntry()
-        self.search_entry.set_placeholder_text("Search ports or processes...")
+        self.search_entry.set_placeholder_text(_("Search ports or processes..."))
         self.search_entry.get_style_context().add_class("search-entry")
         self.search_entry.connect("search-changed", self._on_search_changed)
         search_box.pack_start(self.search_entry, True, True, 0)
@@ -183,19 +184,19 @@ class MenuBarWindow(Gtk.Window):
 
         # Render Cloudflare Tunnels Section
         if filtered_cf:
-            self.add_section_header("Cloudflare Tunnels", "cloud")
+            self.add_section_header(_("Cloudflare Tunnels"), "cloud")
             for t in filtered_cf:
                 self.add_tunnel_row(t)
 
         # Render K8s Port Forwards Section
         if filtered_k8s:
-            self.add_section_header("K8s Port Forward", "network-workgroup")
+            self.add_section_header(_("K8s Port Forward"), "network-workgroup")
             for k in filtered_k8s:
                 self.add_k8s_row(k)
 
         # Render Local Ports Section
         if filtered_ports:
-            self.add_section_header("Local Ports", "network-transmit-receive")
+            self.add_section_header(_("Local Ports"), "network-transmit-receive")
             
             if config.use_tree_view:
                 # Group by process name / PID
@@ -230,7 +231,7 @@ class MenuBarWindow(Gtk.Window):
             empty_box.set_margin_bottom(40)
             
             image = Gtk.Image.new_from_icon_name("network-error", Gtk.IconSize.DIALOG)
-            label = Gtk.Label(label="No listening ports found")
+            label = Gtk.Label(label=_("No listening ports found"))
             label.get_style_context().add_class("header-subtitle")
             
             empty_box.pack_start(image, False, False, 0)
@@ -260,7 +261,7 @@ class MenuBarWindow(Gtk.Window):
         row.get_style_context().add_class("connection-row")
         
         details_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        title = Gtk.Label(label=f"Port {port_val}")
+        title = Gtk.Label(label=_("Port {port}", port=port_val))
         title.get_style_context().add_class("connection-title")
         title.set_xalign(0)
         
@@ -297,7 +298,7 @@ class MenuBarWindow(Gtk.Window):
         title.get_style_context().add_class("connection-title")
         title.set_xalign(0)
         
-        detail = Gtk.Label(label=f"Namespace: {k.namespace} | PID: {k.pid}")
+        detail = Gtk.Label(label=_("Namespace: {ns} | PID: {pid}", ns=k.namespace, pid=k.pid))
         detail.get_style_context().add_class("connection-detail")
         detail.set_xalign(0)
         
@@ -350,13 +351,13 @@ class MenuBarWindow(Gtk.Window):
         row.pack_start(lbl_proc, True, True, 4)
         
         # Action buttons
-        btn_copy = Gtk.Button(label="Copy")
+        btn_copy = Gtk.Button(label=_("Copy"))
         btn_copy.get_style_context().add_class("menu-btn")
         btn_copy.connect("clicked", lambda w, port=p['port']: self.copy_port_direct(port))
         row.pack_start(btn_copy, False, False, 0)
         
         if p['pid'] != 0:
-            btn_kill = Gtk.Button(label="Kill")
+            btn_kill = Gtk.Button(label=_("Kill"))
             btn_kill.get_style_context().add_class("menu-btn")
             btn_kill.get_style_context().add_class("menu-btn-destructive")
             btn_kill.connect("clicked", lambda w, pid=p['pid'], port=p['port']: self.kill_process_direct(pid, port))
@@ -395,7 +396,7 @@ class MenuBarWindow(Gtk.Window):
         
         # Kill Process Button
         if pid != 0:
-            btn_kill = Gtk.Button(label="Kill")
+            btn_kill = Gtk.Button(label=_("Kill"))
             btn_kill.get_style_context().add_class("menu-btn")
             btn_kill.get_style_context().add_class("menu-btn-destructive")
             btn_kill.connect("clicked", lambda w, p=pid: self.kill_entire_process(p))
@@ -420,19 +421,19 @@ class MenuBarWindow(Gtk.Window):
                 child_row.pack_start(btn_fav, False, False, 0)
                 
                 # Port
-                lbl_port = Gtk.Label(label=f"Port {p['port']}")
+                lbl_port = Gtk.Label(label=_("Port {port}", port=p['port']))
                 lbl_port.get_style_context().add_class("row-port")
                 lbl_port.set_xalign(0)
                 child_row.pack_start(lbl_port, True, True, 4)
                 
                 # Action buttons
-                btn_copy = Gtk.Button(label="Copy")
+                btn_copy = Gtk.Button(label=_("Copy"))
                 btn_copy.get_style_context().add_class("menu-btn")
                 btn_copy.connect("clicked", lambda w, port=p['port']: self.copy_port_direct(port))
                 child_row.pack_start(btn_copy, False, False, 0)
                 
                 if p['pid'] != 0:
-                    btn_kill = Gtk.Button(label="Kill")
+                    btn_kill = Gtk.Button(label=_("Kill"))
                     btn_kill.get_style_context().add_class("menu-btn")
                     btn_kill.get_style_context().add_class("menu-btn-destructive")
                     btn_kill.connect("clicked", lambda w, pid=p['pid'], port=p['port']: self.kill_process_direct(pid, port))
@@ -451,22 +452,22 @@ class MenuBarWindow(Gtk.Window):
         # Graceful by default (SIGTERM, then SIGKILL after a grace period),
         # matching the behaviour documented for the other platforms.
         if PortScanner.kill_process(pid, force=False):
-            notify("Process Terminated", f"Process (PID {pid}) has been terminated.")
+            notify(_("Process Terminated"), _("Process (PID {pid}) has been terminated.", pid=pid))
         else:
-            notify("Kill Failed", f"Could not terminate PID {pid}.")
+            notify(_("Kill Failed"), _("Could not terminate PID {pid}.", pid=pid))
         GLib.timeout_add(200, self.refresh_data)
 
     def copy_port_direct(self, port):
         copy_to_clipboard(str(port))
-        notify("Port Copied", f"Port {port} copied to clipboard!")
+        notify(_("Port Copied"), _("Port {port} copied to clipboard!", port=port))
 
     def kill_process_direct(self, pid, port=None):
         if pid != 0:
-            target = f"on port {port}" if port else f"(PID {pid})"
+            target = _("on port {port}", port=port) if port else f"(PID {pid})"
             if PortScanner.kill_process(pid, force=False):
-                notify("Process Terminated", f"Process {target} has been terminated.")
+                notify(_("Process Terminated"), _("Process {target} has been terminated.", target=target))
             else:
-                notify("Kill Failed", f"Could not terminate process {target}.")
+                notify(_("Kill Failed"), _("Could not terminate process {target}.", target=target))
             GLib.timeout_add(200, self.refresh_data)
 
 
