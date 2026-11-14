@@ -14,9 +14,6 @@ final class TunnelManager {
     /// The cloudflared service actor (shared with NamedTunnelManager).
     let cloudflaredService: CloudflaredService
 
-    /// Task for cleaning up orphaned tunnels from previous sessions
-    @ObservationIgnored private var cleanupTask: Task<Void, Never>?
-
     // MARK: - Backward Compatibility Accessors
 
     /// Active tunnel states (delegates to state)
@@ -46,11 +43,6 @@ final class TunnelManager {
 
         // Check initial installation status
         state.setInstalled(cloudflaredService.isInstalled)
-
-        // Clean up any orphaned tunnel processes from previous crashed sessions
-        cleanupTask = Task {
-            await cleanupOrphanedTunnels()
-        }
     }
 
     /// Re-check cloudflared installation status (call after user installs)
@@ -58,25 +50,16 @@ final class TunnelManager {
         state.setInstalled(cloudflaredService.isInstalled)
     }
 
-    /// Kill any stray cloudflared tunnel processes from previous sessions
-    private func cleanupOrphanedTunnels() async {
-        await ProcessExecutor.runDiscardingOutput(
-            "/usr/bin/pkill",
-            arguments: ["-9", "-f", "cloudflared.*tunnel.*--url"]
-        )
-    }
-
     // MARK: - Tunnel Operations
 
     /// Start a tunnel for the specified port
     func startTunnel(for port: Int, portInfoId: String? = nil) {
         Task {
-            await cleanupTask?.value
             await _startTunnelImpl(for: port, portInfoId: portInfoId)
         }
     }
 
-    /// Internal implementation of startTunnel after cleanup is complete
+    /// Internal implementation of tunnel startup
     private func _startTunnelImpl(for port: Int, portInfoId: String? = nil) async {
         // Check if tunnel already exists for this port
         if let existing = state.tunnel(for: port) {
